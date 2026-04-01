@@ -1,5 +1,5 @@
 ---
-name: rollback
+name: wf-rollback
 description: Execute a rollback for a completed or active plan. Reads the plan's rollback section, walks through steps interactively, moves the plan to rolled-back/, and optionally files a bug. Use when a deployed feature needs to be reverted.
 user_invocable: true
 model: sonnet
@@ -90,7 +90,7 @@ git commit -m "rollback: <feature-name> — <reason>"
 Ask the user:
 > "Do you want to file a bug for the issue that triggered this rollback?"
 
-If yes, guide them through the `/bug` filing process with the rollback context pre-filled:
+If yes, guide them through the `/wf-bug` filing process with the rollback context pre-filled:
 - Title: "Rollback: [feature name] — [brief reason]"
 - Severity: based on user input
 - Description: what went wrong that triggered the rollback
@@ -99,8 +99,8 @@ If yes, guide them through the `/bug` filing process with the rollback context p
 ### 7. Recommend next action
 
 After the rollback is recorded:
-- If a bug was filed: "Run `/spec` when ready to plan a fix — link it to [BUG-NNN]"
-- If no bug was filed: "Run `/status` to see the current pipeline state"
+- If a bug was filed: "Run `/wf-spec` when ready to plan a fix — link it to [BUG-NNN]"
+- If no bug was filed: "Run `/wf-status` to see the current pipeline state"
 
 ## Rules
 

@@ -1,5 +1,5 @@
 ---
-name: spec
+name: wf-spec
 description: Convert a decided brief into a step-by-step implementation plan. Creates plans in plans/drafts/ from TEMPLATE.md. Use when the user wants to create an implementation plan.
 user_invocable: true
 model: opus
@@ -50,7 +50,7 @@ Ask the user: **"What would you like to plan? Pick a bug number (BUG-NNN), a bri
 
 - If they pick a bug: go to [Plan from bug](#plan-from-bug) workflow
 - If they pick a brief: go to step 1 below (Read the brief)
-- If they describe new work: ask if it should become a brief first (route to `/brainstorm`)
+- If they describe new work: ask if it should become a brief first (route to `/wf-brainstorm`)
 
 ## Plan from bug
 

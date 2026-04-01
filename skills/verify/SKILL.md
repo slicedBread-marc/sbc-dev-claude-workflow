@@ -1,5 +1,5 @@
 ---
-name: verify
+name: wf-verify
 description: Verify a completed implementation against its plan. Runs tests, checks behavior, reviews code quality. Writes findings to the plan's queue for the implementer to fix.
 user_invocable: true
 model: sonnet

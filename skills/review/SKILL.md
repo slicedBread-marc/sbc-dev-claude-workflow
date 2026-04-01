@@ -1,6 +1,6 @@
 ---
-name: review
-description: Architectural and security review of plans or implemented code. Runs automatically as a gate in /spec. Can be invoked independently for code review. Writes findings to the shared queue.
+name: wf-review
+description: Architectural and security review of plans or implemented code. Runs automatically as a gate in /wf-spec. Can be invoked independently for code review. Writes findings to the shared queue.
 user_invocable: true
 model: sonnet
 ---
@@ -17,7 +17,7 @@ This skill should run on **sonnet**. Checklist-based evaluation with structured 
 > "This skill is designed for **sonnet**. Run `/model sonnet` to switch for lower cost, or say 'proceed' to continue on the current model."
 Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
 
-When invoked independently (not as a gate from `/spec`), spawn **haiku agents** in parallel to gather information before reviewing:
+When invoked independently (not as a gate from `/wf-spec`), spawn **haiku agents** in parallel to gather information before reviewing:
 
 ```
 # Spawn these in parallel for code review:
@@ -29,7 +29,7 @@ Agent(model: haiku, prompt: "Read [file] and list all places user input is used.
 ## Review Contexts
 
 ### 1. Plan Review (pre-implementation gate)
-Triggered automatically by the `/spec` skill. The plan cannot move from `drafts/` to `ready/` until review passes.
+Triggered automatically by the `/wf-spec` skill. The plan cannot move from `drafts/` to `ready/` until review passes.
 
 **Evaluate against:**
 
@@ -59,7 +59,7 @@ Triggered automatically by the `/spec` skill. The plan cannot move from `drafts/
 - [ ] Design decisions are documented with rationale
 
 ### 2. Code Review (post-implementation)
-Invoked manually with `/review` after implementation. Reads the actual code changes.
+Invoked manually with `/wf-review` after implementation. Reads the actual code changes.
 
 **In addition to the plan review checks above, also evaluate:**
 
@@ -119,7 +119,7 @@ Append directly to `findings.md`:
 
 - **Do NOT** edit source code files ({{source_dirs}})
 - **Do NOT** fix issues — only identify and recommend
-- When invoked as a gate from `/spec`, report findings back to the planner session
+- When invoked as a gate from `/wf-spec`, report findings back to the planner session
 - When invoked independently, write findings to `findings.md` in the plan folder
 
 ## On startup (independent invocation)

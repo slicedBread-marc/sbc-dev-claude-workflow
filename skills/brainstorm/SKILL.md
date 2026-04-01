@@ -1,5 +1,5 @@
 ---
-name: brainstorm
+name: wf-brainstorm
 description: Capture and explore ideas. Creates or updates briefs in plans/briefs/. Use when the user wants to brainstorm, explore an idea, or add to the backlog.
 user_invocable: true
 model: sonnet
@@ -38,7 +38,7 @@ Wait for the user to respond before continuing. If they proceed without switchin
 - **Do NOT** write implementation steps — that's the planner's job
 - **Do NOT** make decisions for the user — present options and let them choose
 - Briefs are living documents — rewrite freely until status is `Decided`
-- When a brief reaches `Decided`, it becomes input for a `/spec` session
+- When a brief reaches `Decided`, it becomes input for a `/wf-spec` session
 - When a brief reaches `Planned`, add the plan link and move it in the index
 - Quick ideas can start as lightweight entries (just Problem + a few sentences); they don't need every template section filled in immediately
 

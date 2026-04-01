@@ -1,5 +1,5 @@
 ---
-name: bug
+name: wf-bug
 description: File a new bug report. Creates a bug folder in bugs/open/ with a structured report and optional file attachment. Use when the user wants to report a bug, quick-fire a known issue, or import a flag from SBC.
 user_invocable: true
 model: sonnet
@@ -28,8 +28,8 @@ If the user says "new bug" or provides no description, prompt for:
 
 ```
 bugs/open/    → new bugs land here (you create here)
-bugs/triaged/ → picked up by /spec when a fix plan is created
-bugs/closed/  → resolved by /verify when a plan completes
+bugs/triaged/ → picked up by /wf-spec when a fix plan is created
+bugs/closed/  → resolved by /wf-verify when a plan completes
 ```
 
 ## What you do
@@ -98,5 +98,5 @@ When an attachment is provided:
 
 - Bugs are committed immediately upon creation — no manual commit step needed
 - Attachments are co-located with `bug.md` in the bug folder
-- The bug can be moved to `triaged/` by `/spec` when a fix plan is created
-- The bug moves to `closed/` by `/verify` when the fix plan completes
+- The bug can be moved to `triaged/` by `/wf-spec` when a fix plan is created
+- The bug moves to `closed/` by `/wf-verify` when the fix plan completes

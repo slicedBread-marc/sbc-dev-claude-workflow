@@ -1,5 +1,5 @@
 ---
-name: implement
+name: wf-implement
 description: Execute an implementation plan step by step. Builds code and tests from a plan. Fixes findings from the queue. Use when the user wants to implement a ready plan.
 user_invocable: true
 model: opus
@@ -59,7 +59,7 @@ plans/verify/    → move here when done
    
    (Substitute PORT with your configured port — typically 3000, 5000, 8000, etc.)
    
-   When ready, run /verify to test against the plan.
+   When ready, run /wf-verify to test against the plan.
    ```
 
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
@@ -85,7 +85,7 @@ plans/verify/    → move here when done
 - If the plan has an error or gap, note it in Progress and continue
 - You may edit {{source_dirs}} and the plan's Progress/Findings Queue status
 - **Do NOT** edit the plan's Steps, Tests, or Design Decisions sections
-- **Do NOT** add findings — only `/review` and `/verify` produce findings
+- **Do NOT** add findings — only `/wf-review` and `/wf-verify` produce findings
 
 ## On startup
 

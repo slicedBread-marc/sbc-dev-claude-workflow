@@ -1,5 +1,5 @@
 ---
-name: status
+name: wf-status
 description: Project orchestrator. Scans the full workflow pipeline, reports what's in each stage, and recommends the highest-priority next action. Use as your starting point for any session.
 user_invocable: true
 model: haiku
@@ -82,7 +82,7 @@ If any exist, list them with the rollback reason from Amendments. These are info
 - [plan-name] in drafts/ — awaiting review
 
 ### Ready to plan
-- [brief-name] — Decided, waiting for /spec
+- [brief-name] — Decided, waiting for /wf-spec
 
 ### Ideas
 - [brief-name] — Exploring
@@ -111,14 +111,14 @@ If any exist, list them with the rollback reason from Amendments. These are info
 
 ## Priority order for recommendations
 
-1. **Open findings in `verify/`** → "Run `/implement` to fix N open findings in [plan]"
-2. **Escalated findings in `replanning/`** → "Run `/spec` to address N escalated findings in [plan]"
-3. **Plans in `ready/`** → "Run `/implement` to start [plan]"
-4. **Drafts in `drafts/`** → "Review and approve the draft in `/spec` to move it to ready"
-5. **Decided briefs or open Critical/High bugs** → "Run `/spec` to create an implementation plan from [brief/bug]"
+1. **Open findings in `verify/`** → "Run `/wf-implement` to fix N open findings in [plan]"
+2. **Escalated findings in `replanning/`** → "Run `/wf-spec` to address N escalated findings in [plan]"
+3. **Plans in `ready/`** → "Run `/wf-implement` to start [plan]"
+4. **Drafts in `drafts/`** → "Review and approve the draft in `/wf-spec` to move it to ready"
+5. **Decided briefs or open Critical/High bugs** → "Run `/wf-spec` to create an implementation plan from [brief/bug]"
 6. **Plans in `active/`** → "An implementation is in progress — check on it or wait"
-7. **Exploring briefs** → "Continue exploring [brief] with `/brainstorm`"
-8. **Nothing pending** → "Run `/brainstorm` to capture new ideas"
+7. **Exploring briefs** → "Continue exploring [brief] with `/wf-brainstorm`"
+8. **Nothing pending** → "Run `/wf-brainstorm` to capture new ideas"
 
 ## Rules
 

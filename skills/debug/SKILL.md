@@ -1,6 +1,6 @@
 ---
-name: debug
-description: Interactive debug session for a completed implementation. Walk through reproduction steps with screenshots and observations. Use after /verify passes but before declaring victory—to manually confirm the fix actually works.
+name: wf-debug
+description: Interactive debug session for a completed implementation. Walk through reproduction steps with screenshots and observations. Use after /wf-verify passes but before declaring victory—to manually confirm the fix actually works.
 user_invocable: true
 model: sonnet
 ---
@@ -182,6 +182,6 @@ git commit -m "debug: <feature-name> — <verified|issue found>"
 - User can now consider the feature fully delivered
 
 **If issue found:**
-- Option A: `/rollback` the plan and `/bug` file a new issue
-- Option B: `/implement` to fix the specific issue (create amendment to the plan)
+- Option A: `/wf-rollback` the plan and `/wf-bug` file a new issue
+- Option B: `/wf-implement` to fix the specific issue (create amendment to the plan)
 - Option C: Investigate further with another debug session
