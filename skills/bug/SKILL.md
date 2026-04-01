@@ -41,7 +41,12 @@ bugs/closed/  → resolved by /verify when a plan completes
 5. **Handle attachments** — if the user provides a file path, copy or note it:
    - If the file exists locally, note its path in `bug.md` under `## Attachments` with a relative reference
    - If the user describes a file they'll add later, add a placeholder: `- [ ] Attach: <description>`
-6. **Confirm** — show the user the bug ID and folder path
+6. **Commit immediately**:
+   ```
+   git add bugs/open/BUG-NNN-<slug>/
+   git commit -m "bug: BUG-NNN — <short title>"
+   ```
+7. **Confirm** — show the user the bug ID, folder path, and commit hash
 
 ## bug.md format
 
@@ -89,10 +94,9 @@ When an attachment is provided:
 - Keep descriptions factual, not prescriptive (describe the problem, not the fix)
 - One bug per folder — do not combine multiple issues
 
-## Committing work
+## Notes
 
-After creating the bug folder:
-```
-git add bugs/open/BUG-NNN-<slug>/
-git commit -m "bug: BUG-NNN — <short title>"
-```
+- Bugs are committed immediately upon creation — no manual commit step needed
+- Attachments are co-located with `bug.md` in the bug folder
+- The bug can be moved to `triaged/` by `/spec` when a fix plan is created
+- The bug moves to `closed/` by `/verify` when the fix plan completes
