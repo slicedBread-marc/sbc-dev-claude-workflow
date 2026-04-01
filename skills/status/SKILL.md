@@ -22,25 +22,28 @@ If the user proceeds without switching, warn once more then continue.
 Scan these locations in order and build a summary:
 
 ### 1. Findings needing fixes (`plans/verify/`)
-For each plan in `verify/`, read the Findings Queue. If any findings have status `Open`, this is the **highest priority** — unresolved findings block completion.
+For each plan folder in `verify/`, read `findings.md`. If any findings have status `Open`, this is the **highest priority** — unresolved findings block completion.
 
-### 2. Plans ready to implement (`plans/ready/`)
-List any plans waiting for an implementer.
+### 2. Plans needing replanning (`plans/replanning/`)
+For each plan folder in `replanning/`, read `findings.md` and list the `Escalated` findings. These require a planner session — they cannot be fixed by the implementer.
 
-### 3. Plans being implemented (`plans/active/`)
-List active plans and read their Progress section to show current step.
+### 3. Plans ready to implement (`plans/ready/`)
+List any plan folders waiting for an implementer.
 
-### 4. Plans in draft (`plans/drafts/`)
-List plans being written but not yet reviewed.
+### 4. Plans being implemented (`plans/active/`)
+List active plan folders and read their `progress.md` to show current step.
 
-### 5. Briefs ready for planning (`plans/briefs/INDEX.md`)
+### 5. Plans in draft (`plans/drafts/`)
+List plan folders being written but not yet reviewed.
+
+### 6. Briefs ready for planning (`plans/briefs/INDEX.md`)
 Check for briefs at `Decided` status — these are ready to become implementation plans.
 
-### 6. Ideas being explored (`plans/briefs/INDEX.md`)
+### 7. Ideas being explored (`plans/briefs/INDEX.md`)
 Check for briefs at `Exploring` or `Idea` status.
 
-### 7. Completed work (`plans/complete/`)
-Count completed plans (don't list details unless asked).
+### 8. Completed work (`plans/complete/`)
+Count completed plan folders (don't list details unless asked).
 
 ## Output Format
 
@@ -49,6 +52,9 @@ Count completed plans (don't list details unless asked).
 
 ### Needs attention
 - [plan-name] in verify/ — 2 Open findings (1 Critical, 1 Warning)
+
+### Needs replanning
+- [plan-name] in replanning/ — 1 Escalated finding: "Auth model requires design change"
 
 ### Ready to build
 - [plan-name] in ready/ — "Brief description from Goal"
@@ -78,12 +84,13 @@ Count completed plans (don't list details unless asked).
 ## Priority order for recommendations
 
 1. **Open findings in `verify/`** → "Run `/implement` to fix N open findings in [plan]"
-2. **Plans in `ready/`** → "Run `/implement` to start [plan]"
-3. **Drafts in `drafts/`** → "Review and approve the draft in `/plan` to move it to ready"
-4. **Decided briefs** → "Run `/plan` to create an implementation plan from [brief]"
-5. **Plans in `active/`** → "An implementation is in progress — check on it or wait"
-6. **Exploring briefs** → "Continue exploring [brief] with `/brainstorm`"
-7. **Nothing pending** → "Run `/brainstorm` to capture new ideas"
+2. **Escalated findings in `replanning/`** → "Run `/plan` to address N escalated findings in [plan]"
+3. **Plans in `ready/`** → "Run `/implement` to start [plan]"
+4. **Drafts in `drafts/`** → "Review and approve the draft in `/plan` to move it to ready"
+5. **Decided briefs** → "Run `/plan` to create an implementation plan from [brief]"
+6. **Plans in `active/`** → "An implementation is in progress — check on it or wait"
+7. **Exploring briefs** → "Continue exploring [brief] with `/brainstorm`"
+8. **Nothing pending** → "Run `/brainstorm` to capture new ideas"
 
 ## Rules
 

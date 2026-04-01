@@ -33,15 +33,16 @@ your-project/
     implement/SKILL.md     # /implement — build from specs
     verify/SKILL.md        # /verify — confirm implementation
   plans/
-    briefs/                # idea exploration documents
-      INDEX.md             # backlog tracker
+    briefs/                      # idea exploration documents
+      INDEX.md                   # backlog tracker
       TEMPLATE.md
-    drafts/                # plans being written
-    ready/                 # reviewed, ready to build
-    active/                # currently being implemented
-    verify/                # awaiting verification
-    complete/              # done — historical record
-    TEMPLATE.md            # implementation plan template
+    drafts/<feature-name>/       # plan being written (plan.md, findings.md, progress.md)
+    ready/<feature-name>/        # reviewed, ready to build
+    active/<feature-name>/       # currently being implemented
+    verify/<feature-name>/       # awaiting verification
+    replanning/<feature-name>/   # escalated findings — needs planner to amend
+    complete/<feature-name>/     # done — historical record
+    TEMPLATE.md                  # implementation plan spec
   CLAUDE.md                # workflow section appended
 ```
 
@@ -49,9 +50,10 @@ your-project/
 
 ```
 /brainstorm → /plan → /review (gate) → /implement → /verify
-                                             ↕
-                                       Findings Queue
-                                    Open → Fixed → Verified
+                ↑                           ↕              |
+                |                     Findings Queue       |
+                |                  Open → Fixed → Verified |
+                └──── /plan amends ←── Escalated ──────────┘
 ```
 
 **The folder IS the status.** `ls plans/ready/` shows what's waiting to be built.

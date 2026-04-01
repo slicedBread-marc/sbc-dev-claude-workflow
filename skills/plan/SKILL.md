@@ -20,23 +20,28 @@ If the user proceeds without switching, warn once more then continue.
 ## Folder structure
 
 ```
-plans/drafts/    → plan being written (you create here)
-plans/ready/     → reviewed & approved (you move here after review passes)
+plans/drafts/      → plan being written (you create here)
+plans/replanning/  → plans returned from verify with Escalated findings (you pick up here)
+plans/ready/       → reviewed & approved (you move here after review passes)
 ```
 
 ## What you do
 
 1. **Read the brief** — start by reading the relevant brief in `plans/briefs/` to understand context, decisions, and scope boundaries
-2. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
-3. **Write the plan** — create `plans/drafts/<name>.md` following `plans/TEMPLATE.md` exactly
-4. **Specify everything** — every step must include:
+2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`). This becomes the folder name.
+3. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
+4. **Create the plan folder** — `plans/drafts/<feature-name>/` with three files following `plans/TEMPLATE.md`:
+   - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
+   - `findings.md` — empty findings table with header
+   - `progress.md` — step list (copied from plan steps), empty log
+5. **Specify everything** — every step must include:
    - Exact file paths to create or modify
    - Class/method/component names and signatures
    - Acceptance criteria (test command, observable behavior)
-5. **Define tests** — fill in the Tests table with specific test IDs, types, descriptions, and commands
-6. **Fill verification checklist** — the verifier needs to know exactly what to check
-7. **Make all design decisions** — the implementer should not need to make judgment calls
-8. **Update the brief** — set the brief status to `Planned` and add the plan link; update `plans/briefs/INDEX.md`
+6. **Define tests** — fill in the Tests table with specific test IDs, types, descriptions, and commands
+7. **Fill verification checklist** — the verifier needs to know exactly what to check
+8. **Make all design decisions** — the implementer should not need to make judgment calls
+9. **Update the brief** — set the brief status to `Planned` and add the plan folder link; update `plans/briefs/INDEX.md`
 
 ## Codebase exploration via agents
 
@@ -81,8 +86,8 @@ Final response under 2000 characters.")
 2. **Process the review result:**
    - **Critical findings:** do NOT move to `ready/`. Present findings to the user, revise the plan, and re-review.
    - **Warnings only:** present to the user for acknowledgement.
-   - **Clean or Notes only:** move the plan from `plans/drafts/` → `plans/ready/`
-3. **Write the review result** to the plan's `## Review` section and any Critical/Warning items to the **Findings Queue**
+   - **Clean or Notes only:** move the plan folder from `plans/drafts/<name>/` → `plans/ready/<name>/`
+3. **Write the review result** to `plan.md`'s `## Review` section and any Critical/Warning items to `findings.md`
 
 ## Rules
 
@@ -91,6 +96,18 @@ Final response under 2000 characters.")
 - If a plan is already in `active/` or beyond, only append to **Amendments**
 - Plans become static decision records — they document what was decided and why
 
+## Replanning (plan returned from verify with Escalated findings)
+
+When a plan folder is in `plans/replanning/`, it has findings the implementer cannot resolve — design decisions or scope changes are required.
+
+1. **Read `plan.md` and `findings.md`** — understand the full plan and all `Escalated` findings
+2. **Discuss with the user** — present the escalated findings and ask how to resolve them. Do not make design decisions unilaterally.
+3. **Write an Amendment** — append to `plan.md`'s **Amendments** section. Never rewrite Steps, Tests, or Design Decisions already there.
+4. **Update Design Decisions** — add any new decisions to `plan.md`
+5. **Update `findings.md`** — for each `Escalated` finding now addressed by the amendment, set status to `Open` (the implementer will fix the code). If fully resolved by the design change alone, set to `Fixed`.
+6. **Run the review gate** — spawn the sonnet review agent on the amended `plan.md` before moving it
+7. **Move the plan folder** from `plans/replanning/<name>/` → `plans/ready/<name>/`
+
 ## On startup
 
-Read `plans/briefs/INDEX.md` to see what briefs are at `Decided` status. If the user specifies a brief, read it. Otherwise, ask which decided brief to plan from.
+Check `plans/replanning/` first — escalated findings have higher priority than new briefs. If any plans are there, present them to the user. Otherwise, read `plans/briefs/INDEX.md` to see what briefs are at `Decided` status.

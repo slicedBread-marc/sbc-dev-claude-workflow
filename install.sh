@@ -53,6 +53,7 @@ mkdir -p "$TARGET_DIR/plans/drafts"
 mkdir -p "$TARGET_DIR/plans/ready"
 mkdir -p "$TARGET_DIR/plans/active"
 mkdir -p "$TARGET_DIR/plans/verify"
+mkdir -p "$TARGET_DIR/plans/replanning"
 mkdir -p "$TARGET_DIR/plans/complete"
 echo -e "${GREEN}  plans/ folder structure created${NC}"
 
@@ -94,25 +95,28 @@ for skill_dir in "$SCRIPT_DIR/skills"/*/; do
     echo -e "${GREEN}  Installed /$(basename "$skill_dir")${NC}"
 done
 
-# Append workflow snippet to CLAUDE.md if not already present
+# Always overwrite .claude/workflow.md (the referenced file — keeps it current on every deploy)
+WORKFLOW_MD="$TARGET_DIR/.claude/workflow.md"
+sed -e "s|{{build_command}}|$BUILD_CMD|g" \
+    -e "s|{{test_command}}|$TEST_CMD|g" \
+    -e "s|{{source_dirs}}|$SOURCE_DIRS|g" \
+    "$SCRIPT_DIR/claude-md/workflow-snippet.md" > "$WORKFLOW_MD"
+echo -e "${GREEN}  Installed .claude/workflow.md${NC}"
+
+# Add @import to CLAUDE.md once — never needs updating after that
 CLAUDE_MD="$TARGET_DIR/CLAUDE.md"
+IMPORT_LINE="@.claude/workflow.md"
 if [ -f "$CLAUDE_MD" ]; then
-    if grep -q "Multi-Session Workflow" "$CLAUDE_MD"; then
-        echo -e "${YELLOW}  CLAUDE.md already contains workflow section — skipping${NC}"
+    if grep -qF "$IMPORT_LINE" "$CLAUDE_MD"; then
+        echo -e "${YELLOW}  CLAUDE.md already imports workflow — skipping${NC}"
     else
         echo "" >> "$CLAUDE_MD"
-        sed -e "s|{{build_command}}|$BUILD_CMD|g" \
-            -e "s|{{test_command}}|$TEST_CMD|g" \
-            -e "s|{{source_dirs}}|$SOURCE_DIRS|g" \
-            "$SCRIPT_DIR/claude-md/workflow-snippet.md" >> "$CLAUDE_MD"
-        echo -e "${GREEN}  Appended workflow section to CLAUDE.md${NC}"
+        echo "$IMPORT_LINE" >> "$CLAUDE_MD"
+        echo -e "${GREEN}  Added workflow import to CLAUDE.md${NC}"
     fi
 else
-    sed -e "s|{{build_command}}|$BUILD_CMD|g" \
-        -e "s|{{test_command}}|$TEST_CMD|g" \
-        -e "s|{{source_dirs}}|$SOURCE_DIRS|g" \
-        "$SCRIPT_DIR/claude-md/workflow-snippet.md" > "$CLAUDE_MD"
-    echo -e "${GREEN}  Created CLAUDE.md with workflow section${NC}"
+    echo "$IMPORT_LINE" > "$CLAUDE_MD"
+    echo -e "${GREEN}  Created CLAUDE.md with workflow import${NC}"
 fi
 
 echo ""

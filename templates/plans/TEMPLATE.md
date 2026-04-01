@@ -1,9 +1,26 @@
-# [Plan Title]
+# Plan Folder Structure
 
-> **Status:** Draft | Ready | In Progress | Verifying | Complete
+Each implementation plan lives in its own folder named after the feature:
+
+```
+plans/<stage>/<feature-name>/
+  plan.md        — static spec: goal, steps, tests, design decisions
+  findings.md    — shared queue: /review and /verify append; /implement updates status
+  progress.md    — implementer log: step completions, notes
+```
+
+The feature name should be a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `audit-log-export`).
+
+---
+
+## plan.md
+
+```markdown
+# [Feature Name]
+
+> **Status:** Draft | Ready | Active | Verifying | Replanning | Complete
 > **Created:** YYYY-MM-DD
-> **Implementing session:** (filled by implementer)
-> **Verifying session:** (filled by verifier)
+> **Brief:** ../briefs/<brief-name>.md
 
 ## Goal
 One paragraph: what this achieves and why it matters.
@@ -13,13 +30,12 @@ One paragraph: what this achieves and why it matters.
 - List any files the implementer should read first for context.
 
 ## Steps
-Each step must be independently completable and verifiable. Use this format:
+Each step must be independently completable and verifiable.
 
 ### Step N: [Short title]
 - **Files:** exact paths to create or modify
 - **What:** specific changes — name new classes/methods/components, describe signatures
 - **Acceptance:** how to verify this step is done (test command, UI behavior, build passes)
-- [ ] Not started
 
 ### Step N+1: ...
 
@@ -39,7 +55,6 @@ Structured checks for the **verifier** session to execute after implementation.
 - [ ] No unrelated test regressions
 
 ### Behavioral Checks
-> List specific things the verifier should manually confirm (UI flows, API responses, etc.)
 - [ ] [Describe observable behavior and how to trigger it]
 
 ### Code Quality
@@ -48,7 +63,6 @@ Structured checks for the **verifier** session to execute after implementation.
 - [ ] No hardcoded values that should be config/constants
 
 ### Regression Scope
-> List areas of the app that could be affected by these changes, so the verifier knows where to spot-check.
 - [ ] [Area] — [what to check]
 
 ## Design Decisions
@@ -59,7 +73,7 @@ Anything the implementer should NOT decide themselves — choices already made a
 Explicitly list things that might seem related but should NOT be done in this plan.
 
 ## Review
-> Filled automatically by the planner's review gate before status is set to Ready.
+> Filled by the planner's review gate before status is set to Ready.
 > Can also be populated by an independent `/review` invocation.
 >
 > **[date] — Plan Review / Code Review**
@@ -67,24 +81,51 @@ Explicitly list things that might seem related but should NOT be done in this pl
 > | # | Severity | Category | Finding | Recommendation |
 > |-|-|-|-|-|
 
-## Findings Queue
-Shared queue written by `/review` and `/verify`, consumed by `/implement`.
+## Amendments
+> Append-only. Added by /plan when a plan in active/ or beyond needs a design change.
+> Format: `[date] — description of change and why`
+```
+
+---
+
+## findings.md
+
+```markdown
+# Findings — [Feature Name]
+
+> Written by `/review` and `/verify`. Status updated by `/implement`.
+> `/review` and `/verify` append rows with status `Open` or `Escalated`.
+> `/implement` sets `Open` → `Fixed`. `/verify` sets `Fixed` → `Verified`.
+> Plan cannot reach Complete while any finding is Open, Fixed, or Escalated.
 
 | # | Source | Severity | Category | Description | Files | Status |
 |-|-|-|-|-|-|-|
 <!-- F1 | review | Critical | Security | ... | path/file.cs:42 | Open -->
-<!-- F2 | verify | Warning | Behavior | ... | path/file.cs:18 | Fixed -->
+<!-- F2 | verify | Warning  | Behavior | ... | path/file.cs:18 | Fixed -->
+<!-- F3 | verify | Critical | Design   | ... | path/file.cs:7  | Escalated -->
+```
 
-> **Status values:** `Open` → `Fixed` → `Verified`
-> - `/review` and `/verify` add rows with status `Open`
-> - `/implement` sets status to `Fixed` after addressing a finding
-> - `/verify` sets status to `Verified` after confirming the fix
-> - Plan cannot reach `Complete` while any finding is `Open` or `Fixed` (unverified)
+**Status values:**
+- `Open` — code-level issue, implementer can fix
+- `Fixed` — implementer addressed it, awaiting verification
+- `Verified` — verifier confirmed the fix
+- `Escalated` — design/scope issue, requires planner to amend the plan
 
-## Amendments
-> Append-only section. Never rewrite steps above once implementation has started.
-> Format: `[date] — description of change`
+---
 
-## Progress
-> Filled by implementing session as work proceeds.
+## progress.md
+
+```markdown
+# Progress — [Feature Name]
+
+> Written by `/implement` only. Append-only.
+
+## Steps
+- [ ] Step 1: [title]
+- [ ] Step 2: [title]
+- [ ] Step 3: [title]
+
+## Log
 > Format: `[date] Step N — done / blocked (reason)`
+> Format: `[date] Finding FN — fixed (description of fix)`
+```

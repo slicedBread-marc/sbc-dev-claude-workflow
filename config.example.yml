@@ -1,19 +1,36 @@
 # claude-workflow configuration
-# Copy this to config.yml and customize for your project.
+#
+# If you are Claude and these values are blank or unset:
+# Scan the project and fill them in before proceeding with any workflow skill.
+# Detection hints are in the comments for each field.
+# After filling in values, confirm with the user before writing the file.
 
-# Build & test commands
-build_command: "npm run build"
-test_command: "npm test"
-test_filter_flag: "--grep"          # flag to run a single test (e.g., --filter for dotnet, --grep for mocha)
+# Build command — run to compile/build the project.
+# Detect from: package.json "scripts.build", Makefile targets, *.csproj / *.slnx (use "dotnet build <file>"), CMakeLists.txt
+build_command: ""
 
-# Source directories (implementer is allowed to edit these)
+# Test command — run to execute the full test suite.
+# Detect from: package.json "scripts.test", jest.config.*, *.csproj / *.slnx (use "dotnet test <file>"), pytest.ini, go.mod
+test_command: ""
+
+# Flag to run a single test by name or pattern.
+# Common values: "--grep" (mocha/jest), "--filter" (dotnet), "-k" (pytest), "-run" (go)
+test_filter_flag: ""
+
+# Source directories — the implementer is allowed to edit files in these paths.
+# Detect from: project structure (src/, lib/, app/, tests/, spec/, etc.)
 source_dirs:
-  - "src/"
-  - "tests/"
+  - ""
 
-# Project conventions (used by review/verify for quality checks)
-namespace_convention: ""            # e.g., "SBC.[Project].[Folder]" — leave blank if N/A
-conventions_note: ""                # free-text note about project conventions
+# Namespace or module convention used in this project.
+# Detect from: existing source files — look at the top-level namespace/module declarations.
+# e.g., "SBC.[Project].[Folder]" for C#, "com.example.[module]" for Java — leave blank if N/A
+namespace_convention: ""
 
-# Solution/project file (used in build commands if applicable)
-solution_file: ""                   # e.g., "SBC.slnx", "package.json"
+# Free-text note about project conventions the reviewer/verifier should know.
+# e.g., "Use repository pattern for data access. No direct DbContext in controllers."
+conventions_note: ""
+
+# Solution or project file (used in build/test commands if applicable).
+# Detect from: *.slnx, *.sln, *.csproj, package.json, pyproject.toml, go.mod in the root
+solution_file: ""

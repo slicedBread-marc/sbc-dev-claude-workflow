@@ -1,20 +1,35 @@
+## Workflow Setup
+
+If `claude-workflow.yml` exists in the project root but has blank values, detect them from the project before using any workflow skill:
+
+1. Scan for build/test commands — check `package.json` scripts, `*.csproj`/`*.slnx`, `Makefile`, `pytest.ini`, `go.mod`, etc.
+2. Identify source directories from the project structure
+3. Detect namespace/module conventions from existing source files
+4. Present the detected values to the user and confirm before writing
+
+Do this once. After `claude-workflow.yml` is filled in, the workflow skills will use those values automatically.
+
 ## Multi-Session Workflow (Brainstorm → Plan → Implement → Verify)
 
 ### Folder Structure
 ```
 plans/
-  briefs/              # /brainstorm — ideas and exploration
-    INDEX.md           # backlog tracker
+  briefs/                    # /brainstorm — ideas and exploration
+    INDEX.md                 # backlog tracker
     TEMPLATE.md
-  drafts/              # /plan — plans being written, not yet reviewed
-  ready/               # reviewed & approved — waiting for /implement
-  active/              # /implement is working on it
-  verify/              # implementation done — waiting for /verify
-  complete/            # all findings resolved — static historical record
-  TEMPLATE.md          # implementation plan template
+  drafts/<feature-name>/     # /plan — plan being written, not yet reviewed
+    plan.md                  #   static spec (goal, steps, tests, design decisions)
+    findings.md              #   shared findings queue (/review + /verify write; /implement updates)
+    progress.md              #   implementer log (step completions, notes)
+  ready/<feature-name>/      # reviewed & approved — waiting for /implement
+  active/<feature-name>/     # /implement is working on it
+  verify/<feature-name>/     # implementation done — waiting for /verify
+  replanning/<feature-name>/ # verify found design-scope issues — waiting for /plan to amend
+  complete/<feature-name>/   # all findings resolved — static historical record
+  TEMPLATE.md                # implementation plan spec
 ```
 
-**The folder IS the status.** Skills move plan files between folders as they progress. `ls plans/ready/` shows what's waiting to be built.
+**The folder IS the status.** Each plan is a uniquely named subfolder that moves between stage directories. `ls plans/ready/` shows what's waiting to be built. Multiple plans can be in flight simultaneously without collision.
 
 ### Model & Agent Strategy
 Each skill specifies its recommended model. Use `/model` to switch before invoking a skill.
@@ -47,44 +62,55 @@ Priority order: open findings → ready plans → drafts needing review → deci
 - A brief at **Decided** is the input for a planner session
 
 ### Planner Role (`/plan`)
-- Reads brief from `plans/briefs/`, writes plan to `plans/drafts/`
+- Reads brief from `plans/briefs/`, creates a named plan folder in `plans/drafts/<feature-name>/` with `plan.md`, `findings.md`, `progress.md`
 - Every step must list exact file paths, class/method/component names, and acceptance criteria
 - Make all design decisions — the implementer should not need to make judgment calls
 - Runs review gate automatically when user approves
-- Moves plan `drafts/` → `ready/` only after review passes
-- If a plan is already in `active/` or beyond, only append to **Amendments**
+- Moves plan folder `drafts/<name>/` → `ready/<name>/` only after review passes
+- If a plan is already in `active/` or beyond, only append to `plan.md`'s **Amendments**
 
 ### Implementer Role (`/implement`)
-- Picks up plans from `plans/ready/`, moves to `plans/active/`
-- Follows steps in order, checks off each, logs progress
-- Writes all tests from the plan's Tests table
-- When done: moves `active/` → `verify/`
-- Fix cycle: picks up `Open` findings from `verify/`, moves to `active/`, fixes, moves back to `verify/`
+- Picks up plan folders from `plans/ready/`, moves to `plans/active/`
+- Reads `plan.md` for steps and design decisions
+- Tracks completions and notes in `progress.md`
+- When done: moves folder `active/<name>/` → `verify/<name>/`
+- Fix cycle: reads `Open` findings from `findings.md`, fixes, updates status to `Fixed`, moves back to `verify/`
+- **Ignores `Escalated` findings** — these require a planner, not an implementer
 
 ### Reviewer Role (`/review`)
 - Runs automatically as a gate within `/plan` before `drafts/` → `ready/`
 - Can also be invoked independently for code review
-- Writes findings to **Review** section and **Findings Queue**
+- Writes plan review result to `plan.md`'s Review section; appends findings to `findings.md`
 - Critical findings block the plan from reaching `ready/`
 
 ### Verifier Role (`/verify`)
-- Works on plans in `plans/verify/`
-- Runs verification checklist, writes findings to **Findings Queue**
-- Confirms `Fixed` findings → sets to `Verified`
-- When queue is clean: moves `verify/` → `complete/`
+- Works on plan folders in `plans/verify/`
+- Reads `plan.md` for the verification checklist; appends findings to `findings.md`
+- Confirms `Fixed` findings → sets to `Verified` in `findings.md`
+- When queue is clean: moves folder `verify/<name>/` → `complete/<name>/`
+- **Escalation path:** if a finding requires a design change (not a code fix), sets status to `Escalated` and moves folder to `plans/replanning/`
+- Does NOT write code, implementation steps, or solutions — describes what is wrong and why only
+
+### Planner Role — Replanning (`/plan` with escalated findings)
+- On startup, checks `plans/replanning/` before new briefs
+- Reads `plan.md` and `findings.md` for escalated findings, discusses design resolution with user
+- Appends an **Amendment** to `plan.md` (never rewrites existing steps)
+- Re-runs the review gate, then moves folder back to `plans/ready/`
 
 ### Findings Queue
-All diagnostic roles (`/review`, `/verify`) write to a shared **Findings Queue** table in the plan. The implementer consumes it:
+All diagnostic roles (`/review`, `/verify`) write to a shared **Findings Queue** table in the plan. The implementer consumes `Open` findings; escalated findings route back to the planner.
 
 ```
-/review ──► Findings Queue ◄── /implement reads & fixes
-/verify ──►      (Open → Fixed → Verified)
+/review ──► Findings Queue ◄── /implement reads & fixes (Open only)
+/verify ──►   Open → Fixed → Verified
+              Escalated ──────────────► /plan amends → back to ready/
 ```
 
-- **Open** — finding identified, not yet addressed
+- **Open** — code-level issue, implementer can fix
 - **Fixed** — implementer addressed it
 - **Verified** — verifier confirmed the fix
-- Plan cannot reach `Complete` while any finding is `Open` or `Fixed`
+- **Escalated** — design/scope issue, requires planner to amend the plan
+- Plan cannot reach `Complete` while any finding is `Open`, `Fixed`, or `Escalated`
 
 ### Conflict Avoidance
 - Planner edits `plans/drafts/` and `plans/briefs/` only

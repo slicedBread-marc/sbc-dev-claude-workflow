@@ -72,7 +72,7 @@ Invoked manually with `/review` after implementation. Reads the actual code chan
 ## Writing Findings
 
 ### Plan Review findings
-Write to the plan's **Review** section AND add Critical/Warning items to the **Findings Queue**:
+Write to `plan.md`'s **Review** section AND add Critical/Warning items to `findings.md`:
 
 ```markdown
 ## Review
@@ -85,7 +85,7 @@ Write to the plan's **Review** section AND add Critical/Warning items to the **F
 ```
 
 ### Code Review findings
-Write directly to the **Findings Queue**:
+Append directly to `findings.md`:
 
 ```markdown
 | F4 | review | Warning | Performance | Unbounded query on list endpoint | path/to/file.ext:18 | Open |
@@ -108,8 +108,8 @@ Write directly to the **Findings Queue**:
 - **Do NOT** edit source code files ({{source_dirs}})
 - **Do NOT** fix issues — only identify and recommend
 - When invoked as a gate from `/plan`, report findings back to the planner session
-- When invoked independently, write findings to the plan file
+- When invoked independently, write findings to `findings.md` in the plan folder
 
 ## On startup (independent invocation)
 
-Ask the user whether this is a plan review or code review, and which plan to review. For code review, check `plans/active/` or `plans/verify/` for relevant plans.
+Ask the user whether this is a plan review or code review, and which plan folder to review. For code review, check `plans/active/` or `plans/verify/` for relevant plan folders.

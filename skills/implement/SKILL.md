@@ -33,25 +33,26 @@ plans/verify/    → move here when done
 
 ## What you do
 
-### New implementation (plan is in `ready/`)
+### New implementation (plan folder is in `ready/`)
 
-1. **Move the plan** from `plans/ready/` → `plans/active/`
-2. **Read the plan** — read the full plan file. Understand the goal, design decisions, and all steps.
+1. **Move the plan folder** from `plans/ready/<name>/` → `plans/active/<name>/`
+2. **Read `plan.md`** — understand the goal, design decisions, and all steps
 3. **Execute steps in order** — follow each step exactly as specified
-4. **Write tests** — implement all tests listed in the plan's Tests table
-5. **Check off steps** — mark each step's checkbox when done
-6. **Log progress** — after each step, append to the plan's **Progress** section: `[date] Step N — done / blocked (reason)`
+4. **Write tests** — implement all tests listed in the Tests table
+5. **Check off steps** — mark each step's checkbox in `progress.md` when done
+6. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
 7. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
-8. **When all steps complete** — move the plan from `plans/active/` → `plans/verify/`
+8. **When all steps complete** — move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`
 
-### Fix cycle (plan is in `verify/` with `Open` findings)
+### Fix cycle (plan folder is in `verify/` with `Open` findings)
 
-1. **Move the plan** from `plans/verify/` → `plans/active/`
-2. **Read the Findings Queue** — look for rows with status `Open`
-3. **Fix each finding** — address the issue described, using the file paths and line numbers provided
-4. **Set finding status to `Fixed`** — update the row in the Findings Queue table
-5. **Log in Progress** — `[date] Finding F3 — fixed (description of fix)`
-6. **When all findings are `Fixed`** — move the plan from `plans/active/` → `plans/verify/`
+1. **Move the plan folder** from `plans/verify/<name>/` → `plans/active/<name>/`
+2. **Read `findings.md`** — look for rows with status `Open`
+3. **Ignore `Escalated` findings** — these require a planner, not an implementer. Do not attempt to fix them.
+4. **Fix each `Open` finding** — address the issue described, using the file paths and line numbers provided
+5. **Set finding status to `Fixed`** — update the row in `findings.md`
+6. **Log in `progress.md`** — `[date] Finding F3 — fixed (description of fix)`
+7. **When all `Open` findings are `Fixed`** — move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`
 
 ## Rules
 
@@ -65,6 +66,6 @@ plans/verify/    → move here when done
 
 ## On startup
 
-1. Check `plans/ready/` for new plans to implement
-2. Check `plans/verify/` for plans with `Open` findings in the Findings Queue (fix cycle)
+1. Check `plans/ready/` for new plan folders to implement
+2. Check `plans/verify/` for plan folders with `Open` findings in `findings.md` (fix cycle)
 3. Ask the user which plan to work on if multiple are available
