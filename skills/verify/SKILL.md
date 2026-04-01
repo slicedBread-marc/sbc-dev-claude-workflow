@@ -61,12 +61,12 @@ plans/complete/    → all findings resolved (you move here when queue is clean)
 Add rows to the **Findings Queue** table in the plan:
 
 ```markdown
-| F3 | verify | Critical | Behavior | Endpoint returns 500 instead of expected response | path/to/file.ext:42 | Open |
-| F4 | verify | Critical | Design | Auth model doesn't support multi-tenant scope — requires plan change | path/to/file.ext:18 | Escalated |
+| FND-003 | verify | Critical | Behavior | Endpoint returns 500 instead of expected response | path/to/file.ext:42 | Open |
+| FND-004 | verify | Critical | Design | Auth model doesn't support multi-tenant scope — requires plan change | path/to/file.ext:18 | Escalated |
 ```
 
-- Use the next available finding number (F1, F2, F3...)
-- Set source to `verify`
+- Use the next available finding ID (FND-001, FND-002, FND-003...)
+- Set source to `verify` (or `review` if from review gate)
 - Include the specific file and line number when possible
 - Set status to `Open` for code-level issues the implementer can fix
 - Set status to `Escalated` for issues that require a design decision or plan change

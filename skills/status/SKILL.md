@@ -67,41 +67,43 @@ If any exist, list them with the rollback reason from Amendments. These are info
 ## Pipeline Status — Workflow v{workflow-version}
 
 ### Needs attention
-- [plan-name] in verify/ — 2 Open findings (1 Critical, 1 Warning)
+- PLN-002 in verify/ — 2 Open findings (FND-001, FND-002)
 
 ### Needs replanning
-- [plan-name] in replanning/ — 1 Escalated finding: "Auth model requires design change"
+- PLN-001 in replanning/ — 1 Escalated finding: FND-003 "Auth model requires design change"
 
 ### Ready to build
-- [plan-name] in ready/ — "Brief description from Goal"
+- PLN-001 (BUG-003) — Login crash fix
 
 ### In flight
-- [plan-name] in active/ — Step 3/7, last progress: [date]
+- PLN-002 (BUG-005) — Payment webhook fix — Step 3/7, last progress: [date]
 
 ### Drafts
-- [plan-name] in drafts/ — awaiting review
+- PLN-003 (BRF-002) — Notifications system — awaiting review
 
 ### Ready to plan
-- [brief-name] — Decided, waiting for /wf-spec
+- BRF-001 — User auth improvements — Decided, waiting for /wf-spec
+- BUG-006 — Database connection leak — Severity: High
 
 ### Ideas
-- [brief-name] — Exploring
-- [brief-name] — Idea
+- BRF-004 — Analytics dashboard — Exploring
+- BRF-005 — Audit logging — Idea
 
 ### Bugs
 - BUG-001 (High) — Login crashes on empty password [open]
   Description: User submits login form with empty password field
   Repro: 1. Clear password field, 2. Click submit
 
-- BUG-002 (Critical) — Payment webhook timeout → linked to plans/ready/fix-webhook-timeout [triaged]
+- BUG-002 (Critical) — Payment webhook timeout → linked to PLN-005 [triaged]
   Description: Stripe webhook handler times out after 30 seconds on high-volume days
   Blocking: ~5 failed transactions per incident
 
 ### Done
-- 3 completed plans
+- PLN-001 (BUG-003) — Login crash fix
+- 2 other completed plans
 
 ### Rolled back
-- [plan-name] — rolled back 2026-04-01, reason: "Payment webhook caused duplicate charges"
+- RBK-001 (PLN-002) — rolled back 2026-04-01, reason: "Payment webhook caused duplicate charges"
 
 ---
 

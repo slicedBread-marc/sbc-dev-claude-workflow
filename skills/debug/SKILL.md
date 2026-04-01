@@ -23,12 +23,13 @@ Scan `plans/complete/` and list the 5 most recent completed plans:
 
 ```
 Recent completed plans:
-1. [plan-name] — BUG-NNN: [bug title]
-2. [plan-name] — BUG-NNN: [bug title]
+1. PLN-001 (BUG-003) — Login crash fix
+2. PLN-002 (BUG-005) — Payment webhook timeout
+3. PLN-004 (BRF-001) — User auth improvements
 ...
 ```
 
-Ask: **"Which plan would you like to debug? Pick a number, a plan name, or BUG-NNN."**
+Ask: **"Which plan would you like to debug? Pick a number, a PLN- ID, a BUG- ID, or a plan name."**
 
 ## What you do
 
@@ -46,7 +47,7 @@ Ask: **"Which plan would you like to debug? Pick a number, a plan name, or BUG-N
 
 Show the user:
 ```
-Plan:       [plan-name]
+Plan:       PLN-NNN — [plan-name]
 Bug:        BUG-NNN — [bug title]
 Severity:   [Critical|High|Medium|Low]
 
@@ -135,7 +136,7 @@ Created in the plan folder (e.g., `plans/complete/<name>/debug.md`):
 ```markdown
 # Debug Session — [Feature Name]
 
-> Plan: plans/complete/[name]/
+> Plan: PLN-NNN — plans/complete/[name]/
 > Bug: BUG-NNN
 > Date: YYYY-MM-DD
 > Status: Verified | Issue Found

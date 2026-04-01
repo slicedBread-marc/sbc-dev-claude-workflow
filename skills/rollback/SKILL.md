@@ -123,10 +123,19 @@ If the user stops partway through:
    ```
 5. Recommend filing a bug and getting help before continuing
 
+## Rolling back
+
+When a plan is rolled back:
+1. Assign it a `RBK-NNN` ID (next available in `plans/rolled-back/`)
+2. Optionally record the rollback in the plan's Amendments with a note like:
+   ```
+   [date] — Rolled back as RBK-001. Reason: [reason]. Verified: [passed/partial — notes].
+   ```
+
 ## Committing work
 
 After the plan is moved to `rolled-back/`:
 ```
 git add plans/
-git commit -m "rollback: <feature-name> — <reason>"
+git commit -m "rollback: RBK-NNN — <feature-name> — <reason>"
 ```

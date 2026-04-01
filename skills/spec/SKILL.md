@@ -27,6 +27,13 @@ plans/ready/       → reviewed & approved (you move here after review passes)
 bugs/open/         → bugs available to plan fixes for
 ```
 
+## ID Assignment
+
+When creating a plan, assign it a `PLN-NNN` ID:
+- Look at existing plans in all stages (drafts/, ready/, active/, verify/, complete/, replanning/, rolled-back/)
+- Find the highest PLN- number and increment by 1
+- If this is a bug fix, also reference the BUG- number in the plan
+
 ## On startup
 
 Before planning, show the user what's available:
@@ -43,7 +50,8 @@ Before planning, show the user what's available:
 - BUG-002 (Critical) — Payment webhook timeout
 
 ### Decided briefs (ready to plan)
-- brief-name — [goal snippet]
+- BRF-001 — user-auth — [goal snippet]
+- BRF-003 — notifications — [goal snippet]
 ```
 
 Ask the user: **"What would you like to plan? Pick a bug number (BUG-NNN), a brief name, or describe new work."**
@@ -69,26 +77,28 @@ If the user picks a bug BUG-NNN:
 1. **Read the input** — if from a brief: read the relevant brief in `plans/briefs/`; if from a bug: the bug's `bug.md` becomes the scope definition
 2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `login-crash`). If from a bug, prefix with `bug-NNN-` (e.g. `bug-003-login-crash`).
 3. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
-4. **Create the plan folder** — `plans/drafts/<feature-name>/` with three files following `plans/TEMPLATE.md`:
+4. **Assign a plan ID** — next available `PLN-NNN` (check all plan folders to find the highest)
+5. **Create the plan folder** — `plans/drafts/<feature-name>/` with three files following `plans/TEMPLATE.md`:
    - For briefs: `plans/drafts/<slug>/` (e.g. `plans/drafts/user-auth/`)
    - For bugs: `plans/drafts/bug-NNN-<slug>/` (e.g. `plans/drafts/bug-003-login-crash/`)
+   - In `plan.md`, fill in `> **ID:** PLN-NNN` at the top
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty findings table with header
    - `progress.md` — step list (copied from plan steps), empty log
-5. **Specify everything** — every step must include:
+6. **Specify everything** — every step must include:
    - Exact file paths to create or modify
    - Class/method/component names and signatures
    - Acceptance criteria (test command, observable behavior)
-6. **Define tests** — fill in the Tests table with specific test IDs, types, descriptions, and commands
-7. **Fill verification checklist** — the verifier needs to know exactly what to check
-8. **Make all design decisions** — the implementer should not need to make judgment calls
-9. **Write the rollback plan** — fill in `## Rollback` in `plan.md`:
+7. **Define tests** — fill in the Tests table with specific test IDs, types, descriptions, and commands
+8. **Fill verification checklist** — the verifier needs to know exactly what to check
+9. **Make all design decisions** — the implementer should not need to make judgment calls
+10. **Write the rollback plan** — fill in `## Rollback` in `plan.md`:
    - List specific trigger conditions (don't leave as TBD)
    - Assess data migration reversibility honestly — if irreversible, say so explicitly
    - Write exact rollback commands, not general descriptions
    - Add verification steps to confirm the rollback succeeded
-10. **Update the brief (if from brief)** — if this plan was created from a brief, set the brief status to `Planned` and add the plan folder link; update `plans/briefs/INDEX.md`. (If from a bug, skip this.)
-11. **Consume the bug (if from bug)** — see [Bug consumption](#bug-consumption) below
+11. **Update the brief (if from brief)** — if this plan was created from a brief, set the brief status to `Planned` and add the plan folder link; update `plans/briefs/INDEX.md`. (If from a bug, skip this.)
+12. **Consume the bug (if from bug)** — see [Bug consumption](#bug-consumption) below
 
 ## Codebase exploration via agents
 

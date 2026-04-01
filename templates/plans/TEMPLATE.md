@@ -19,9 +19,11 @@ The feature name should be a short kebab-case slug describing the work (e.g. `us
 ```markdown
 # [Feature Name]
 
+> **ID:** PLN-NNN
 > **Status:** Draft | Ready | Active | Verifying | Replanning | Complete
 > **Created:** YYYY-MM-DD
-> **Brief:** ../briefs/<brief-name>.md
+> **Bug:** BUG-NNN — <title> _(optional, only if fixing a bug)_
+> **Brief:** ../briefs/<brief-name>.md _(optional, only if from a brief)_
 
 ## Goal
 One paragraph: what this achieves and why it matters.
@@ -118,16 +120,16 @@ How to confirm the rollback succeeded.
 ```markdown
 # Findings — [Feature Name]
 
-> Written by `/review` and `/verify`. Status updated by `/implement`.
-> `/review` and `/verify` append rows with status `Open` or `Escalated`.
-> `/implement` sets `Open` → `Fixed`. `/verify` sets `Fixed` → `Verified`.
+> Written by `/wf-review` and `/wf-verify`. Status updated by `/wf-implement`.
+> `/wf-review` and `/wf-verify` append rows with status `Open` or `Escalated`.
+> `/wf-implement` sets `Open` → `Fixed`. `/wf-verify` sets `Fixed` → `Verified`.
 > Plan cannot reach Complete while any finding is Open, Fixed, or Escalated.
 
-| # | Source | Severity | Category | Description | Files | Status |
+| ID | Source | Severity | Category | Description | Files | Status |
 |-|-|-|-|-|-|-|
-<!-- F1 | review | Critical | Security | ... | path/file.cs:42 | Open -->
-<!-- F2 | verify | Warning  | Behavior | ... | path/file.cs:18 | Fixed -->
-<!-- F3 | verify | Critical | Design   | ... | path/file.cs:7  | Escalated -->
+<!-- FND-001 | review | Critical | Security | ... | path/file.cs:42 | Open -->
+<!-- FND-002 | verify | Warning  | Behavior | ... | path/file.cs:18 | Fixed -->
+<!-- FND-003 | verify | Critical | Design   | ... | path/file.cs:7  | Escalated -->
 ```
 
 **Status values:**

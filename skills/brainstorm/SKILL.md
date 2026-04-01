@@ -44,7 +44,7 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 ## On startup
 
-Read `plans/briefs/INDEX.md` to understand the current backlog, then ask the user what they'd like to explore.
+Read `plans/briefs/INDEX.md` to understand the current backlog. Assign each brief a `BRF-NNN` ID (starting at BRF-001; increment for new briefs). Ask the user what they'd like to explore or create.
 
 ## Committing work
 
