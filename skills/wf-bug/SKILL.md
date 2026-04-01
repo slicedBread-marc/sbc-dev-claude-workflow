@@ -22,7 +22,8 @@ If the user says "new bug" or provides no description, prompt for:
 4. **Description** — what's broken and the impact
 5. **Steps to reproduce** — numbered list
 6. **Expected vs actual** — what should happen, what does happen
-7. **Attachment** — ask if there's a file to attach (screenshot, log, export)
+7. **Links** (optional) — if related to another bug or plan (e.g. "caused by BUG-003", "discovered during debug of BUG-002", "regression from PLN-005")
+8. **Attachment** — ask if there's a file to attach (screenshot, log, export)
 
 ## Folder structure
 
@@ -58,7 +59,8 @@ bugs/closed/  → resolved by /wf-verify when a plan completes
 > **Filed:** YYYY-MM-DD
 > **Project:** [project]
 > **Severity:** Critical | High | Medium | Low
-> **Plan:** _(none)_
+> **Plan:** _(none — link added by /wf-spec when a fix plan is created)_
+> **Links:** _(optional: caused by BUG-NNN, blocks BUG-NNN, regression from PLN-NNN, discovered during debug of BUG-NNN, etc.)_
 
 ## Description
 ...
@@ -74,10 +76,11 @@ bugs/closed/  → resolved by /wf-verify when a plan completes
 ...
 
 ## Attachments
+_(remove this section if no attachments)_
 - [filename.ext](./filename.ext) — description
 
 ## Notes
-...
+_(context, workarounds, related information)_
 ```
 
 ## Attachment handling

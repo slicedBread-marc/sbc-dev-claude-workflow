@@ -121,6 +121,15 @@ Options:
 What would you like to do?
 ```
 
+#### If filing a new bug
+
+If the user chooses option 1 and wants to file a bug, guide them through `/wf-bug` with:
+- Title: "[description of issue found]"
+- Severity: based on impact
+- **Links:** `Discovered during debug of BUG-NNN` or `Regression from PLN-NNN`
+- Description: what was expected vs what was observed
+- Attachments: include screenshots from debug.md if helpful
+
 ### 5. Commit the debug session
 
 Once verdict is reached:

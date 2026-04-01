@@ -49,11 +49,13 @@ For each bug folder, read `bug.md` and list:
 - BUG-NNN (Severity) — Title
 - 1-2 line summary from the Description
 - Any key reproduction step
+- If `Links` field is populated, show: `(Caused by: BUG-NNN | Blocks: BUG-NNN | Regression from: PLN-NNN)`
 
 ### 9. Triaged bugs (`bugs/triaged/`)
 For each bug folder, read `bug.md` and list:
-- BUG-NNN (Severity) — Title → linked to [plan folder path]
+- BUG-NNN (Severity) — Title → linked to PLN-NNN
 - 1-2 line summary from the Description
+- If `Links` field is populated, show the links
 
 ### 10. Completed work (`plans/complete/`)
 Count completed plan folders (don't list details unless asked).
@@ -97,6 +99,10 @@ If any exist, list them with the rollback reason from Amendments. These are info
 - BUG-002 (Critical) — Payment webhook timeout → linked to PLN-005 [triaged]
   Description: Stripe webhook handler times out after 30 seconds on high-volume days
   Blocking: ~5 failed transactions per incident
+
+- BUG-004 (High) — Session cache not clearing [open]
+  Description: Old session data persists after logout
+  Links: (Discovered during debug of BUG-002)
 
 ### Done
 - PLN-001 (BUG-003) — Login crash fix
