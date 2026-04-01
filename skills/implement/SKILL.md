@@ -50,6 +50,17 @@ plans/verify/    → move here when done
    git add plans/active/ plans/verify/
    git commit -m "implement(<feature-name>): all steps complete, moving to verify"
    ```
+9. **Post completion message** — after the commit succeeds, display:
+   ```
+   ✓ Implementation complete — all steps done, plan moved to verify/
+   
+   The commit triggered your local dev environment to start.
+   
+   To check the container status and URL, run:
+   ! .claude/on-implement-commit.sh status
+   
+   When ready, run /verify to test against the plan.
+   ```
 
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
 
