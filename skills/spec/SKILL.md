@@ -131,6 +131,11 @@ Final response under 2000 characters.")
    - **Warnings only:** present to the user for acknowledgement.
    - **Clean or Notes only:** move the plan folder from `plans/drafts/<name>/` → `plans/ready/<name>/`
 3. **Write the review result** to `plan.md`'s `## Review` section and any Critical/Warning items to `findings.md`
+4. **Commit** when the plan moves to ready:
+   ```
+   git add plans/drafts/ plans/ready/ plans/replanning/ plans/briefs/ bugs/
+   git commit -m "spec: <feature-name> — plan ready"
+   ```
 
 ## Rules
 
@@ -149,7 +154,11 @@ When a plan folder is in `plans/replanning/`, it has findings the implementer ca
 4. **Update Design Decisions** — add any new decisions to `plan.md`
 5. **Update `findings.md`** — for each `Escalated` finding now addressed by the amendment, set status to `Open` (the implementer will fix the code). If fully resolved by the design change alone, set to `Fixed`.
 6. **Run the review gate** — spawn the sonnet review agent on the amended `plan.md` before moving it
-7. **Move the plan folder** from `plans/replanning/<name>/` → `plans/ready/<name>/`
+7. **Move the plan folder** from `plans/replanning/<name>/` → `plans/ready/<name>/` and commit:
+   ```
+   git add plans/replanning/ plans/ready/
+   git commit -m "spec: <feature-name> — amendment, back to ready"
+   ```
 
 ## Bug consumption
 

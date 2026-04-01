@@ -85,9 +85,21 @@ Use `Open` for everything else: bugs, missing tests, convention violations, perf
 
 After running all checks and verifying all fixes:
 
-- **No `Open` or `Fixed` findings remain, no `Escalated`** → update `plan.md` Status to `Complete`, then move folder from `plans/verify/<name>/` → `plans/complete/<name>/`; then **close the linked bug** if one exists (see [Bug closing](#bug-closing))
-- **Any new `Open` findings** → update `plan.md` Status to `Verifying` (already claimed); folder stays in `plans/verify/`; the implementer will pick it up
-- **Any `Escalated` findings** → update `plan.md` Status to `Replanning`, then move folder from `plans/verify/<name>/` → `plans/replanning/<name>/`; the planner will pick it up
+- **No `Open` or `Fixed` findings remain, no `Escalated`** → update `plan.md` Status to `Complete`, move folder from `plans/verify/<name>/` → `plans/complete/<name>/`, close the linked bug (see [Bug closing](#bug-closing)), and commit:
+  ```
+  git add plans/verify/ plans/complete/ bugs/
+  git commit -m "verify: <feature-name> — clean, complete"
+  ```
+- **Any new `Open` findings** → update `plan.md` Status to `Verifying` (already claimed); folder stays in `plans/verify/`; commit findings for the implementer:
+  ```
+  git add plans/verify/
+  git commit -m "verify: <feature-name> — N open findings"
+  ```
+- **Any `Escalated` findings** → update `plan.md` Status to `Replanning`, move folder from `plans/verify/<name>/` → `plans/replanning/<name>/`, and commit:
+  ```
+  git add plans/verify/ plans/replanning/
+  git commit -m "verify: <feature-name> — escalated findings, needs replanning"
+  ```
 - **Any `Fixed` findings that fail re-verification** → set back to `Open` with a note in `findings.md`
 - A plan with both `Open` and `Escalated` findings should move to `plans/replanning/` — the planner will address the design issues first, then the implementer will fix the rest
 

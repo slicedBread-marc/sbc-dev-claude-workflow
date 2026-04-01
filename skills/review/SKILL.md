@@ -99,9 +99,21 @@ Append directly to `findings.md`:
 
 ## Determining Outcome (Plan Review)
 
-- **Any Critical finding** → Result is `Blocked`, plan stays in `drafts/`
-- **Warnings only** → Result is `Approved with notes`, present to user for acknowledgement
-- **Notes only or clean** → Result is `Approved`, plan moves to `ready/`
+- **Any Critical finding** → Result is `Blocked`, plan stays in `drafts/`; commit findings:
+  ```
+  git add plans/
+  git commit -m "review: <feature-name> — blocked"
+  ```
+- **Warnings only** → Result is `Approved with notes`, present to user for acknowledgement; commit findings:
+  ```
+  git add plans/
+  git commit -m "review: <feature-name> — approved with notes"
+  ```
+- **Notes only or clean** → Result is `Approved`, plan moves to `ready/`; commit:
+  ```
+  git add plans/
+  git commit -m "review: <feature-name> — approved"
+  ```
 
 ## Rules
 

@@ -79,7 +79,11 @@ Update `plan.md`:
   [date] — Rolled back. Reason: [user-provided reason]. Data migrations: [Reversible/Irreversible/N/A]. Verification: [passed/partial — notes].
   ```
 
-Move the plan folder from its current location → `plans/rolled-back/<name>/`
+Move the plan folder from its current location → `plans/rolled-back/<name>/` and commit:
+```
+git add plans/
+git commit -m "rollback: <feature-name> — <reason>"
+```
 
 ### 6. File a bug (optional)
 
@@ -112,7 +116,12 @@ If the user stops partway through:
 1. Note which steps were completed in `plan.md` Amendments: `[date] — Partial rollback. Completed steps 1-N. Stopped at step N+1 due to: [reason].`
 2. Leave the plan folder in its current location (do NOT move to `rolled-back/`)
 3. Set Status to `Rollback Partial`
-4. Recommend filing a bug and getting help before continuing
+4. Commit the partial state:
+   ```
+   git add plans/
+   git commit -m "rollback: <feature-name> — partial, stopped at step N"
+   ```
+5. Recommend filing a bug and getting help before continuing
 
 ## Committing work
 

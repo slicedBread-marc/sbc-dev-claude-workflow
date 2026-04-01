@@ -26,6 +26,11 @@ Wait for the user to respond before continuing. If they proceed without switchin
    - `Exploring` — actively discussing options
    - `Decided` — user has confirmed an approach, ready for planning
 4. **Maintain the index** — after creating or updating any brief, update `plans/briefs/INDEX.md` to reflect the current state. Move items between sections as their status changes.
+5. **Commit** — when done exploring or deciding, commit changes:
+   ```
+   git add plans/briefs/
+   git commit -m "brainstorm: <brief-name> — <Idea|Exploring|Decided>"
+   ```
 
 ## Rules
 

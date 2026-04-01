@@ -44,7 +44,12 @@ plans/verify/    → move here when done
 5. **Check off steps** — mark each step's checkbox in `progress.md` when done
 6. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
 7. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
-8. **When all steps complete** — update `plan.md` Status to `Verifying`, then move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`
+   - After each step, commit: `git add {{source_dirs}} plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
+8. **When all steps complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+   ```
+   git add plans/active/ plans/verify/
+   git commit -m "implement(<feature-name>): all steps complete, moving to verify"
+   ```
 
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
 
@@ -55,7 +60,11 @@ plans/verify/    → move here when done
 4. **Fix each `Open` finding** — address the issue described, using the file paths and line numbers provided
 5. **Set finding status to `Fixed`** — update the row in `findings.md`
 6. **Log in `progress.md`** — `[date] Finding F3 — fixed (description of fix)`
-7. **When all `Open` findings are `Fixed`** — move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`
+7. **When all `Open` findings are `Fixed`** — move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+   ```
+   git add {{source_dirs}} plans/active/ plans/verify/
+   git commit -m "implement(<feature-name>): fix findings, moving to verify"
+   ```
 
 ## Rules
 
