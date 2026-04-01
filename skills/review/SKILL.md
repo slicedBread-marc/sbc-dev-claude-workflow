@@ -113,3 +113,11 @@ Append directly to `findings.md`:
 ## On startup (independent invocation)
 
 Ask the user whether this is a plan review or code review, and which plan folder to review. For code review, check `plans/active/` or `plans/verify/` for relevant plan folders.
+
+## Committing work
+
+After writing findings, commit:
+```
+git add plans/
+git commit -m "review: <feature-name> — <Approved|Approved with notes|Blocked>"
+```

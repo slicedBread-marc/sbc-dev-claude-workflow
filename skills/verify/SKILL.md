@@ -103,3 +103,11 @@ After running all checks and verifying all fixes:
 ## On startup
 
 Check `plans/verify/` for plan folders to verify. Ask the user which one if multiple exist.
+
+## Committing work
+
+After writing findings or completing verification, commit:
+```
+git add plans/verify/ plans/complete/ plans/replanning/
+git commit -m "verify: <feature-name> — <N open findings|clean, complete>"
+```

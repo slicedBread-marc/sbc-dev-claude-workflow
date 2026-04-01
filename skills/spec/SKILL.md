@@ -112,3 +112,16 @@ When a plan folder is in `plans/replanning/`, it has findings the implementer ca
 ## On startup
 
 Check `plans/replanning/` first — escalated findings have higher priority than new briefs. If any plans are there, present them to the user. Otherwise, read `plans/briefs/INDEX.md` to see what briefs are at `Decided` status.
+
+## Committing work
+
+After the plan is approved and moved to `ready/`, commit:
+```
+git add plans/drafts/ plans/ready/ plans/replanning/ plans/briefs/
+git commit -m "spec: <feature-name> — plan ready"
+```
+
+For replanning, use:
+```
+git commit -m "spec: <feature-name> — amendment, back to ready"
+```

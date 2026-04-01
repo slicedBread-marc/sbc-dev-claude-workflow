@@ -72,3 +72,23 @@ plans/verify/    → move here when done
 1. Check `plans/ready/` for new plan folders to implement
 2. Check `plans/verify/` for plan folders with `Open` findings in `findings.md` (fix cycle)
 3. Ask the user which plan to work on if multiple are available
+
+## Committing work
+
+Commit after each completed step to preserve progress:
+```
+git add {{source_dirs}} plans/active/
+git commit -m "implement(<feature-name>): step N — <short description>"
+```
+
+When moving to verify:
+```
+git add plans/active/ plans/verify/
+git commit -m "implement(<feature-name>): all steps complete, moving to verify"
+```
+
+For fix cycle, commit after all findings are fixed:
+```
+git add {{source_dirs}} plans/active/
+git commit -m "implement(<feature-name>): fix F1, F2 — moving to verify"
+```

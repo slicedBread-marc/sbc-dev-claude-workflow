@@ -40,3 +40,11 @@ Wait for the user to respond before continuing. If they proceed without switchin
 ## On startup
 
 Read `plans/briefs/INDEX.md` to understand the current backlog, then ask the user what they'd like to explore.
+
+## Committing work
+
+After creating or updating a brief, commit:
+```
+git add plans/briefs/
+git commit -m "brainstorm: <brief-name> — <Idea|Exploring|Decided>"
+```
