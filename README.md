@@ -28,7 +28,7 @@ your-project/
   .claude/skills/
     status/SKILL.md        # /status — pipeline dashboard
     brainstorm/SKILL.md    # /brainstorm — capture ideas
-    plan/SKILL.md          # /plan — write implementation specs
+    spec/SKILL.md           # /spec — write implementation specs
     review/SKILL.md        # /review — architecture & security review
     implement/SKILL.md     # /implement — build from specs
     verify/SKILL.md        # /verify — confirm implementation
@@ -49,11 +49,11 @@ your-project/
 ## The Pipeline
 
 ```
-/brainstorm → /plan → /review (gate) → /implement → /verify
+/brainstorm → /spec → /review (gate) → /implement → /verify
                 ↑                           ↕              |
                 |                     Findings Queue       |
                 |                  Open → Fixed → Verified |
-                └──── /plan amends ←── Escalated ──────────┘
+                └──── /spec amends ←── Escalated ──────────┘
 ```
 
 **The folder IS the status.** `ls plans/ready/` shows what's waiting to be built.
@@ -64,7 +64,7 @@ your-project/
 |-|-|-|
 | `/status` | haiku | Scan pipeline, recommend next action |
 | `/brainstorm` | sonnet | Capture and explore ideas |
-| `/plan` | opus | Convert decided brief → implementation spec |
+| `/spec` | opus | Convert decided brief → implementation spec |
 | `/review` | sonnet | Architecture & security review (auto-gate + manual) |
 | `/implement` | opus | Build from plan, fix findings |
 | `/verify` | sonnet | Check implementation, write findings |
@@ -77,7 +77,7 @@ Terminal 1 (thinking)              Terminal 2 (building)
 
 /status                            
 /brainstorm → idea → Decided       
-/plan → spec → review gate → Ready
+/spec → review gate → Ready
                                    /implement → builds → Verifying
 /verify → findings → queue         
                                    /implement → fixes → Verifying

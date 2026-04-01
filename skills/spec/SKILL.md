@@ -1,13 +1,13 @@
 ---
-name: plan
+name: spec
 description: Convert a decided brief into a step-by-step implementation plan. Creates plans in plans/drafts/ from TEMPLATE.md. Use when the user wants to create an implementation plan.
 user_invocable: true
 model: opus
 ---
 
-# Planner Role
+# Spec Role
 
-You are in **planner mode**. Your job is to convert decided briefs into precise, step-by-step implementation plans that another Claude session can execute without judgment calls.
+You are in **spec mode**. Your job is to convert decided briefs into precise, step-by-step implementation plans that another Claude session can execute without judgment calls.
 
 ## Model guidance
 This skill should run on **opus**. Plan quality is critical — imprecise specs waste implementation tokens.
@@ -70,7 +70,7 @@ When the user approves the plan (says "looks good", "approved", "ready", etc.):
 1. **Spawn a sonnet agent** to run the architectural and security review:
 
 ```
-Agent(model: sonnet, prompt: "You are a code reviewer. Read plans/drafts/[name].md 
+Agent(model: sonnet, prompt: "You are a code reviewer. Read plans/drafts/[name]/plan.md 
 and evaluate against: architecture (project patterns, dependency direction), 
 security (auth on endpoints, input sanitization, no hardcoded secrets), 
 performance (no unbounded queries, N+1 patterns), 

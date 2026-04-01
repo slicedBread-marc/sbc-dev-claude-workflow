@@ -82,7 +82,7 @@ Explicitly list things that might seem related but should NOT be done in this pl
 > |-|-|-|-|-|
 
 ## Amendments
-> Append-only. Added by /plan when a plan in active/ or beyond needs a design change.
+> Append-only. Added by /spec when a plan in active/ or beyond needs a design change.
 > Format: `[date] — description of change and why`
 ```
 

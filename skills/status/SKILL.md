@@ -66,7 +66,7 @@ Count completed plan folders (don't list details unless asked).
 - [plan-name] in drafts/ — awaiting review
 
 ### Ready to plan
-- [brief-name] — Decided, waiting for /plan
+- [brief-name] — Decided, waiting for /spec
 
 ### Ideas
 - [brief-name] — Exploring
@@ -84,10 +84,10 @@ Count completed plan folders (don't list details unless asked).
 ## Priority order for recommendations
 
 1. **Open findings in `verify/`** → "Run `/implement` to fix N open findings in [plan]"
-2. **Escalated findings in `replanning/`** → "Run `/plan` to address N escalated findings in [plan]"
+2. **Escalated findings in `replanning/`** → "Run `/spec` to address N escalated findings in [plan]"
 3. **Plans in `ready/`** → "Run `/implement` to start [plan]"
-4. **Drafts in `drafts/`** → "Review and approve the draft in `/plan` to move it to ready"
-5. **Decided briefs** → "Run `/plan` to create an implementation plan from [brief]"
+4. **Drafts in `drafts/`** → "Review and approve the draft in `/spec` to move it to ready"
+5. **Decided briefs** → "Run `/spec` to create an implementation plan from [brief]"
 6. **Plans in `active/`** → "An implementation is in progress — check on it or wait"
 7. **Exploring briefs** → "Continue exploring [brief] with `/brainstorm`"
 8. **Nothing pending** → "Run `/brainstorm` to capture new ideas"

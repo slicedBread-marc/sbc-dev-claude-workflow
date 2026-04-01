@@ -17,14 +17,14 @@ plans/
   briefs/                    # /brainstorm — ideas and exploration
     INDEX.md                 # backlog tracker
     TEMPLATE.md
-  drafts/<feature-name>/     # /plan — plan being written, not yet reviewed
+  drafts/<feature-name>/     # /spec — plan being written, not yet reviewed
     plan.md                  #   static spec (goal, steps, tests, design decisions)
     findings.md              #   shared findings queue (/review + /verify write; /implement updates)
     progress.md              #   implementer log (step completions, notes)
   ready/<feature-name>/      # reviewed & approved — waiting for /implement
   active/<feature-name>/     # /implement is working on it
   verify/<feature-name>/     # implementation done — waiting for /verify
-  replanning/<feature-name>/ # verify found design-scope issues — waiting for /plan to amend
+  replanning/<feature-name>/ # verify found design-scope issues — waiting for /spec to amend
   complete/<feature-name>/   # all findings resolved — static historical record
   TEMPLATE.md                # implementation plan spec
 ```
@@ -38,7 +38,7 @@ Each skill specifies its recommended model. Use `/model` to switch before invoki
 |-|-|-|-|
 | `/status` | haiku | none | — |
 | `/brainstorm` | sonnet | none | — |
-| `/plan` | opus | codebase exploration | haiku |
+| `/spec` | opus | codebase exploration | haiku |
 | `/review` | sonnet | parallel checks (code review only) | haiku |
 | `/implement` | opus | lookup only (sparingly) | haiku |
 | `/verify` | sonnet | parallel build/test/quality checks | haiku |
@@ -61,7 +61,7 @@ Priority order: open findings → ready plans → drafts needing review → deci
 - Do NOT write implementation steps or edit source code
 - A brief at **Decided** is the input for a planner session
 
-### Planner Role (`/plan`)
+### Planner Role (`/spec`)
 - Reads brief from `plans/briefs/`, creates a named plan folder in `plans/drafts/<feature-name>/` with `plan.md`, `findings.md`, `progress.md`
 - Every step must list exact file paths, class/method/component names, and acceptance criteria
 - Make all design decisions — the implementer should not need to make judgment calls
@@ -78,7 +78,7 @@ Priority order: open findings → ready plans → drafts needing review → deci
 - **Ignores `Escalated` findings** — these require a planner, not an implementer
 
 ### Reviewer Role (`/review`)
-- Runs automatically as a gate within `/plan` before `drafts/` → `ready/`
+- Runs automatically as a gate within `/spec` before `drafts/` → `ready/`
 - Can also be invoked independently for code review
 - Writes plan review result to `plan.md`'s Review section; appends findings to `findings.md`
 - Critical findings block the plan from reaching `ready/`
@@ -91,7 +91,7 @@ Priority order: open findings → ready plans → drafts needing review → deci
 - **Escalation path:** if a finding requires a design change (not a code fix), sets status to `Escalated` and moves folder to `plans/replanning/`
 - Does NOT write code, implementation steps, or solutions — describes what is wrong and why only
 
-### Planner Role — Replanning (`/plan` with escalated findings)
+### Planner Role — Replanning (`/spec` with escalated findings)
 - On startup, checks `plans/replanning/` before new briefs
 - Reads `plan.md` and `findings.md` for escalated findings, discusses design resolution with user
 - Appends an **Amendment** to `plan.md` (never rewrites existing steps)
@@ -103,7 +103,7 @@ All diagnostic roles (`/review`, `/verify`) write to a shared **Findings Queue**
 ```
 /review ──► Findings Queue ◄── /implement reads & fixes (Open only)
 /verify ──►   Open → Fixed → Verified
-              Escalated ──────────────► /plan amends → back to ready/
+              Escalated ──────────────► /spec amends → back to ready/
 ```
 
 - **Open** — code-level issue, implementer can fix

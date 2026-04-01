@@ -33,7 +33,7 @@ If the user proceeds without switching, warn once more then continue.
 - **Do NOT** write implementation steps — that's the planner's job
 - **Do NOT** make decisions for the user — present options and let them choose
 - Briefs are living documents — rewrite freely until status is `Decided`
-- When a brief reaches `Decided`, it becomes input for a `/plan` session
+- When a brief reaches `Decided`, it becomes input for a `/spec` session
 - When a brief reaches `Planned`, add the plan link and move it in the index
 - Quick ideas can start as lightweight entries (just Problem + a few sentences); they don't need every template section filled in immediately
 
