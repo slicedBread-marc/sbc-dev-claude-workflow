@@ -24,11 +24,46 @@ Wait for the user to respond before continuing. If they proceed without switchin
 plans/drafts/      → plan being written (you create here)
 plans/replanning/  → plans returned from verify with Escalated findings (you pick up here)
 plans/ready/       → reviewed & approved (you move here after review passes)
+bugs/open/         → bugs available to plan fixes for
 ```
+
+## On startup
+
+Before planning, show the user what's available:
+
+1. **List open bugs** from `bugs/open/` — read each `bug.md`, extract ID, severity, title, and description snippet
+2. **List decided briefs** from `plans/briefs/INDEX.md` — filter for status `Decided`
+3. **Present both** to the user:
+
+```
+## Available work
+
+### Open bugs (ready to fix)
+- BUG-001 (High) — Login crashes on empty password
+- BUG-002 (Critical) — Payment webhook timeout
+
+### Decided briefs (ready to plan)
+- brief-name — [goal snippet]
+```
+
+Ask the user: **"What would you like to plan? Pick a bug number (BUG-NNN), a brief name, or describe new work."**
+
+- If they pick a bug: go to [Plan from bug](#plan-from-bug) workflow
+- If they pick a brief: go to step 1 below (Read the brief)
+- If they describe new work: ask if it should become a brief first (route to `/brainstorm`)
+
+## Plan from bug
+
+If the user picks a bug BUG-NNN:
+
+1. **Read the bug** — read `bugs/open/BUG-NNN-<slug>/bug.md`
+2. **Use it as context** — the bug's description, steps, and expected behavior become the plan's Goal and acceptance criteria
+3. **Treat it like a brief** — proceed with step 1 below, but the scope is defined by fixing the bug, not a separate brief
+4. The bug consumption happens in step 11 (see [Bug consumption](#bug-consumption) below)
 
 ## What you do
 
-1. **Read the brief** — start by reading the relevant brief in `plans/briefs/` to understand context, decisions, and scope boundaries
+1. **Read the input** — if from a brief: read the relevant brief in `plans/briefs/`; if from a bug: the bug's `bug.md` becomes the scope definition
 2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`). This becomes the folder name.
 3. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
 4. **Create the plan folder** — `plans/drafts/<feature-name>/` with three files following `plans/TEMPLATE.md`:
@@ -42,8 +77,13 @@ plans/ready/       → reviewed & approved (you move here after review passes)
 6. **Define tests** — fill in the Tests table with specific test IDs, types, descriptions, and commands
 7. **Fill verification checklist** — the verifier needs to know exactly what to check
 8. **Make all design decisions** — the implementer should not need to make judgment calls
-9. **Update the brief** — set the brief status to `Planned` and add the plan folder link; update `plans/briefs/INDEX.md`
-10. **Consume the bug (if applicable)** — if this plan was created to fix a bug, see [Bug consumption](#bug-consumption) below
+9. **Write the rollback plan** — fill in `## Rollback` in `plan.md`:
+   - List specific trigger conditions (don't leave as TBD)
+   - Assess data migration reversibility honestly — if irreversible, say so explicitly
+   - Write exact rollback commands, not general descriptions
+   - Add verification steps to confirm the rollback succeeded
+10. **Update the brief (if from brief)** — if this plan was created from a brief, set the brief status to `Planned` and add the plan folder link; update `plans/briefs/INDEX.md`. (If from a bug, skip this.)
+11. **Consume the bug (if from bug)** — see [Bug consumption](#bug-consumption) below
 
 ## Codebase exploration via agents
 
@@ -76,7 +116,8 @@ Agent(model: sonnet, prompt: "You are a code reviewer. Read plans/drafts/[name]/
 and evaluate against: architecture (project patterns, dependency direction), 
 security (auth on endpoints, input sanitization, no hardcoded secrets), 
 performance (no unbounded queries, N+1 patterns), 
-maintainability (scope matches goal, test coverage).
+maintainability (scope matches goal, test coverage),
+rollback (trigger conditions defined, safety assessment complete, steps are specific commands not descriptions, irreversible migrations called out explicitly).
 
 Write your findings in this format:
 Result: Approved | Approved with notes | Blocked
@@ -112,17 +153,13 @@ When a plan folder is in `plans/replanning/`, it has findings the implementer ca
 
 ## Bug consumption
 
-When the plan being created is a fix for a tracked bug:
+When the plan being created is a fix for a tracked bug (either from "Plan from bug" workflow or if user explicitly links one):
 
-1. **Ask the user** (if not already clear) — "Is this fixing a tracked bug? If so, which BUG-NNN?"
-2. **Read the bug's `bug.md`** in `bugs/open/BUG-NNN-<slug>/`
-3. **Update `bug.md`**:
+1. **Update the bug's `bug.md`** in `bugs/open/BUG-NNN-<slug>/`:
    - Set `Status` to `Triaged`
    - Set `Plan` to the plan folder path (e.g. `plans/ready/fix-login-crash/`)
-4. **Move the bug folder** from `bugs/open/BUG-NNN-<slug>/` → `bugs/triaged/BUG-NNN-<slug>/`
-5. **Link back in `plan.md`** — add to the Goal section: `> **Bug:** BUG-NNN — <title>`
-
-If no bug is linked, skip this step.
+2. **Move the bug folder** from `bugs/open/BUG-NNN-<slug>/` → `bugs/triaged/BUG-NNN-<slug>/`
+3. **Link back in `plan.md`** — add to the Goal section: `> **Bug:** BUG-NNN — <title>`
 
 ## On startup
 
