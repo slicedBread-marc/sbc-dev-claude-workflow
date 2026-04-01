@@ -7,6 +7,7 @@ plans/<stage>/<feature-name>/
   plan.md        — static spec: goal, steps, tests, design decisions
   findings.md    — shared queue: /review and /verify append; /implement updates status
   progress.md    — implementer log: step completions, notes
+  debug.md       — (optional) debug session log: reproduction steps, screenshots, observations
 ```
 
 The feature name should be a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `audit-log-export`).
