@@ -54,12 +54,10 @@ plans/verify/    → move here when done
    ```
    ✓ Implementation complete — all steps done, plan moved to verify/
    
-   The commit triggered your local dev environment to start.
-   
-   Check the container status and URL:
+   Your local environment should be starting. To see the status and URL, type:
    ! .claude/on-implement-commit.sh status
    
-   Your app is typically running at http://localhost:PORT
+   (Substitute PORT with your configured port — typically 3000, 5000, 8000, etc.)
    
    When ready, run /verify to test against the plan.
    ```
