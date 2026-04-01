@@ -1,0 +1,19 @@
+# claude-workflow configuration
+# Copy this to config.yml and customize for your project.
+
+# Build & test commands
+build_command: "npm run build"
+test_command: "npm test"
+test_filter_flag: "--grep"          # flag to run a single test (e.g., --filter for dotnet, --grep for mocha)
+
+# Source directories (implementer is allowed to edit these)
+source_dirs:
+  - "src/"
+  - "tests/"
+
+# Project conventions (used by review/verify for quality checks)
+namespace_convention: ""            # e.g., "SBC.[Project].[Folder]" — leave blank if N/A
+conventions_note: ""                # free-text note about project conventions
+
+# Solution/project file (used in build commands if applicable)
+solution_file: ""                   # e.g., "SBC.slnx", "package.json"
