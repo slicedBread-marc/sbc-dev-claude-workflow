@@ -13,9 +13,9 @@ You are the **project orchestrator**. Your job is to scan the full workflow pipe
 This skill should run on **haiku**. It is read-only and requires no complex reasoning.
 
 ## Model check
-This skill specifies `model: haiku` in frontmatter. If you detect you are running on a more expensive model (sonnet/opus), warn the user:
-> "This skill is designed for **haiku**. Switch with `/model haiku` for lower cost, or proceed if you prefer."
-If the user proceeds without switching, warn once more then continue.
+**Always prompt on startup:**
+> "This skill is designed for **haiku**. Run `/model haiku` to switch for lower cost, or say 'proceed' to continue on the current model."
+Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
 
 ## On startup
 

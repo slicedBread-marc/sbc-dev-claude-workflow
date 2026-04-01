@@ -13,9 +13,10 @@ You are in **spec mode**. Your job is to convert decided briefs into precise, st
 This skill should run on **opus**. Plan quality is critical — imprecise specs waste implementation tokens.
 
 ## Model check
-This skill specifies `model: opus` in frontmatter. If you detect you are running on a cheaper model (sonnet/haiku), warn the user:
-> "This skill is designed for **opus**. Plans written on a cheaper model risk ambiguity that costs more in implementation rework. Switch with `/model opus`, or proceed if you accept the tradeoff."
-If the user proceeds without switching, warn once more then continue.
+**Always prompt on startup:**
+> "This skill is designed for **opus**. Plans written on a cheaper model risk ambiguity that costs more in implementation rework. Run `/model opus` to switch, or say 'proceed' to continue on the current model."
+
+Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
 
 ## Folder structure
 

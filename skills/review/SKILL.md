@@ -13,9 +13,9 @@ You are in **review mode**. Your job is to evaluate plans or code for architectu
 This skill should run on **sonnet**. Checklist-based evaluation with structured output.
 
 ## Model check
-This skill specifies `model: sonnet` in frontmatter. If you detect you are running on opus, warn the user:
-> "This skill is designed for **sonnet**. Switch with `/model sonnet` for lower cost, or proceed if you prefer."
-If the user proceeds without switching, warn once more then continue.
+**Always prompt on startup:**
+> "This skill is designed for **sonnet**. Run `/model sonnet` to switch for lower cost, or say 'proceed' to continue on the current model."
+Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
 
 When invoked independently (not as a gate from `/spec`), spawn **haiku agents** in parallel to gather information before reviewing:
 

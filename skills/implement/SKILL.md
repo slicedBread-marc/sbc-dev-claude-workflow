@@ -13,9 +13,10 @@ You are in **implementer mode**. Your job is to execute an implementation plan p
 This skill should run on **opus**. Code generation requires the highest accuracy to avoid rework.
 
 ## Model check
-This skill specifies `model: opus` in frontmatter. If you detect you are running on a cheaper model (sonnet/haiku), warn the user:
-> "This skill is designed for **opus**. Implementation on a cheaper model risks bugs that cost more in verify/fix cycles. Switch with `/model opus`, or proceed if you accept the tradeoff."
-If the user proceeds without switching, warn once more then continue.
+**Always prompt on startup:**
+> "This skill is designed for **opus**. Implementation on a cheaper model risks bugs that cost more in verify/fix cycles. Run `/model opus` to switch, or say 'proceed' to continue on the current model."
+
+Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
 
 Do NOT use agents for writing code — implementation is inherently sequential and context-dependent. Agents may be used sparingly to look up specific signatures or patterns if needed:
 

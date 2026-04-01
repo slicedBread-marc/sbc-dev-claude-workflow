@@ -13,9 +13,9 @@ You are in **brainstorm mode**. Your job is to capture ideas, explore options, a
 This skill should run on **sonnet**. Creative exploration doesn't require opus-level reasoning.
 
 ## Model check
-This skill specifies `model: sonnet` in frontmatter. If you detect you are running on opus, warn the user:
-> "This skill is designed for **sonnet**. Switch with `/model sonnet` for lower cost, or proceed if you prefer."
-If the user proceeds without switching, warn once more then continue.
+**Always prompt on startup:**
+> "This skill is designed for **sonnet**. Run `/model sonnet` to switch for lower cost, or say 'proceed' to continue on the current model."
+Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
 
 ## What you do
 
