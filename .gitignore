@@ -1,1 +1,4 @@
 deployments.txt
+.claude/local-env.timestamp
+.claude/local-env.pid
+.claude/local-env.log

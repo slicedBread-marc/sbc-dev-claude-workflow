@@ -1,0 +1,10 @@
+#!/bin/bash
+# claude-workflow: local-env trigger
+MSG=$(git log -1 --pretty=%s)
+if [[ "$MSG" == implement\(* ]]; then
+    ROOT=$(git rev-parse --show-toplevel)
+    SCRIPT="$ROOT/.claude/on-implement-commit.sh"
+    if [ -x "$SCRIPT" ]; then
+        "$SCRIPT" deploy
+    fi
+fi

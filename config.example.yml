@@ -34,3 +34,15 @@ conventions_note: ""
 # Solution or project file (used in build/test commands if applicable).
 # Detect from: *.slnx, *.sln, *.csproj, package.json, pyproject.toml, go.mod in the root
 solution_file: ""
+
+# Local dev environment — Docker-based auto-start on implement commits (optional).
+# If set, a 60-minute idle timer starts on every implement( commit and on manual start.
+# The container stops automatically when the timer expires.
+# Detect from: docker-compose.yml or docker-compose.yaml in the project root.
+#   local_start_command:  start without rebuilding  — e.g. "docker-compose up -d"
+#   local_deploy_command: start and rebuild          — e.g. "docker-compose up --build -d"
+#   local_stop_command:   stop the environment       — e.g. "docker-compose stop"
+# Leave all three blank to skip local env management.
+local_start_command: ""
+local_deploy_command: ""
+local_stop_command: ""

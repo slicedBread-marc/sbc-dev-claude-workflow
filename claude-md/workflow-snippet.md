@@ -119,3 +119,19 @@ All diagnostic roles (`/review`, `/verify`) write to a shared **Findings Queue**
 - A plan file should only be in one folder at a time — never copy, always move
 - If the planner needs to amend a plan in `active/` or beyond, append to **Amendments** — never rewrite
 - Sessions should avoid reading files another session is actively writing
+
+## Local Dev Environment
+
+If `local_start_command`, `local_deploy_command`, and `local_stop_command` are configured in `claude-workflow.yml`, a local dev environment script is installed at `.claude/on-implement-commit.sh`. It starts automatically on every `implement(` commit and shuts down after 60 minutes of inactivity.
+
+| Command | Effect |
+|-|-|
+| `.claude/on-implement-commit.sh start` | Start environment, begin 60-min timer |
+| `.claude/on-implement-commit.sh deploy` | Start + rebuild, reset timer |
+| `.claude/on-implement-commit.sh stop` | Stop environment, cancel timer |
+| `.claude/on-implement-commit.sh status` | Running state + minutes remaining |
+
+Configure in `claude-workflow.yml`:
+- `local_start_command` — start without rebuilding (e.g. `docker-compose up -d`)
+- `local_deploy_command` — start and rebuild (e.g. `docker-compose up --build -d`)
+- `local_stop_command` — stop the environment (e.g. `docker-compose stop`)

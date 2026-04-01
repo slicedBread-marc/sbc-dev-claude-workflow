@@ -28,7 +28,7 @@ fi
 
 # Parse config (simple grep-based, no yq dependency)
 get_config() {
-    grep "^$1:" "$CONFIG_FILE" | sed "s/^$1:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//'
+    grep "^$1:" "$CONFIG_FILE" 2>/dev/null | sed "s/^$1:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' || true
 }
 
 BUILD_CMD=$(get_config "build_command")
@@ -36,6 +36,9 @@ TEST_CMD=$(get_config "test_command")
 TEST_FILTER=$(get_config "test_filter_flag")
 NAMESPACE_CONV=$(get_config "namespace_convention")
 CONVENTIONS_NOTE=$(get_config "conventions_note")
+LOCAL_START=$(get_config "local_start_command")
+LOCAL_DEPLOY=$(get_config "local_deploy_command")
+LOCAL_STOP=$(get_config "local_stop_command")
 
 # Read source_dirs as comma-separated string
 SOURCE_DIRS=$(grep -A 10 "^source_dirs:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - //' | sed 's/"//g' | tr '\n' ', ' | sed 's/,$//')
@@ -94,6 +97,40 @@ for skill_dir in "$SCRIPT_DIR/skills"/*/; do
 
     echo -e "${GREEN}  Installed /$(basename "$skill_dir")${NC}"
 done
+
+# Install local env script and post-commit hook (only if local_deploy_command is set)
+if [ -n "$LOCAL_DEPLOY" ]; then
+    sed -e "s|{{local_start_command}}|$LOCAL_START|g" \
+        -e "s|{{local_deploy_command}}|$LOCAL_DEPLOY|g" \
+        -e "s|{{local_stop_command}}|$LOCAL_STOP|g" \
+        "$SCRIPT_DIR/templates/on-implement-commit.sh" > "$TARGET_DIR/.claude/on-implement-commit.sh"
+    chmod +x "$TARGET_DIR/.claude/on-implement-commit.sh"
+    echo -e "${GREEN}  Installed .claude/on-implement-commit.sh${NC}"
+
+    HOOK="$TARGET_DIR/.git/hooks/post-commit"
+    if [ ! -f "$HOOK" ]; then
+        cp "$SCRIPT_DIR/templates/hooks/post-commit" "$HOOK"
+        chmod +x "$HOOK"
+        echo -e "${GREEN}  Installed .git/hooks/post-commit${NC}"
+    elif ! grep -q "claude-workflow: local-env trigger" "$HOOK"; then
+        echo "" >> "$HOOK"
+        cat "$SCRIPT_DIR/templates/hooks/post-commit" >> "$HOOK"
+        echo -e "${GREEN}  Appended local-env trigger to .git/hooks/post-commit${NC}"
+    else
+        echo -e "${YELLOW}  post-commit hook already installed — skipping${NC}"
+    fi
+
+    # Gitignore runtime files in target project
+    GITIGNORE="$TARGET_DIR/.gitignore"
+    for pattern in ".claude/local-env.timestamp" ".claude/local-env.pid" ".claude/local-env.log"; do
+        if ! grep -qF "$pattern" "$GITIGNORE" 2>/dev/null; then
+            echo "$pattern" >> "$GITIGNORE"
+        fi
+    done
+    echo -e "${GREEN}  Updated .gitignore with local-env runtime files${NC}"
+else
+    echo -e "${YELLOW}  local_deploy_command not set — skipping local env install${NC}"
+fi
 
 # Always overwrite .claude/workflow.md (the referenced file — keeps it current on every deploy)
 WORKFLOW_MD="$TARGET_DIR/.claude/workflow.md"
