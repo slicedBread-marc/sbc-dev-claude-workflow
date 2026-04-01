@@ -53,6 +53,9 @@ List bug folders with their ID, title, and linked plan. These are actively being
 ### 10. Completed work (`plans/complete/`)
 Count completed plan folders (don't list details unless asked).
 
+### 11. Rolled-back plans (`plans/rolled-back/`)
+If any exist, list them with the rollback reason from Amendments. These are informational — no action required unless a fix is being planned.
+
 ## Output Format
 
 ```
@@ -86,6 +89,9 @@ Count completed plan folders (don't list details unless asked).
 
 ### Done
 - 3 completed plans
+
+### Rolled back
+- [plan-name] — rolled back 2026-04-01, reason: "Payment webhook caused duplicate charges"
 
 ---
 

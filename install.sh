@@ -58,6 +58,7 @@ mkdir -p "$TARGET_DIR/plans/active"
 mkdir -p "$TARGET_DIR/plans/verify"
 mkdir -p "$TARGET_DIR/plans/replanning"
 mkdir -p "$TARGET_DIR/plans/complete"
+mkdir -p "$TARGET_DIR/plans/rolled-back"
 echo -e "${GREEN}  plans/ folder structure created${NC}"
 
 # Copy and templatize plan templates

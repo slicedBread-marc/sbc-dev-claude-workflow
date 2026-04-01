@@ -47,7 +47,12 @@ plans/complete/    → all findings resolved (you move here when queue is clean)
    - Test agent (haiku): run tests, report pass/fail
    - Code quality agents (haiku): one per new/changed file, check conventions
 5. **Check behavior yourself** — work through Behavioral Checks (these need reasoning, not agents)
-6. **Synthesize results** — combine agent reports into findings
+6. **Check rollback readiness** — read `## Rollback` in `plan.md` and verify:
+   - No TBD placeholders remain in trigger conditions, steps, or verification
+   - Steps are specific commands, not general descriptions
+   - If data migrations exist, reversibility is explicitly assessed (not assumed)
+   - If the rollback section is incomplete, raise a `Warning` finding: `Rollback section incomplete — [missing field]`
+7. **Synthesize results** — combine agent reports into findings
 7. **Write findings** — append rows to `findings.md`
 8. **Verify fixes** — for findings with status `Fixed`, confirm the fix and set to `Verified` in `findings.md`
 

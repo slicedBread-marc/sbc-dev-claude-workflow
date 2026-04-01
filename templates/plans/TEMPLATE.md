@@ -72,6 +72,30 @@ Anything the implementer should NOT decide themselves — choices already made a
 ## Out of Scope
 Explicitly list things that might seem related but should NOT be done in this plan.
 
+## Rollback
+
+### Trigger conditions
+Symptoms or thresholds that should trigger a rollback rather than a fix-forward.
+- [ ] [e.g. error rate > X%, critical feature broken, data corruption detected]
+
+### Safety assessment
+- **Data migrations:** Reversible | Irreversible | N/A — [brief explanation]
+- **Breaking changes:** Yes — [describe impact] | No
+- **Downstream impact:** [systems, services, or users affected by a rollback]
+
+### Steps
+Ordered steps to revert this change. Be specific — include exact commands.
+
+1. [e.g. `git revert <commit-sha>` and push to trigger redeploy]
+2. [e.g. `dotnet ef database update PreviousMigration`]
+3. [e.g. Clear cache / notify affected users]
+
+### Verification
+How to confirm the rollback succeeded.
+- [ ] [e.g. Feature X returns expected behavior]
+- [ ] [e.g. Error rate returns to baseline]
+- [ ] Build passes and tests are green
+
 ## Review
 > Filled by the planner's review gate before status is set to Ready.
 > Can also be populated by an independent `/review` invocation.
