@@ -19,7 +19,9 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 ## On startup
 
-Scan these locations in order and build a summary:
+First, read `.claude/workflow-version` and include it in the header of your output (e.g. `Workflow v1.0.0`). If the file doesn't exist, omit the version.
+
+Then scan these locations in order and build a summary:
 
 ### 1. Findings needing fixes (`plans/verify/`)
 For each plan folder in `verify/`, read `findings.md`. If any findings have status `Open`, this is the **highest priority** — unresolved findings block completion.
@@ -42,13 +44,19 @@ Check for briefs at `Decided` status — these are ready to become implementatio
 ### 7. Ideas being explored (`plans/briefs/INDEX.md`)
 Check for briefs at `Exploring` or `Idea` status.
 
-### 8. Completed work (`plans/complete/`)
+### 8. Open bugs (`bugs/open/`)
+List bug folders with their ID, title, and severity. These have not yet been linked to a plan.
+
+### 9. Triaged bugs (`bugs/triaged/`)
+List bug folders with their ID, title, and linked plan. These are actively being worked.
+
+### 10. Completed work (`plans/complete/`)
 Count completed plan folders (don't list details unless asked).
 
 ## Output Format
 
 ```
-## Pipeline Status
+## Pipeline Status — Workflow v{workflow-version}
 
 ### Needs attention
 - [plan-name] in verify/ — 2 Open findings (1 Critical, 1 Warning)
@@ -72,6 +80,10 @@ Count completed plan folders (don't list details unless asked).
 - [brief-name] — Exploring
 - [brief-name] — Idea
 
+### Bugs
+- BUG-001 (High) — Login crashes on empty password [open]
+- BUG-002 (Critical) — Payment webhook timeout → linked to plans/ready/fix-webhook-timeout [triaged]
+
 ### Done
 - 3 completed plans
 
@@ -87,7 +99,7 @@ Count completed plan folders (don't list details unless asked).
 2. **Escalated findings in `replanning/`** → "Run `/spec` to address N escalated findings in [plan]"
 3. **Plans in `ready/`** → "Run `/implement` to start [plan]"
 4. **Drafts in `drafts/`** → "Review and approve the draft in `/spec` to move it to ready"
-5. **Decided briefs** → "Run `/spec` to create an implementation plan from [brief]"
+5. **Decided briefs or open Critical/High bugs** → "Run `/spec` to create an implementation plan from [brief/bug]"
 6. **Plans in `active/`** → "An implementation is in progress — check on it or wait"
 7. **Exploring briefs** → "Continue exploring [brief] with `/brainstorm`"
 8. **Nothing pending** → "Run `/brainstorm` to capture new ideas"

@@ -43,6 +43,7 @@ plans/ready/       → reviewed & approved (you move here after review passes)
 7. **Fill verification checklist** — the verifier needs to know exactly what to check
 8. **Make all design decisions** — the implementer should not need to make judgment calls
 9. **Update the brief** — set the brief status to `Planned` and add the plan folder link; update `plans/briefs/INDEX.md`
+10. **Consume the bug (if applicable)** — if this plan was created to fix a bug, see [Bug consumption](#bug-consumption) below
 
 ## Codebase exploration via agents
 
@@ -109,6 +110,20 @@ When a plan folder is in `plans/replanning/`, it has findings the implementer ca
 6. **Run the review gate** — spawn the sonnet review agent on the amended `plan.md` before moving it
 7. **Move the plan folder** from `plans/replanning/<name>/` → `plans/ready/<name>/`
 
+## Bug consumption
+
+When the plan being created is a fix for a tracked bug:
+
+1. **Ask the user** (if not already clear) — "Is this fixing a tracked bug? If so, which BUG-NNN?"
+2. **Read the bug's `bug.md`** in `bugs/open/BUG-NNN-<slug>/`
+3. **Update `bug.md`**:
+   - Set `Status` to `Triaged`
+   - Set `Plan` to the plan folder path (e.g. `plans/ready/fix-login-crash/`)
+4. **Move the bug folder** from `bugs/open/BUG-NNN-<slug>/` → `bugs/triaged/BUG-NNN-<slug>/`
+5. **Link back in `plan.md`** — add to the Goal section: `> **Bug:** BUG-NNN — <title>`
+
+If no bug is linked, skip this step.
+
 ## On startup
 
 Check `plans/replanning/` first — escalated findings have higher priority than new briefs. If any plans are there, present them to the user. Otherwise, read `plans/briefs/INDEX.md` to see what briefs are at `Decided` status.
@@ -117,7 +132,7 @@ Check `plans/replanning/` first — escalated findings have higher priority than
 
 After the plan is approved and moved to `ready/`, commit:
 ```
-git add plans/drafts/ plans/ready/ plans/replanning/ plans/briefs/
+git add plans/drafts/ plans/ready/ plans/replanning/ plans/briefs/ bugs/
 git commit -m "spec: <feature-name> — plan ready"
 ```
 

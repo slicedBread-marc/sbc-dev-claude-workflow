@@ -132,6 +132,11 @@ else
     echo -e "${YELLOW}  local_deploy_command not set — skipping local env install${NC}"
 fi
 
+# Stamp workflow version into the target project
+WORKFLOW_VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+echo "$WORKFLOW_VERSION" > "$TARGET_DIR/.claude/workflow-version"
+echo -e "${GREEN}  Stamped workflow version $WORKFLOW_VERSION → .claude/workflow-version${NC}"
+
 # Always overwrite .claude/workflow.md (the referenced file — keeps it current on every deploy)
 WORKFLOW_MD="$TARGET_DIR/.claude/workflow.md"
 sed -e "s|{{build_command}}|$BUILD_CMD|g" \

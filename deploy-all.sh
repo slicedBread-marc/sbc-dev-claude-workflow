@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOYMENTS_FILE="$SCRIPT_DIR/deployments.txt"
+VERSION_FILE="$SCRIPT_DIR/VERSION"
 
 # Colors
 GREEN='\033[0;32m'
@@ -10,8 +11,12 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+current=$(cat "$VERSION_FILE" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+
 echo "claude-workflow deploy-all"
 echo "=========================="
+echo ""
+echo "Deploying workflow v$current"
 echo ""
 
 # ── Local deployments ────────────────────────────────────────────────────────
@@ -38,7 +43,7 @@ else
         fi
 
         if bash "$SCRIPT_DIR/install.sh" "$project_path"; then
-            echo -e "  ${GREEN}Updated${NC}"
+            echo -e "  ${GREEN}Updated to v$current${NC}"
             ((LOCAL_COUNT++)) || true
         else
             echo -e "  ${RED}Failed${NC}"
@@ -55,8 +60,3 @@ fi
 
 # ── GitHub deployment ─────────────────────────────────────────────────────────
 # TODO: not yet implemented
-# Intended to push updated skills to a GitHub repo or release so that
-# projects cloning the workflow can pull updates via git.
-#
-# echo "→ GitHub"
-# echo -e "  ${YELLOW}GitHub deployment not yet implemented — skipping${NC}"

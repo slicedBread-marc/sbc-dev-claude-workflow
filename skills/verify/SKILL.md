@@ -80,11 +80,24 @@ Use `Open` for everything else: bugs, missing tests, convention violations, perf
 
 After running all checks and verifying all fixes:
 
-- **No `Open` or `Fixed` findings remain, no `Escalated`** → update `plan.md` Status to `Complete`, then move folder from `plans/verify/<name>/` → `plans/complete/<name>/`
+- **No `Open` or `Fixed` findings remain, no `Escalated`** → update `plan.md` Status to `Complete`, then move folder from `plans/verify/<name>/` → `plans/complete/<name>/`; then **close the linked bug** if one exists (see [Bug closing](#bug-closing))
 - **Any new `Open` findings** → update `plan.md` Status to `Verifying` (already claimed); folder stays in `plans/verify/`; the implementer will pick it up
 - **Any `Escalated` findings** → update `plan.md` Status to `Replanning`, then move folder from `plans/verify/<name>/` → `plans/replanning/<name>/`; the planner will pick it up
 - **Any `Fixed` findings that fail re-verification** → set back to `Open` with a note in `findings.md`
 - A plan with both `Open` and `Escalated` findings should move to `plans/replanning/` — the planner will address the design issues first, then the implementer will fix the rest
+
+## Bug closing
+
+When a plan reaches `Complete` and `plan.md` contains a `**Bug:**` line in the Goal section:
+
+1. **Parse the bug reference** — extract the BUG-NNN ID and slug
+2. **Read `bug.md`** in `bugs/triaged/BUG-NNN-<slug>/`
+3. **Update `bug.md`**:
+   - Set `Status` to `Closed`
+   - Add a note under `## Notes`: `Closed YYYY-MM-DD — fixed by plan: <plan-folder-path>`
+4. **Move the bug folder** from `bugs/triaged/BUG-NNN-<slug>/` → `bugs/closed/BUG-NNN-<slug>/`
+
+If no bug is linked, skip this step.
 
 ## Severity Guide
 
@@ -108,6 +121,6 @@ Check `plans/verify/` for plan folders to verify. Ask the user which one if mult
 
 After writing findings or completing verification, commit:
 ```
-git add plans/verify/ plans/complete/ plans/replanning/
+git add plans/verify/ plans/complete/ plans/replanning/ bugs/
 git commit -m "verify: <feature-name> — <N open findings|clean, complete>"
 ```
