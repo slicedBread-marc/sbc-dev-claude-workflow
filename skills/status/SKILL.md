@@ -45,10 +45,15 @@ Check for briefs at `Decided` status — these are ready to become implementatio
 Check for briefs at `Exploring` or `Idea` status.
 
 ### 8. Open bugs (`bugs/open/`)
-List bug folders with their ID, title, and severity. These have not yet been linked to a plan.
+For each bug folder, read `bug.md` and list:
+- BUG-NNN (Severity) — Title
+- 1-2 line summary from the Description
+- Any key reproduction step
 
 ### 9. Triaged bugs (`bugs/triaged/`)
-List bug folders with their ID, title, and linked plan. These are actively being worked.
+For each bug folder, read `bug.md` and list:
+- BUG-NNN (Severity) — Title → linked to [plan folder path]
+- 1-2 line summary from the Description
 
 ### 10. Completed work (`plans/complete/`)
 Count completed plan folders (don't list details unless asked).
@@ -85,7 +90,12 @@ If any exist, list them with the rollback reason from Amendments. These are info
 
 ### Bugs
 - BUG-001 (High) — Login crashes on empty password [open]
+  Description: User submits login form with empty password field
+  Repro: 1. Clear password field, 2. Click submit
+
 - BUG-002 (Critical) — Payment webhook timeout → linked to plans/ready/fix-webhook-timeout [triaged]
+  Description: Stripe webhook handler times out after 30 seconds on high-volume days
+  Blocking: ~5 failed transactions per incident
 
 ### Done
 - 3 completed plans
