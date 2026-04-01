@@ -28,7 +28,7 @@ For each plan folder in `verify/`, read `findings.md`. If any findings have stat
 For each plan folder in `replanning/`, read `findings.md` and list the `Escalated` findings. These require a planner session — they cannot be fixed by the implementer.
 
 ### 3. Plans ready to implement (`plans/ready/`)
-List any plan folders waiting for an implementer.
+List any plan folders waiting for an implementer. Check each `plan.md` Status field — if Status is `Active` or `Verifying`, the plan has been claimed by another session; note it as in-progress rather than available.
 
 ### 4. Plans being implemented (`plans/active/`)
 List active plan folders and read their `progress.md` to show current step.

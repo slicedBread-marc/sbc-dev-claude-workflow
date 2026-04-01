@@ -35,18 +35,20 @@ plans/verify/    → move here when done
 
 ### New implementation (plan folder is in `ready/`)
 
-1. **Move the plan folder** from `plans/ready/<name>/` → `plans/active/<name>/`
-2. **Read `plan.md`** — understand the goal, design decisions, and all steps
+1. **Claim the plan** — before moving, update `plan.md`: set Status to `Active` and fill in `Implementing session` with today's date and a brief session identifier (e.g. `2026-04-01 — implement session`)
+2. **Move the plan folder** from `plans/ready/<name>/` → `plans/active/<name>/`
+3. **Read `plan.md`** — understand the goal, design decisions, and all steps
 3. **Execute steps in order** — follow each step exactly as specified
 4. **Write tests** — implement all tests listed in the Tests table
 5. **Check off steps** — mark each step's checkbox in `progress.md` when done
 6. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
 7. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
-8. **When all steps complete** — move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`
+8. **When all steps complete** — update `plan.md` Status to `Verifying`, then move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`
 
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
 
-1. **Move the plan folder** from `plans/verify/<name>/` → `plans/active/<name>/`
+1. **Claim the plan** — before moving, update `plan.md`: set Status to `Active` and update `Implementing session` with today's date
+2. **Move the plan folder** from `plans/verify/<name>/` → `plans/active/<name>/`
 2. **Read `findings.md`** — look for rows with status `Open`
 3. **Ignore `Escalated` findings** — these require a planner, not an implementer. Do not attempt to fix them.
 4. **Fix each `Open` finding** — address the issue described, using the file paths and line numbers provided

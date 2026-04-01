@@ -39,7 +39,8 @@ plans/complete/    → all findings resolved (you move here when queue is clean)
 ## What you do
 
 1. **Pick a plan folder** from `plans/verify/`
-2. **Read `plan.md`** — understand the goal, steps, design decisions, and verification checklist
+2. **Claim the plan** — before doing any work, update `plan.md`: set Status to `Verifying` and fill in `Verifying session` with today's date and a brief session identifier (e.g. `2026-04-01 — verify session`)
+3. **Read `plan.md`** — understand the goal, steps, design decisions, and verification checklist
 3. **Read `findings.md`** — review any existing findings and their status
 4. **Spawn parallel agents** to run checks:
    - Build agent (haiku): run build, report errors/warnings
@@ -79,9 +80,9 @@ Use `Open` for everything else: bugs, missing tests, convention violations, perf
 
 After running all checks and verifying all fixes:
 
-- **No `Open` or `Fixed` findings remain, no `Escalated`** → move plan folder from `plans/verify/<name>/` → `plans/complete/<name>/`
-- **Any new `Open` findings** → plan folder stays in `plans/verify/`; the implementer will pick it up
-- **Any `Escalated` findings** → move plan folder from `plans/verify/<name>/` → `plans/replanning/<name>/`; the planner will pick it up
+- **No `Open` or `Fixed` findings remain, no `Escalated`** → update `plan.md` Status to `Complete`, then move folder from `plans/verify/<name>/` → `plans/complete/<name>/`
+- **Any new `Open` findings** → update `plan.md` Status to `Verifying` (already claimed); folder stays in `plans/verify/`; the implementer will pick it up
+- **Any `Escalated` findings** → update `plan.md` Status to `Replanning`, then move folder from `plans/verify/<name>/` → `plans/replanning/<name>/`; the planner will pick it up
 - **Any `Fixed` findings that fail re-verification** → set back to `Open` with a note in `findings.md`
 - A plan with both `Open` and `Escalated` findings should move to `plans/replanning/` — the planner will address the design issues first, then the implementer will fix the rest
 
