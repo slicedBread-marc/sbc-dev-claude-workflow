@@ -57,16 +57,21 @@ Ask the user: **"What would you like to plan? Pick a bug number (BUG-NNN), a bri
 If the user picks a bug BUG-NNN:
 
 1. **Read the bug** — read `bugs/open/BUG-NNN-<slug>/bug.md`
-2. **Use it as context** — the bug's description, steps, and expected behavior become the plan's Goal and acceptance criteria
-3. **Treat it like a brief** — proceed with step 1 below, but the scope is defined by fixing the bug, not a separate brief
-4. The bug consumption happens in step 11 (see [Bug consumption](#bug-consumption) below)
+2. **Extract the bug ID** — save BUG-NNN for use in the plan folder name
+3. **Use it as context** — the bug's description, steps, and expected behavior become the plan's Goal and acceptance criteria
+4. **Choose a feature name** — a short kebab-case slug describing the fix (e.g. `login-crash`, `webhook-timeout`)
+5. **Construct the plan folder name** — use `bug-NNN-<slug>` (e.g. `bug-003-login-crash`) so the bug linkage is visible in the folder structure
+6. **Treat it like a brief** — proceed with step 1 below, but the scope is defined by fixing the bug, not a separate brief
+7. The bug consumption happens in step 11 (see [Bug consumption](#bug-consumption) below)
 
 ## What you do
 
 1. **Read the input** — if from a brief: read the relevant brief in `plans/briefs/`; if from a bug: the bug's `bug.md` becomes the scope definition
-2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`). This becomes the folder name.
+2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `login-crash`). If from a bug, prefix with `bug-NNN-` (e.g. `bug-003-login-crash`).
 3. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
 4. **Create the plan folder** — `plans/drafts/<feature-name>/` with three files following `plans/TEMPLATE.md`:
+   - For briefs: `plans/drafts/<slug>/` (e.g. `plans/drafts/user-auth/`)
+   - For bugs: `plans/drafts/bug-NNN-<slug>/` (e.g. `plans/drafts/bug-003-login-crash/`)
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty findings table with header
    - `progress.md` — step list (copied from plan steps), empty log
@@ -166,7 +171,7 @@ When the plan being created is a fix for a tracked bug (either from "Plan from b
 
 1. **Update the bug's `bug.md`** in `bugs/open/BUG-NNN-<slug>/`:
    - Set `Status` to `Triaged`
-   - Set `Plan` to the plan folder path (e.g. `plans/ready/fix-login-crash/`)
+   - Set `Plan` to the plan folder path (e.g. `plans/ready/bug-003-login-crash/`)
 2. **Move the bug folder** from `bugs/open/BUG-NNN-<slug>/` → `bugs/triaged/BUG-NNN-<slug>/`
 3. **Link back in `plan.md`** — add to the Goal section: `> **Bug:** BUG-NNN — <title>`
 
@@ -181,6 +186,7 @@ After the plan is approved and moved to `ready/`, commit:
 git add plans/drafts/ plans/ready/ plans/replanning/ plans/briefs/ bugs/
 git commit -m "spec: <feature-name> — plan ready"
 ```
+(For bug fixes, `<feature-name>` includes the bug prefix: `bug-003-login-crash`)
 
 For replanning, use:
 ```
