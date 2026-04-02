@@ -18,7 +18,7 @@ Display the 4-terminal pipeline:
 develop (T1, T2)                           feature/ (T3, T4)               release, main
   - Plans only                             - Code only                     - Ship it
   
-  T1: Intake          T2: Planner                T3/T4: Worktree
+  T1: Intake 🔵      T2: Planner 🟢             T3/T4: Worktree
   (/wf-status,        (/wf-spec)                 (/wf-implement, /wf-verify, /wf-test)
   /wf-brainstorm,           │                            │
   /wf-bug)                  └─→ [ready/] ←──────────────┤
@@ -26,8 +26,11 @@ develop (T1, T2)                           feature/ (T3, T4)               relea
                                    └──→ [active/] ←──────┘
                                            │
                                            └──→ [verify/] ──→ [human test] ──→ [release PR]
+                                           
+  T3: Builder 🟡     T4: Validator 🟣
+  (/wf-implement)    (/wf-verify, /wf-test)
                                                                                     │
-                                                                           (T5 validates staging)
+                                                                           (staging validation)
                                                                                     │
                                                                            /wf-release: main → complete
 ```
@@ -38,10 +41,10 @@ Then say: "Run `/wf-help` anytime to see the full strategy."
 
 ```
 Which terminal are you?
-1) T1 — Intake (/wf-status, /wf-brainstorm, /wf-bug) [Sonnet]
-2) T2 — Planner (/wf-spec) [Opus]
-3) T3 — Builder (/wf-implement loop) [Opus]
-4) T4 — Validator (/wf-verify loop) [Sonnet]
+1) T1 — Intake 🔵 (/wf-status, /wf-brainstorm, /wf-bug) [Sonnet]
+2) T2 — Planner 🟢 (/wf-spec) [Opus]
+3) T3 — Builder 🟡 (/wf-implement loop) [Opus]
+4) T4 — Validator 🟣 (/wf-verify loop) [Sonnet]
 ```
 
 Wait for user input (1–4).
@@ -50,23 +53,23 @@ Wait for user input (1–4).
 
 Based on selection, show:
 ```
-✓ You are T2 (Builder)
+✓ You are T2 (Planner) 🟢
 ✓ Model: Opus 4.6
 ✓ Command: /model opus
 
 What you'll do:
-  • /loop 2m /wf-implement
-  • Auto-picks plans from plans/ready/
-  • Executes steps, writes tests, commits
-  • Moves completed plans to verify/
+  • /wf-spec to convert briefs to plans
+  • Review and approve implementation
+  • Move plans to ready/ queue
+  • Keep T3 fed with work
 ```
 
 Set the terminal role for `/wf-next`:
 ```bash
-export TERMINAL_ROLE="T2 — Builder"
+export TERMINAL_ROLE="T2 — Planner"
 ```
 
-(Replace with your role: "T1 — Intake", "T3 — Builder", or "T4 — Validator")
+(Replace with your role: "T1 — Intake", "T2 — Planner", "T3 — Builder", or "T4 — Validator")
 
 Then run:
 ```bash
@@ -193,7 +196,7 @@ Run /wf-help to understand the flow.
 ```
 ═══════════════════════════════════════════════════════════════════════════
 Session: 2026-04-02-1743868195
-Terminal: T2 (Builder)
+Terminal: T2 (Planner) 🟢
 Model: Opus 4.6
 Logging: Enabled → .logs/workflow.log
 
