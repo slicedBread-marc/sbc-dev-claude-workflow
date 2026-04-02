@@ -59,14 +59,21 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 3. **Read the plan**:
    - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `findings.md` to understand any existing findings
-4. **Deploy to local container**:
+4. **Set the feature port** — calculate it from the plan folder name so the app runs on a unique port:
+   ```bash
+   PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
+   PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
+   FEATURE_PORT=$((8000 + PLAN_ID))
+   export FEATURE_PORT COMPOSE_PROJECT_NAME="sbc-$PLAN_FOLDER"
+   ```
+5. **Deploy to local container**:
    ```bash
    docker compose -f docker/docker-compose.yml up --build -d
    ```
    Wait for health check pass (app should be ready within 10 seconds)
-5. **Ask testing mode**:
+6. **Ask testing mode**:
    ```
-   ✓ App is running at http://localhost:8080
+   ✓ App is running at http://localhost:$FEATURE_PORT (e.g., http://localhost:8004 for PLN-004)
    
    How would you like to test?
    [each] - Walk through each criterion individually
@@ -259,6 +266,8 @@ git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
 
 ## Notes
 
-- **Container port:** App runs on 8080 (http://localhost:8080)
-- **Health check endpoint:** `http://localhost:8080/health`
+- **Container port:** Unique per feature (8000 + plan ID). For PLN-004 → 8004, PLN-012 → 8012. Calculated in step 4.
+- **Health check endpoint:** `http://localhost:$FEATURE_PORT/health`
+- **Project name:** `sbc-PLN-NNN-<name>` (set in step 4)
 - **Environment:** Development (localhost testing)
+- **Port collisions:** Avoided by using plan ID-based port assignment. Staging uses port 8081 (never collides).

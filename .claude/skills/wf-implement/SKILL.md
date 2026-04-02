@@ -87,14 +87,24 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    cd feature-branches/PLN-NNN-<plan-name>
    ```
 8. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/PLN-NNN-<plan-name>`, not `develop`.
-9. **Set the Docker project name** — export it as an environment variable so all docker compose commands use the same isolated container:
+9. **Set the Docker project name and port** — export both as environment variables so all docker compose commands use an isolated container on a unique port:
    ```bash
    PLAN_FOLDER=$(basename $(ls -d plans/active/PLN-*/ | head -1) | tr -d '/')
+   # Extract the plan ID number (e.g., "004" from "PLN-004-deployment-date-footer")
+   PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
+   # Calculate port: 8000 + NNN (e.g., PLN-004 → 8004, PLN-012 → 8012)
+   FEATURE_PORT=$((8000 + PLAN_ID))
    export COMPOSE_PROJECT_NAME="sbc-$PLAN_FOLDER"
+   export FEATURE_PORT
    ```
-   This ensures all `docker compose up` commands in the plan steps will create a container named `sbc-PLN-NNN-<name>`, not interfering with `sbc-staging` or other features.
+   This ensures:
+   - Container name: `sbc-PLN-NNN-<name>` (isolated from `sbc-staging`)
+   - Port: 8000 + plan ID (e.g., PLN-004 → 8004, PLN-012 → 8012) — no collisions between features
+   - All `docker compose up` commands in plan steps use these values automatically
 10. **Read `plan.md`** — understand the goal, design decisions, and all steps
-11. **Execute steps in order** — follow each step exactly as specified. Any `docker compose up` commands will automatically use the isolated project name.
+11. **Execute steps in order** — follow each step exactly as specified. Update any `docker compose up` commands to use the port variable:
+    - If the plan includes `docker compose up`, ensure it maps `$FEATURE_PORT:8080` (or adjust internal port as needed): `docker compose -f docker/docker-compose.yml up --build -d` (ports are controlled via `docker-compose.yml` using `${FEATURE_PORT:-8080}:8080`)
+    - The project name is already set, so no need to add `--project-name` flags
 12. **Write tests** — implement all tests listed in the Tests table
 13. **Check off steps** — mark each step's checkbox in `progress.md` when done
 14. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
@@ -248,6 +258,22 @@ The workflow is:
 4. **If a plan in `verify/` has `Open` findings:**
    - Ask if user wants to fix those findings (fix cycle)
    - Move to active/, fix findings, then move back to verify/
+
+## Docker port configuration
+
+For feature branches to use unique ports (8000 + plan ID), `docker-compose.yml` must reference the `FEATURE_PORT` environment variable:
+
+```yaml
+services:
+  web:
+    ports:
+      - "${FEATURE_PORT:-8080}:8080"  # Default 8080 if FEATURE_PORT not set; otherwise use the env var (e.g., 8004)
+```
+
+This allows:
+- Feature branches: automatic port assignment based on plan ID
+- Staging (wf-stage): hardcoded port 8081 (via `--project-name sbc-staging` in stage-start.sh)
+- Local development: default 8080 when `FEATURE_PORT` is not set
 
 ## Committing work
 
