@@ -86,19 +86,36 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 
 7. **If mode = [each]**: For each acceptance criterion in the Verification Checklist**:
    - Display the criterion clearly
-   - Ask user: `[pass/fail/skip/bug]`
-   - If **pass**: note it and continue to next criterion
-   - If **bug**: mark criterion as pass, then file a pre-existing bug (see "Filing a bug during testing" below)
-   - If **fail**: capture the description: "What didn't work?"
-     - Ask user: **"Is this a bug in this feature, or a pre-existing bug we discovered?"**
-     - **Feature bug:** add finding to `findings.md` and stop testing:
+   - **Let the user describe what they see** — don't force a rigid [pass/fail/skip/bug] prompt. Accept natural descriptions like "this works", "it's broken because...", "I also noticed...", etc.
+   - Interpret their response and classify:
+     - **Pass**: note it and continue to next criterion
+     - **Fail**: capture the user's description, write finding to `findings.md`:
        ```
        | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
        ```
-       Display: "Findings written. Run `/wf-implement` to fix. Then re-run `/wf-test`."
-     - **Pre-existing bug:** follow "Filing a bug during testing" workflow below
-   - If **skip**: note it and continue (user may skip non-critical items)
-8. **If all pass**:
+       **Do NOT stop testing.** Ask: "Want to add more details, continue to the next criterion, or stop testing?"
+     - **Additional observation**: the user may add context to the current finding (e.g., "also, if I hit back I'm still logged in"). Append to the existing finding's description.
+     - **Skip**: note it and continue (user may skip non-critical items)
+8. **When testing completes** (all criteria reviewed, or user says to stop):
+   - If **any findings were written**: commit findings, display summary, and recommend next steps:
+     ```bash
+     git add plans/verify/
+     git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
+     ```
+     Display:
+     ```
+     ✗ Human test: N findings written to findings.md
+     
+     Findings:
+     - FND-001: <description>
+     - FND-002: <description>
+     
+     Next: Run /wf-implement to fix findings. Then re-run /wf-test.
+     To file formal bugs on develop: run /wf-bug after returning to develop.
+     ```
+     Then proceed to step 10 (destroy container).
+
+9. **If all pass**:
    - Update `plan.md`: set Status to `Tested`
    - Plan stays in `verify/` (no folder move — only wf-release moves to complete/)
    - Commit the status update:
@@ -144,7 +161,7 @@ Solution: Test sequentially. After testing completes, the container is destroyed
      fi
      ```
 
-10. **Destroy the container** (whether tests pass or fail):
+11. **Destroy the container** (whether tests pass or fail):
    ```bash
    # Use the same project name that was set during deploy to ensure correct container is stopped
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ 2>/dev/null || ls -d plans/replanning/PLN-*/ 2>/dev/null | head -1) | tr -d '/')
@@ -161,44 +178,32 @@ Solution: Test sequentially. After testing completes, the container is destroyed
    ```
    This removes the container and volumes to keep the worktree clean. Uses explicit project name to ensure the correct container is stopped, with fallback force-kill if compose down fails.
 
-## Filing a bug during testing
+## Handling failures and bugs during testing
 
-When you select [bug] for a passing criterion, or [fail → discovered bug]:
+**All findings are written to `findings.md` immediately.** Never break the testing context to file bugs — that happens after testing completes.
 
-**Scenario A: Pre-existing bug referenced in plan Goal**
-- Criterion tests something that relates to a bug mentioned in the plan
-- The bug is on develop (not in feature branch)
-- Simply add a finding referencing it:
+**Feature failure** (criterion doesn't pass):
+- Write finding to `findings.md` with the user's description
+- Let the user add more details if they want
+- Continue testing unless user says to stop
+
+**Pre-existing bug referenced in plan Goal:**
+- Add a finding noting the pre-existing bug:
   ```
   | FND-NNN | human-test | Note | External | <test result> (BUG-005) | — | Open |
   ```
-- Continue testing remaining criteria
+- Continue testing
 
-**Scenario B: New bug discovered during testing**
-- You find a bug that's NOT mentioned in the plan Goal
-- This is a previously unknown issue
-- File it on develop:
-
-1. Display:
-   ```
-   ⚠️  New bug discovered.
-   
-   Run /wf-bug to file it. The tool will:
-   - Switch to develop branch
-   - Create bug in bugs/open/BUG-NNN-<slug>/
-   - Assign it a globally unique BUG-NNN number
-   - Commit and push to develop
-   - Switch back to your feature branch
-   
-   After filing, provide the BUG-NNN ID so we can reference it.
-   ```
-2. Wait for user to run `/wf-bug` and provide the BUG-NNN ID
-3. Add finding referencing the newly-filed bug:
-   ```
-   | FND-NNN | human-test | Warning | Behavior | <description> (BUG-NNN) | — | Open |
-   ```
-4. Continue testing remaining criteria
-
+**New bug discovered during testing:**
+- Write finding immediately — don't defer to `/wf-bug`:
+  ```
+  | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
+  ```
+- Continue testing
+- After testing completes (step 10), display any findings that need bug filing:
+  ```
+  Findings written. To file formal bugs on develop, run /wf-bug after testing.
+  ```
 
 ## Testing modes and prompts
 
@@ -206,13 +211,11 @@ When you select [bug] for a passing criterion, or [fail → discovered bug]:
 - `[each]` — walk through each criterion individually, one by one
 - `[all]` — pass all criteria at once (assume they all passed, skip to completion)
 
-**Per-criterion prompts** (if mode = [each], step 8):
-- `[pass]` — criterion passed, continue to next
-- `[fail]` — criterion failed, ask if feature bug or discovered bug
-  - Feature bug: add finding, stop testing, tell implementer to fix
-  - Discovered bug: run `/wf-bug` to file on develop, return with BUG-NNN, add finding, continue
-- `[skip]` — skip this criterion, continue to next (for non-critical items)
-- `[bug]` — criterion passed, but discovered an unrelated bug (run `/wf-bug` to file it, get BUG-NNN, add finding, continue)
+**Per-criterion interaction** (if mode = [each], step 7):
+- Accept natural descriptions from the user — don't force rigid prompts
+- Classify responses as pass/fail/skip and write findings for failures
+- Let user add details to findings before moving on
+- Never stop testing unless the user explicitly asks to stop
 
 ## Acceptance criteria format
 
@@ -229,14 +232,16 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 ## Rules
 
 - **Do NOT** edit source code — only read plan.md and update plan status/findings
-- **Do NOT** skip user input — always confirm pass/fail/skip/bug for each criterion
+- **Do NOT** skip user input — let the user describe what they see for each criterion
+- **Do NOT** break testing context — write findings immediately, never tell user to switch branches mid-test
+- **Accept natural language** — don't force rigid [pass/fail/skip/bug] prompts. Interpret the user's description.
+- **Let users add details** — if a user provides additional context about a finding, append it to the existing finding's description
 - **Trust the plan's Goal section** — if a bug is mentioned there (e.g., `**Bug:** BUG-005`), it's the source of truth. Don't look for bugs/folder (it's not in feature branch).
-- **New bugs are filed on develop** — use `/wf-bug` to file discovered bugs globally. You'll get a unique BUG-NNN that survives the branch merge.
-- **Reference bugs in findings** — format: `(BUG-NNN)` at the end of the description. Works for both pre-existing and newly-filed bugs.
+- **Bug filing happens after testing** — findings are written to `findings.md` during testing. Formal bug reports on develop (`/wf-bug`) are filed after testing completes, not during.
 - Severity for human-test findings should be `Warning` (not Critical)
 - If a finding blocks later work, user can move it to Critical during `/wf-implement` fix cycle
-- **Container cleanup is automatic** — the Docker container and volumes are destroyed at the end of testing (step 10), so the worktree stays clean
-- **One testing worktree at a time** — only one feature branch should test simultaneously (all use port 8080)
+- **Container cleanup is automatic** — the Docker container and volumes are destroyed at the end of testing (step 11), so the worktree stays clean
+- **One testing worktree at a time** — only one feature branch should test simultaneously (each uses unique port from step 4)
 
 ## On startup
 

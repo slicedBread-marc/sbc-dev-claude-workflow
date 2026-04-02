@@ -125,7 +125,21 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 15. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
    - After each step, commit: `git add src/,tests/ plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
 
-16. **Launch build and test agents in background** — spawn these immediately so they run in parallel with code review:
+16. **Deploy to local container for testing** — build and start the container using the isolated project name and port from step 9:
+   ```bash
+   docker compose -f docker/docker-compose.yml up --build -d
+   ```
+   Wait for health check to pass:
+   ```bash
+   # Poll until healthy (up to 60 seconds)
+   for i in $(seq 1 12); do
+     wget --no-verbose --tries=1 --spider "http://localhost:$FEATURE_PORT/health" 2>/dev/null && break
+     sleep 5
+   done
+   ```
+   The container runs at `http://localhost:$FEATURE_PORT` (e.g., `http://localhost:8104` for PLN-004) with project name `$COMPOSE_PROJECT_NAME` (e.g., `sbc-pln004`). Both were exported in step 9.
+
+17. **Launch build and test agents in background** — spawn these immediately so they run in parallel with code review:
    ```
    # Launch all three in parallel as background agents:
    Agent(model: haiku, run_in_background: true, prompt:
@@ -145,16 +159,16 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
       Report: pass or fail. If fail, include the error output.
       Final response under 1000 characters.")
    ```
-   These agents run in background while you proceed to code and architecture review (steps 17-18). You will be notified when they complete — do NOT wait for them.
+   These agents run in background while you proceed to code and architecture review (steps 18-19). You will be notified when they complete — do NOT wait for them.
 
-17. **Code review** (while agents run) — review the implementation for correctness:
+18. **Code review** (while agents run) — review the implementation for correctness:
    - Read through all changed source files
    - Verify logic matches the plan's design decisions
    - Check for edge cases, error handling
    - Ensure no debugging code, console.logs, or temporary hacks remain
    - If issues found, log them in `progress.md` and fix before proceeding
 
-18. **Architecture review** (while agents run) — verify design decisions still hold:
+19. **Architecture review** (while agents run) — verify design decisions still hold:
    - Re-read the plan's "Design Decisions" section
    - Confirm the implementation follows those decisions
    - Check if any assumptions from the plan have changed
@@ -170,24 +184,24 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
         git mv plans/active/PLN-NNN-<name> plans/replanning/PLN-NNN-<name>
         git commit -m "implement(PLN-NNN-<name>): escalated findings, needs replanning"
         ```
-     4. Destroy the docker container (step 21) and return to develop (Phase 3)
+     4. Destroy the docker container (step 22) and return to develop (Phase 3)
      5. Display: "Design issue found. Run `/wf-spec` to amend the plan."
    - If issues are minor (code-level fixes), fix them and note in `progress.md`
 
-19. **Collect agent results** — by now the background agents should have completed. Check each result:
+20. **Collect agent results** — by now the background agents should have completed. Check each result:
    - **Build agent:** If build failed, fix errors and re-run build inline before proceeding
    - **Test agent:** If tests failed, fix failures and re-run tests inline. All tests must pass.
    - **E2E agent:** If E2E tests failed, fix and re-run inline. All must pass.
    - Log results in `progress.md`: `[date] Build: pass | Tests: N passed, 0 failed | E2E: pass`
-   - If code review (step 17) found issues that required fixes, re-launch a haiku build+test agent to verify the fixes didn't break anything
+   - If code review (step 18) found issues that required fixes, re-launch a haiku build+test agent to verify the fixes didn't break anything
 
-20. **When all steps, reviews, and tests pass** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
+21. **When all steps, reviews, and tests pass** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
    ```
    git mv plans/active/PLN-NNN-<name> plans/verify/PLN-NNN-<name>
    git commit -m "implement(PLN-NNN-<name>): all steps complete, verified, ready for human test"
    ```
 
-21. **Destroy the docker container** — clean up before leaving the worktree:
+22. **Destroy the docker container** — clean up before leaving the worktree:
    ```bash
    # Extract plan ID from the verified plan folder
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
@@ -206,7 +220,7 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 **Phase 3: Cleanup (return to `develop`)**
 
-22. **Return to develop directory**:
+23. **Return to develop directory**:
    ```bash
    # Detect worktree structure and return to sbc accordingly
    if [ -f "../../.dockerignore" ]; then
@@ -221,7 +235,7 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    fi
    ```
 
-23. **Post completion message** — display:
+24. **Post completion message** — display:
    ```
    ✓ Implementation complete — all steps, code review, architecture review, and E2E tests passed
    ✓ Plan moved to verify/ with Status: Verified
@@ -292,6 +306,7 @@ The workflow is:
     → Phase 1: lock plan, create worktree
     → Phase 2 (in worktree):
        - Code all implementation steps
+       - Deploy container for testing
        - Launch build/test agents in background
        - Code review + architecture review (parallel with agents)
        - Collect agent results, fix any failures
