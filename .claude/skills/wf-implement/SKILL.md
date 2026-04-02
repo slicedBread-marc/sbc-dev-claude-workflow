@@ -1,13 +1,13 @@
 ---
 name: wf-implement
-description: Execute a ready plan from start to finish. Creates feature branch and worktree, codes all steps, moves to verify/, and returns to develop. Seamless single-invocation workflow.
+description: Execute a ready plan from start to finish. Creates feature branch and worktree, codes all steps, performs code and architecture review, runs E2E tests, moves to verify/, and returns to develop. Seamless single-invocation workflow.
 user_invocable: true
 model: opus
 ---
 
 # Implementer Role
 
-You are in **implementer mode**. Your job is to execute an implementation plan precisely: lock the plan, create a worktree, code all steps, move to verify/, and return to develop. You also fix findings from review or verification.
+You are in **implementer mode**. Your job is to execute an implementation plan precisely: lock the plan, create a worktree, code all steps, perform code and architecture review, run E2E tests, move to verify/, and return to develop. You also fix findings from review or verification.
 
 ## Model guidance
 This skill should run on **opus**. Code generation requires the highest accuracy to avoid rework.
@@ -94,13 +94,34 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 13. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
 14. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
    - After each step, commit: `git add src/,tests/ plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
-15. **When all steps complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+
+15. **Code review** — review the implementation for correctness:
+   - Read through all changed source files
+   - Verify logic matches the plan's design decisions
+   - Check for edge cases, error handling
+   - Ensure no debugging code, console.logs, or temporary hacks remain
+   - If issues found, log them in `progress.md` and fix before proceeding
+
+16. **Architecture review** — verify design decisions still hold:
+   - Re-read the plan's "Design Decisions" section
+   - Confirm the implementation follows those decisions
+   - Check if any assumptions from the plan have changed
+   - Verify no unintended cross-module dependencies were introduced
+   - If scope changes needed, note in `progress.md` (findings will be escalated later)
+
+17. **Run E2E tests** — execute any end-to-end tests listed in the Tests table:
+   - Look for rows with `Type: E2E` in the Tests table
+   - Run each E2E test command from the plan
+   - All E2E tests must pass before proceeding
+   - Log results in `progress.md`: `[date] E2E tests: all passing`
+
+18. **When all steps, reviews, and E2E tests complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
    ```
    git mv plans/active/<name> plans/verify/<name>
    git commit -m "implement(<feature-name>): all steps complete, moving to verify"
    ```
 
-16. **Destroy the docker container** — clean up before leaving the worktree:
+19. **Destroy the docker container** — clean up before leaving the worktree:
    ```bash
    # Extract feature name from plan folder name for consistent project naming
    FEATURE_NAME=$(basename $(ls -d plans/verify/*/ | head -1) | tr -d '/')
@@ -108,24 +129,27 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
      --project-name sbc-$FEATURE_NAME \
      down -v
    ```
-   This removes the container and volumes, keeping the worktree clean for T4's later human testing.
+   This removes the container and volumes, keeping the worktree clean for T4's later verification testing.
 
 **Phase 3: Cleanup (return to `develop`)**
 
-17. **Return to develop directory**:
+20. **Return to develop directory**:
    ```
    cd ../sbc
    ```
 
-18. **Post completion message** — display:
+21. **Post completion message** — display:
    ```
-   ✓ Implementation complete — all steps done, plan moved to verify/
+   ✓ Implementation complete — all steps, code review, architecture review, and E2E tests done
+   ✓ Plan moved to verify/
    ✓ Docker container cleaned up
    
-   NEXT: Run /wf-verify for automated checks
-         Then run /wf-test for human acceptance testing
+   T4 (Validator): Switch to the worktree for verification and human testing:
+     cd ../feature-branches/<plan-name>
+     /wf-verify       (automated verification: build, tests, quality checks)
+     /wf-test         (human acceptance testing: user-observable criteria)
    
-   When done testing, your PR will be created to the release branch.
+   When all pass, PR will be created to release branch.
    ```
 
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
@@ -164,9 +188,20 @@ The workflow is:
 (develop)
   /wf-implement
     → Phase 1: lock plan, create worktree
-    → Phase 2: cd to worktree, code all steps, move to verify/, destroy docker container
-    → Phase 3: cd back to develop
+    → Phase 2 (in worktree):
+       - Code all implementation steps
+       - Code review (correctness, edge cases)
+       - Architecture review (design decisions still hold)
+       - Run E2E tests
+       - Move plan to verify/
+       - Destroy docker container
+    → Phase 3: cd back to develop, show T4 handoff
 (develop) ✓ done
+
+(T4 takes over)
+  cd ../feature-branches/<plan-name>
+  /wf-verify (automated: build, tests, quality)
+  /wf-test (human: UX acceptance testing)
 ```
 
 **Docker project naming:** Each worktree derives its feature name from the plan folder in `plans/verify/` and uses it for the docker-compose project name: `--project-name sbc-<feature-name>`. This ensures parallel builds don't collide on ports or container names.
@@ -189,8 +224,8 @@ The workflow is:
    - Check `plans/ready/` for new plan folders to implement
    - Ask the user which one to pick up (if multiple exist)
    - Execute Phase 1 (lock plan, create worktree with isolated docker project name)
-   - Execute Phase 2 (cd to worktree, code all steps, move to verify/, destroy docker container)
-   - Execute Phase 3 (cd back to develop)
+   - Execute Phase 2 (cd to worktree, code all steps, code review, architecture review, E2E tests, move to verify/, destroy docker container)
+   - Execute Phase 3 (cd back to develop, display T4 handoff instructions)
    - Done — user is back on develop with worktree ready for T4
 3. **If on a feature branch** (e.g. `feature/site-version-indicator`):
    - Confirm the corresponding plan is in `plans/active/`
