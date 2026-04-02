@@ -64,13 +64,7 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    ```
    This creates the feature-branches folder inside sbc if needed, then creates a new feature branch FROM the current HEAD (develop, with the locked-plan commit) and a new worktree directory.
 
-6. **Clean up worktree .claude/ directory** to avoid duplicate skills:
-   ```bash
-   rm -rf feature-branches/<plan-name>/.claude/skills
-   ```
-   The worktree will inherit the symlinked skills from the parent sbc/.claude/skills, avoiding duplication.
-
-7. **Drop settings.local.json into worktree** for full write permissions:
+6. **Drop settings.local.json into worktree** for full write permissions:
    ```
    cat > feature-branches/<plan-name>/.claude/settings.local.json << 'EOF'
    {
@@ -88,46 +82,46 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 **Phase 2: Implementation (in the worktree, on feature branch)**
 
-8. **Change to worktree directory** (within the Bash session — this persists for all subsequent Phase 2 steps):
+7. **Change to worktree directory** (within the Bash session — this persists for all subsequent Phase 2 steps):
    ```
    cd feature-branches/<plan-name>
    ```
-9. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/<plan-name>`, not `develop`.
-10. **Read `plan.md`** — understand the goal, design decisions, and all steps
-11. **Execute steps in order** — follow each step exactly as specified
-12. **Write tests** — implement all tests listed in the Tests table
-13. **Check off steps** — mark each step's checkbox in `progress.md` when done
-14. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
-15. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
+8. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/<plan-name>`, not `develop`.
+9. **Read `plan.md`** — understand the goal, design decisions, and all steps
+10. **Execute steps in order** — follow each step exactly as specified
+11. **Write tests** — implement all tests listed in the Tests table
+12. **Check off steps** — mark each step's checkbox in `progress.md` when done
+13. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
+14. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
    - After each step, commit: `git add src/,tests/ plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
 
-16. **Code review** — review the implementation for correctness:
+15. **Code review** — review the implementation for correctness:
    - Read through all changed source files
    - Verify logic matches the plan's design decisions
    - Check for edge cases, error handling
    - Ensure no debugging code, console.logs, or temporary hacks remain
    - If issues found, log them in `progress.md` and fix before proceeding
 
-17. **Architecture review** — verify design decisions still hold:
+16. **Architecture review** — verify design decisions still hold:
    - Re-read the plan's "Design Decisions" section
    - Confirm the implementation follows those decisions
    - Check if any assumptions from the plan have changed
    - Verify no unintended cross-module dependencies were introduced
    - If scope changes needed, note in `progress.md` (findings will be escalated later)
 
-18. **Run E2E tests** — execute any end-to-end tests listed in the Tests table:
+17. **Run E2E tests** — execute any end-to-end tests listed in the Tests table:
    - Look for rows with `Type: E2E` in the Tests table
    - Run each E2E test command from the plan
    - All E2E tests must pass before proceeding
    - Log results in `progress.md`: `[date] E2E tests: all passing`
 
-19. **When all steps, reviews, and E2E tests complete** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+18. **When all steps, reviews, and E2E tests complete** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
    ```
    git mv plans/active/<name> plans/verify/<name>
    git commit -m "implement(<feature-name>): all steps complete, verified, ready for human test"
    ```
 
-20. **Destroy the docker container** — clean up before leaving the worktree:
+19. **Destroy the docker container** — clean up before leaving the worktree:
    ```bash
    # Extract feature name from plan folder name for consistent project naming
    FEATURE_NAME=$(basename $(ls -d plans/verify/*/ | head -1) | tr -d '/')
@@ -139,7 +133,7 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 **Phase 3: Cleanup (return to `develop`)**
 
-21. **Return to develop directory**:
+20. **Return to develop directory**:
    ```bash
    # Detect worktree structure and return to sbc accordingly
    if [ -f "../../.dockerignore" ]; then
@@ -154,7 +148,7 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    fi
    ```
 
-22. **Post completion message** — display:
+21. **Post completion message** — display:
    ```
    ✓ Implementation complete — all steps, code review, architecture review, and E2E tests verified
    ✓ Plan moved to verify/ with Status: Verified
