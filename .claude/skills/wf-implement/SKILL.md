@@ -100,15 +100,27 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    git commit -m "implement(<feature-name>): all steps complete, moving to verify"
    ```
 
+16. **Destroy the docker container** — clean up before leaving the worktree:
+   ```bash
+   # Extract feature name from plan folder name for consistent project naming
+   FEATURE_NAME=$(basename $(ls -d plans/verify/*/ | head -1) | tr -d '/')
+   docker compose -f docker/docker-compose.yml \
+     --project-name sbc-$FEATURE_NAME \
+     down -v
+   ```
+   This removes the container and volumes, keeping the worktree clean for T4's later human testing.
+
 **Phase 3: Cleanup (return to `develop`)**
 
-16. **Return to develop directory**:
+17. **Return to develop directory**:
    ```
    cd ../sbc
    ```
-17. **Post completion message** — display:
+
+18. **Post completion message** — display:
    ```
    ✓ Implementation complete — all steps done, plan moved to verify/
+   ✓ Docker container cleaned up
    
    NEXT: Run /wf-verify for automated checks
          Then run /wf-test for human acceptance testing
@@ -141,20 +153,23 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 Each plan gets its own worktree (isolated directory with its own working tree). Benefits:
 
 - **Seamless execution** — `/wf-implement` handles everything from develop without manual directory switching
-- **T3 and T4 can observe/pair** — both work in the worktree; T4 can join and monitor progress
+- **Parallel T3 builds** — multiple T3 builders can work on different features simultaneously in isolated worktrees
+- **Docker isolation** — each worktree gets its own project name (sbc-<feature-name>) preventing port/container collisions
 - **No accidental changes** — code in one feature branch won't affect develop or other features
 - **Clean git history** — each feature is a linear sequence of commits from develop
-- **Easy cleanup** — when testing completes, delete the worktree: `git worktree remove ../feature-branches/<name>`
+- **Container cleanup** — Phase 2 destroys the docker container before returning to develop, so T4 gets a fresh build for human testing
 
 The workflow is:
 ```
 (develop)
   /wf-implement
     → Phase 1: lock plan, create worktree
-    → Phase 2: cd to worktree, code all steps, move to verify/
+    → Phase 2: cd to worktree, code all steps, move to verify/, destroy docker container
     → Phase 3: cd back to develop
 (develop) ✓ done
 ```
+
+**Docker project naming:** Each worktree derives its feature name from the plan folder in `plans/verify/` and uses it for the docker-compose project name: `--project-name sbc-<feature-name>`. This ensures parallel builds don't collide on ports or container names.
 
 ## Rules
 
@@ -173,13 +188,13 @@ The workflow is:
 2. **If on `develop`:**
    - Check `plans/ready/` for new plan folders to implement
    - Ask the user which one to pick up (if multiple exist)
-   - Execute Phase 1 (lock plan, create worktree)
-   - Execute Phase 2 (cd to worktree, code all steps)
-   - Execute Phase 3 (return to develop, show completion message)
-   - Done — user is back on develop
+   - Execute Phase 1 (lock plan, create worktree with isolated docker project name)
+   - Execute Phase 2 (cd to worktree, code all steps, move to verify/, destroy docker container)
+   - Execute Phase 3 (cd back to develop)
+   - Done — user is back on develop with worktree ready for T4
 3. **If on a feature branch** (e.g. `feature/site-version-indicator`):
    - Confirm the corresponding plan is in `plans/active/`
-   - Execute Phase 2 (implementation: code the steps, starting from current step)
+   - Execute Phase 2 (code the steps, move to verify/, destroy docker container)
 4. **If a plan in `verify/` has `Open` findings:**
    - Ask if user wants to fix those findings (fix cycle)
    - Move to active/, fix findings, then move back to verify/
