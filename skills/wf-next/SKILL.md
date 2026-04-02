@@ -1,0 +1,50 @@
+---
+name: wf-next
+description: Run the next appropriate skill for your terminal role. Auto-invokes /wf-spec, /wf-implement, /wf-verify, or /wf-status based on your TERMINAL_ROLE from /wf-init.
+user_invocable: true
+model: haiku
+---
+
+# Next Skill
+
+You are in **next mode**. Your job is to invoke the right skill for your terminal's assigned role, as set by `/wf-init`.
+
+## What you do
+
+1. **Check the `TERMINAL_ROLE` environment variable** — this was exported by `/wf-init`
+2. **Parse the role** — extract T1, T2, T3, or T4
+3. **Run the appropriate skill:**
+   - **T1 (Intake):** `/loop 10m /wf-status`
+   - **T2 (Planner):** `/wf-spec` (prompt for brief selection if needed)
+   - **T3 (Builder):** `/loop 2m /wf-implement`
+   - **T4 (Validator):** `/loop 3m /wf-verify`
+
+## Special handling for T2 (Planner)
+
+Since `/wf-spec` requires choosing a brief, before invoking it:
+1. List available Decided briefs from `plans/briefs/INDEX.md`
+2. Ask the user which one to plan (or show a quick menu)
+3. Invoke `/wf-spec BRF-NNN`
+
+If no Decided briefs exist, prompt the user to run `/wf-brainstorm` first.
+
+## Error handling
+
+**If `TERMINAL_ROLE` is not set:**
+```
+✗ TERMINAL_ROLE not found.
+  Run /wf-init first to set up your terminal role.
+```
+
+**If role is unrecognized:**
+```
+✗ TERMINAL_ROLE="$TERMINAL_ROLE" not recognized.
+  Expected: T1, T2, T3, or T4.
+  Run /wf-init again to reset.
+```
+
+## Rules
+
+- **One job:** Just invoke the right skill, don't explain the flow (user knows it from /wf-init)
+- **Idempotent:** Running /wf-next multiple times just re-runs the same skill
+- **Graceful:** If TERMINAL_ROLE is missing, guide user back to /wf-init
