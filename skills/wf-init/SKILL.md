@@ -15,11 +15,12 @@ You are in **init mode**. Your job is to set up a terminal for the workflow sess
 
 Display the 4-terminal pipeline:
 ```
-T1: Planner (/wf-spec)        T2: Builder (/wf-implement loop)
-                ↓
-            [ready plans]
-                ↓
-T3: Validator (/wf-verify)    T4: Intake (/wf-status, etc.)
+T1: Intake              T2: Planner             T3: Builder              T4: Validator
+(/wf-status,            (/wf-spec)              (/wf-implement)          (/wf-verify)
+/wf-brainstorm,                │                      │                        │
+/wf-bug)                       └─→ [ready/] ←────────┘                        │
+                                      │                                        │
+                                      └──────→ [verify/] ←────────────────────┘
 ```
 
 Then say: "Run `/wf-help` anytime to see the full strategy."
@@ -28,10 +29,10 @@ Then say: "Run `/wf-help` anytime to see the full strategy."
 
 ```
 Which terminal are you?
-1) T1 — Planner (/wf-spec) [Opus]
-2) T2 — Builder (/wf-implement loop) [Opus]
-3) T3 — Validator (/wf-verify loop) [Sonnet]
-4) T4 — Intake (/wf-status, etc.) [Sonnet]
+1) T1 — Intake (/wf-status, /wf-brainstorm, /wf-bug) [Sonnet]
+2) T2 — Planner (/wf-spec) [Opus]
+3) T3 — Builder (/wf-implement loop) [Opus]
+4) T4 — Validator (/wf-verify loop) [Sonnet]
 ```
 
 Wait for user input (1–4).
@@ -98,47 +99,48 @@ Show:
 
 Based on role:
 
-**T1 (Planner):**
-```
-NEXT STEPS:
-1. /model opus
-2. /wf-spec BRF-001 (or pick a brief)
-3. Watch other terminals spin up
-4. Keep ready/ queue at 2–3 plans
-
-Run /wf-help to understand the flow.
-```
-
-**T2 (Builder):**
-```
-NEXT STEPS:
-1. /model opus
-2. /loop 2m /wf-implement
-3. Wait for T1 to create ready plans
-4. Auto-picks and executes them
-
-If idle, alert T1 (plans/ready/ is empty).
-Run /wf-help to understand the flow.
-```
-
-**T3 (Validator):**
-```
-NEXT STEPS:
-1. /model sonnet
-2. /loop 3m /wf-verify
-3. Auto-validates plans from plans/verify/
-4. Can manually /wf-debug if needed
-
-Run /wf-help to understand the flow.
-```
-
-**T4 (Intake):**
+**T1 (Intake):**
 ```
 NEXT STEPS:
 1. /model sonnet
 2. /loop 10m /wf-status
 3. /wf-brainstorm to capture new ideas
 4. /wf-bug to file discovered issues
+5. Keep T2 fed with decided briefs
+
+Run /wf-help to understand the flow.
+```
+
+**T2 (Planner):**
+```
+NEXT STEPS:
+1. /model opus
+2. /wf-spec BRF-001 (or pick a brief)
+3. Convert briefs to plans, move to ready/
+4. Keep ready/ queue at 2–3 plans for T3
+
+Run /wf-help to understand the flow.
+```
+
+**T3 (Builder):**
+```
+NEXT STEPS:
+1. /model opus
+2. /loop 2m /wf-implement
+3. Wait for T2 to create ready plans
+4. Auto-picks and executes them
+
+If idle, alert T2 (plans/ready/ is empty).
+Run /wf-help to understand the flow.
+```
+
+**T4 (Validator):**
+```
+NEXT STEPS:
+1. /model sonnet
+2. /loop 3m /wf-verify
+3. Auto-validates plans from plans/verify/
+4. Can manually /wf-debug if needed
 
 Run /wf-help to understand the flow.
 ```
