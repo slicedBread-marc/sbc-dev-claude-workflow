@@ -134,10 +134,16 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 **Phase 3: Cleanup (return to `develop`)**
 
 20. **Return to develop directory**:
+   ```bash
+   # Detect worktree structure (old vs new) and return to sbc accordingly
+   if [ -d "../../sbc" ]; then
+     # New structure: ../feature-branches/<plan-name>
+     cd ../../sbc
+   else
+     # Old structure (migration): ../sbc-feature-*
+     cd ../sbc
+   fi
    ```
-   cd ../../sbc
-   ```
-   (From `../feature-branches/<plan-name>` → `../../sbc`)
 
 21. **Post completion message** — display:
    ```
