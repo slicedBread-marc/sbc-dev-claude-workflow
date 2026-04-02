@@ -13,7 +13,7 @@ You are in **next mode**. Your job is to invoke the right skill for your termina
 - T1 (Intake) → `/wf-status`
 - T2 (Planner) → `/wf-spec` (no parameters)
 - T3 (Builder) → `/wf-implement`
-- T4 (Validator) → `/wf-test` (human acceptance testing)
+- T4 (Tester) → `/wf-test` (human acceptance testing)
 
 ## What you do
 
@@ -24,7 +24,7 @@ You are in **next mode**. Your job is to invoke the right skill for your termina
    - **T1 (Intake) 🔵:** → `/wf-status`
    - **T2 (Planner) 🟢:** → `/wf-spec` (no parameters — shows all available work)
    - **T3 (Builder) 🟡:** → `/wf-implement`
-   - **T4 (Validator) 🟣:** → `/wf-test` (human acceptance testing in the worktree)
+   - **T4 (Tester) 🟣:** → `/wf-test` (human acceptance testing in the worktree)
 
 **Display before running:**
 ```
@@ -59,7 +59,7 @@ Available roles:
   T1 — Intake 🔵 (/wf-status, /wf-brainstorm, /wf-bug)
   T2 — Planner 🟢 (/wf-spec)
   T3 — Builder 🟡 (/wf-implement)
-  T4 — Validator 🟣 (/wf-test — human acceptance testing)
+  T4 — Tester 🟣 (/wf-test — human acceptance testing)
 ```
 
 **If role is unrecognized:**
@@ -70,7 +70,7 @@ Expected one of:
   T1 — Intake 🔵 → runs /wf-status
   T2 — Planner 🟢 → runs /wf-spec
   T3 — Builder 🟡 → runs /wf-implement
-  T4 — Validator 🟣 → runs /wf-test
+  T4 — Tester 🟣 → runs /wf-test
 
 Run /wf-init again or fix the export:
   export TERMINAL_ROLE="T2 — Planner"

@@ -1,13 +1,13 @@
 ---
 name: wf-implement
-description: Execute a ready plan from start to finish. Creates feature branch and worktree, codes all steps, performs code review, architecture review, and E2E tests, verifies completion, moves to verify/ with Status Verified, and returns to develop. T4 then runs human acceptance testing.
+description: Execute a ready plan from start to finish. Creates feature branch and worktree, codes all steps, performs code review, architecture review, and E2E tests, moves to verify/ with Status Verified, and returns to develop. T4 then runs human acceptance testing.
 user_invocable: true
 model: opus
 ---
 
 # Implementer Role
 
-You are in **implementer mode**. Your job is to execute an implementation plan completely: lock the plan, create a worktree, code all steps, perform code and architecture review, run E2E tests, verify all checks pass, move to verify/ with Status Verified, and return to develop. T4 then runs human acceptance testing. You also fix findings from review or verification.
+You are in **implementer mode**. Your job is to execute an implementation plan completely: lock the plan, create a worktree, code all steps, perform code and architecture review, run E2E tests, verify all checks pass, move to verify/ with Status Verified, and return to develop. T4 then runs human acceptance testing. You also fix findings from testing.
 
 ## Model guidance
 This skill should run on **opus**. Code generation requires the highest accuracy to avoid rework.
@@ -18,18 +18,21 @@ This skill should run on **opus**. Code generation requires the highest accuracy
 
 Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
 
-Do NOT use agents for writing code — implementation is inherently sequential and context-dependent. Agents may be used sparingly to look up specific signatures or patterns if needed:
+Do NOT use agents for writing code — implementation is inherently sequential and context-dependent. Agents are used for:
 
-```
-Agent(model: haiku, prompt: "What is the exact method signature of [method] in [file]? Response under 500 chars.")
-```
+- **Build and test verification (step 16):** Launch haiku agents in background to run build, unit tests, and E2E tests while you do code/architecture review in parallel. This saves significant time.
+- **Lookups:** Sparingly, to find specific signatures or patterns:
+  ```
+  Agent(model: haiku, prompt: "What is the exact method signature of [method] in [file]? Response under 500 chars.")
+  ```
 
 ## Folder structure
 
 ```
-plans/ready/     → pick up from here
-plans/active/    → work here
-plans/verify/    → move here when done
+plans/ready/       → pick up from here
+plans/active/      → work here
+plans/verify/      → move here when done
+plans/replanning/  → escalate here if design issues found (picked up by /wf-spec)
 ```
 
 ## What you do
@@ -87,6 +90,15 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    cd feature-branches/PLN-NNN-<plan-name>
    ```
 8. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/PLN-NNN-<plan-name>`, not `develop`.
+8a. **Merge develop into feature branch** — pull in the locked plan (and any amendments):
+   ```bash
+   git merge develop -X theirs --no-edit
+   ```
+   The `-X theirs` bias ensures develop's plan files win (locked/amended state) while preserving feature branch source code. If the worktree is freshly created from HEAD (new implementation), this is a no-op. If this is an amendment cycle, clean up stale plan copies:
+   ```bash
+   # Remove stale replanning/ copy if it exists (plan is now in active/ from develop)
+   git rm -rf plans/replanning/ 2>/dev/null && git commit -m "implement: consolidate plan after merge" || true
+   ```
 9. **Set the Docker project name and port** — export both as environment variables so all docker compose commands use an isolated container on a unique port:
    ```bash
    PLAN_FOLDER=$(basename $(ls -d plans/active/PLN-*/ | head -1) | tr -d '/')
@@ -113,33 +125,69 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 15. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
    - After each step, commit: `git add src/,tests/ plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
 
-16. **Code review** — review the implementation for correctness:
+16. **Launch build and test agents in background** — spawn these immediately so they run in parallel with code review:
+   ```
+   # Launch all three in parallel as background agents:
+   Agent(model: haiku, run_in_background: true, prompt:
+     "Run `~/.dotnet/dotnet build SBC.slnx` in the current directory.
+      Report: success or failure. If failure, list all errors (not warnings).
+      Final response under 1000 characters.")
+
+   Agent(model: haiku, run_in_background: true, prompt:
+     "Run `~/.dotnet/dotnet test SBC.slnx --no-build` in the current directory.
+      Report: total tests, passed, failed, skipped.
+      If any failed, list each failure with test name and error message.
+      Final response under 1500 characters.")
+
+   # Only if plan has E2E tests in the Tests table:
+   Agent(model: haiku, run_in_background: true, prompt:
+     "Run [E2E test command from plan] in the current directory.
+      Report: pass or fail. If fail, include the error output.
+      Final response under 1000 characters.")
+   ```
+   These agents run in background while you proceed to code and architecture review (steps 17-18). You will be notified when they complete — do NOT wait for them.
+
+17. **Code review** (while agents run) — review the implementation for correctness:
    - Read through all changed source files
    - Verify logic matches the plan's design decisions
    - Check for edge cases, error handling
    - Ensure no debugging code, console.logs, or temporary hacks remain
    - If issues found, log them in `progress.md` and fix before proceeding
 
-17. **Architecture review** — verify design decisions still hold:
+18. **Architecture review** (while agents run) — verify design decisions still hold:
    - Re-read the plan's "Design Decisions" section
    - Confirm the implementation follows those decisions
    - Check if any assumptions from the plan have changed
    - Verify no unintended cross-module dependencies were introduced
-   - If scope changes needed, note in `progress.md` (findings will be escalated later)
+   - If scope changes are needed that **cannot be resolved by editing code alone** (design decision conflicts, missing requirements, architectural incompatibilities):
+     1. Write `Escalated` findings to `findings.md`:
+        ```
+        | FND-NNN | implement | Critical | Design | <description of design issue> | path/to/file.ext:NN | Escalated |
+        ```
+     2. Update `plan.md` Status to `Replanning`
+     3. Move the plan and stop implementation:
+        ```
+        git mv plans/active/PLN-NNN-<name> plans/replanning/PLN-NNN-<name>
+        git commit -m "implement(PLN-NNN-<name>): escalated findings, needs replanning"
+        ```
+     4. Destroy the docker container (step 21) and return to develop (Phase 3)
+     5. Display: "Design issue found. Run `/wf-spec` to amend the plan."
+   - If issues are minor (code-level fixes), fix them and note in `progress.md`
 
-18. **Run E2E tests** — execute any end-to-end tests listed in the Tests table:
-   - Look for rows with `Type: E2E` in the Tests table
-   - Run each E2E test command from the plan
-   - All E2E tests must pass before proceeding
-   - Log results in `progress.md`: `[date] E2E tests: all passing`
+19. **Collect agent results** — by now the background agents should have completed. Check each result:
+   - **Build agent:** If build failed, fix errors and re-run build inline before proceeding
+   - **Test agent:** If tests failed, fix failures and re-run tests inline. All tests must pass.
+   - **E2E agent:** If E2E tests failed, fix and re-run inline. All must pass.
+   - Log results in `progress.md`: `[date] Build: pass | Tests: N passed, 0 failed | E2E: pass`
+   - If code review (step 17) found issues that required fixes, re-launch a haiku build+test agent to verify the fixes didn't break anything
 
-19. **When all steps, reviews, and E2E tests complete** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
+20. **When all steps, reviews, and tests pass** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
    ```
    git mv plans/active/PLN-NNN-<name> plans/verify/PLN-NNN-<name>
    git commit -m "implement(PLN-NNN-<name>): all steps complete, verified, ready for human test"
    ```
 
-20. **Destroy the docker container** — clean up before leaving the worktree:
+21. **Destroy the docker container** — clean up before leaving the worktree:
    ```bash
    # Extract plan ID from the verified plan folder
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
@@ -154,11 +202,11 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    # Force remove any remaining containers with this project name
    docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
    ```
-   This removes the container and volumes, keeping the worktree clean for T4's later verification testing. Uses explicit project name and fallback force-kill to ensure cleanup succeeds.
+   This removes the container and volumes, keeping the worktree clean for T4's later human acceptance testing. Uses explicit project name and fallback force-kill to ensure cleanup succeeds.
 
 **Phase 3: Cleanup (return to `develop`)**
 
-21. **Return to develop directory**:
+22. **Return to develop directory**:
    ```bash
    # Detect worktree structure and return to sbc accordingly
    if [ -f "../../.dockerignore" ]; then
@@ -173,13 +221,13 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    fi
    ```
 
-22. **Post completion message** — display:
+23. **Post completion message** — display:
    ```
-   ✓ Implementation complete — all steps, code review, architecture review, and E2E tests verified
+   ✓ Implementation complete — all steps, code review, architecture review, and E2E tests passed
    ✓ Plan moved to verify/ with Status: Verified
    ✓ Docker container cleaned up
    
-   T4 (Validator): Switch to the worktree for human acceptance testing:
+   T4 (Tester): Switch to the worktree for human acceptance testing:
      cd feature-branches/PLN-NNN-<plan-name>
      /wf-test         (human acceptance testing: user-observable criteria)
    
@@ -206,6 +254,26 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    git commit -m "implement(PLN-NNN-<name>): fix findings (FND-NNN), moving to verify"
    ```
 
+### Amendment cycle (plan was replanned on develop, feature branch needs update)
+
+When a plan goes through replanning (escalated finding → wf-spec amends → back to ready → re-locked to active on develop), the feature branch worktree needs the amended plan.
+
+1. **On develop:** lock the plan as normal (Phase 1 steps 3-4: set Status Active, move ready/ → active/, commit)
+2. **In the worktree:** merge develop into the feature branch with `-X theirs` bias:
+   ```bash
+   cd feature-branches/PLN-NNN-<name>
+   git merge develop -X theirs --no-edit
+   ```
+   The `-X theirs` bias accepts develop's plan files (which have the amendment) over the feature branch's stale copies. Source code on the feature branch is preserved because develop doesn't have those files.
+3. **Consolidate plan location** — after merge, the plan may exist in both `plans/active/` (from develop) and `plans/replanning/` (stale feature branch copy). Remove the stale copy:
+   ```bash
+   git rm -rf plans/replanning/PLN-NNN-<name> 2>/dev/null || true
+   git rm -rf plans/replanning/<name> 2>/dev/null || true
+   git commit -m "implement(PLN-NNN-<name>): consolidate plan after amendment merge" --allow-empty
+   ```
+4. **Read the amended plan** — re-read `plans/active/<name>/plan.md`, focusing on the Amendments section to understand what changed
+5. **Continue with Phase 2** — execute the amended steps as specified
+
 ## Worktree workflow
 
 Each plan gets its own worktree (isolated directory with its own working tree). Benefits:
@@ -224,9 +292,9 @@ The workflow is:
     → Phase 1: lock plan, create worktree
     → Phase 2 (in worktree):
        - Code all implementation steps
-       - Code review (correctness, edge cases)
-       - Architecture review (design decisions still hold)
-       - Run E2E tests
+       - Launch build/test agents in background
+       - Code review + architecture review (parallel with agents)
+       - Collect agent results, fix any failures
        - Move plan to verify/
        - Destroy docker container
     → Phase 3: cd back to develop, show T4 handoff
@@ -234,7 +302,6 @@ The workflow is:
 
 (T4 takes over)
   cd feature-branches/<plan-name>
-  /wf-verify (automated: build, tests, quality)
   /wf-test (human: UX acceptance testing)
 ```
 
@@ -248,7 +315,7 @@ The workflow is:
 - If the plan has an error or gap, note it in Progress and continue
 - You may edit src/,tests/ and the plan's Progress/Findings Queue status
 - **Do NOT** edit the plan's Steps, Tests, or Design Decisions sections
-- **Do NOT** add findings — only `/wf-review` and `/wf-verify` produce findings
+- **Do NOT** add findings — only `/wf-review` and `/wf-test` produce findings
 - **Avoid manual worktree switching** — let `/wf-implement` handle all directory changes. If a user manually switches branches or directories mid-session, subsequent phase logic may break.
 
 ## On startup
@@ -263,6 +330,7 @@ The workflow is:
    - Done — user is back on develop with worktree ready for T4
 3. **If on a feature branch** (e.g. `feature/site-version-indicator`):
    - Confirm the corresponding plan is in `plans/active/`
+   - If plan is in `plans/replanning/` instead, this is an amendment cycle — merge develop first (see Amendment cycle section)
    - Execute Phase 2 (code the steps, move to verify/, destroy docker container)
 4. **If a plan in `verify/` has `Open` findings:**
    - Ask if user wants to fix those findings (fix cycle)

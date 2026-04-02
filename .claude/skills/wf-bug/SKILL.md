@@ -30,7 +30,7 @@ If the user says "new bug" or provides no description, prompt for:
 ```
 bugs/open/    → new bugs land here (you create here)
 bugs/triaged/ → picked up by /wf-spec when a fix plan is created
-bugs/closed/  → resolved by /wf-verify when a plan completes
+bugs/closed/  → resolved by /wf-release when a plan completes
 ```
 
 ## What you do

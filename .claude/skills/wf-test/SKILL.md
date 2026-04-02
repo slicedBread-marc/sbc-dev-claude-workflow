@@ -23,7 +23,7 @@ If already on haiku, skip the prompt and continue directly.
 
 ```
 plans/verify/     → plans waiting for human test (Status: Verified)
-plans/staging/    → plans after human test (Status: Tested) ready for /wf-release
+                    plans stay here after test (Status: Tested) until /wf-release moves to complete/
 ```
 
 ## Important: One testing worktree at a time
@@ -132,7 +132,7 @@ Solution: Test sequentially. After testing completes, the container is destroyed
      ## Test Results
      ✓ All acceptance criteria passed in human test
      
-     **Plan:** plans/staging/$PLAN_NAME/
+     **Plan:** plans/verify/$PLAN_NAME/
      
      Ready for staging validation."
        

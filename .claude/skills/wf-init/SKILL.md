@@ -13,13 +13,13 @@ You are in **init mode**. Your job is to set up a terminal for the workflow sess
 
 ### 1. Show the strategy (briefly)
 
-Display the 4-terminal pipeline:
+Display the 3-terminal pipeline:
 ```
 develop (T1, T2)                           feature/ (T3, T4)               release, main
-  - Plans only                             - Code only                     - Ship it
+  - Plans only                             - Code + test                   - Ship it
   
   T1: Intake 🔵      T2: Planner 🟢             T3/T4: Worktree
-  (/wf-status,        (/wf-spec)                 (/wf-implement, /wf-verify, /wf-test)
+  (/wf-status,        (/wf-spec)                 (/wf-implement, /wf-test)
   /wf-brainstorm,           │                            │
   /wf-bug)                  └─→ [ready/] ←──────────────┤
                                    │                      │
@@ -27,12 +27,12 @@ develop (T1, T2)                           feature/ (T3, T4)               relea
                                            │
                                            └──→ [verify/] ──→ [human test] ──→ [release PR]
                                            
-  T3: Builder 🟡     T4: Validator 🟣
-  (/wf-implement)    (/wf-verify, /wf-test)
-                                                                                    │
-                                                                           (staging validation)
-                                                                                    │
-                                                                           /wf-release: main → complete
+  T3: Builder 🟡     T4: Tester 🟣              Release
+  (/wf-implement)    (/wf-test)                (/wf-release)
+                                                    │
+                                           merge PR → release
+                                                    │
+                                           /wf-release: release → main → complete
 ```
 
 Then say: "Run `/wf-help` anytime to see the full strategy."
@@ -43,8 +43,8 @@ Then say: "Run `/wf-help` anytime to see the full strategy."
 Which terminal are you?
 1) T1 — Intake 🔵 (/wf-status, /wf-brainstorm, /wf-bug) [Sonnet]
 2) T2 — Planner 🟢 (/wf-spec) [Opus]
-3) T3 — Builder 🟡 (/wf-implement loop) [Opus]
-4) T4 — Validator 🟣 (/wf-verify loop) [Sonnet]
+3) T3 — Builder 🟡 (/wf-implement) [Opus]
+4) T4 — Tester 🟣 (/wf-test) [Haiku]
 ```
 
 Wait for user input (1–4).
@@ -63,7 +63,7 @@ Based on selection, show and apply:
 - **T1 — Intake 🔵:** `/color blue`
 - **T2 — Planner 🟢:** `/color green`
 - **T3 — Builder 🟡:** `/color yellow`
-- **T4 — Validator 🟣:** `/color purple`
+- **T4 — Tester 🟣:** `/color purple`
 
 Then set the terminal role and invoke the next skill:
 ```bash
@@ -170,23 +170,23 @@ NEXT STEPS:
 4. Follow prompts to create feature branch + worktree
 5. Switch to worktree directory (shown by /wf-implement)
 6. Run /wf-implement again in the worktree to start coding
-7. When done: /wf-verify → /wf-test → creates PR to release
+7. When done: /wf-test → creates PR to release
 
-After: wait for staging validation, then /wf-release moves to production.
+After: merge PR, then /wf-release promotes release → main → production.
 Run /wf-help to understand the flow.
 ```
 
-**T4 (Validator) 🟣:**
+**T4 (Tester) 🟣:**
 ```
 NEXT STEPS:
 1. /color purple
-2. /model sonnet
-3. Join T3 in the worktree directory (same feature branch)
-4. After /wf-implement finishes, run /wf-verify
-5. If all tests pass, /wf-test walks through acceptance criteria
+2. /model haiku
+3. After T3 finishes /wf-implement, switch to the worktree
+4. cd feature-branches/PLN-NNN-<plan-name>
+5. /wf-test walks through human acceptance criteria
 6. On pass, PR is created to release branch
+7. Merge PR, then /wf-release promotes release → main
 
-Wait for staging validation, then /wf-release handles production.
 Run /wf-help to understand the flow.
 ```
 

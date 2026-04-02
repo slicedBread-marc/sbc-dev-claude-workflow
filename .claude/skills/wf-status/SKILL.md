@@ -30,7 +30,7 @@ For each plan folder in `verify/` or `active/`, read `findings.md`. If any findi
 For each plan folder in `replanning/`, read `findings.md` and list the `Escalated` findings. These require a planner session — they cannot be fixed by the implementer.
 
 ### 3. Plans ready to implement (`plans/ready/`)
-List any plan folders waiting for an implementer. Check each `plan.md` Status field — if Status is `Active` or `Verifying`, the plan has been claimed by another session; note it as in-progress rather than available.
+List any plan folders waiting for an implementer. Check each `plan.md` Status field — if Status is `Active`, the plan has been claimed by another session; note it as in-progress rather than available.
 
 ### 4. Plans being implemented (`plans/active/`)
 List active plan folders. For each, read `plan.md` to show `locked_by` branch name, and read `progress.md` to show current step. Format: `PLN-NNN — description [locked: feature/branch-name] — Step 3/7`

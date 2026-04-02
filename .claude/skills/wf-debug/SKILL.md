@@ -1,6 +1,6 @@
 ---
 name: wf-debug
-description: Interactive debug session for a completed implementation. Walk through reproduction steps with screenshots and observations. Use after /wf-verify passes but before declaring victory—to manually confirm the fix actually works.
+description: Interactive debug session for a completed implementation. Walk through reproduction steps with screenshots and observations. Use after /wf-implement completes but before declaring victory—to manually confirm the fix actually works.
 user_invocable: true
 model: sonnet
 ---
