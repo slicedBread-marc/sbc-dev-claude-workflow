@@ -57,30 +57,15 @@ Based on selection, show and apply:
 ✓ Model: Opus 4.6
 ✓ Command: /model opus
 ✓ Terminal color: GREEN
-
-What you'll do:
-  • /wf-spec to convert briefs to plans
-  • Review and approve implementation
-  • Move plans to ready/ queue
-  • Keep T3 fed with work
 ```
 
-**Set terminal background color** (per role):
-```bash
-# T1 — Intake (blue)
-printf "\033]11;rgb:0066FF\033\\"
+**Set terminal background color** by invoking the color command (per role):
+- **T1 — Intake 🔵:** `/color blue`
+- **T2 — Planner 🟢:** `/color green`
+- **T3 — Builder 🟡:** `/color yellow`
+- **T4 — Validator 🟣:** `/color purple`
 
-# T2 — Planner (green)
-printf "\033]11;rgb:00CC00\033\\"
-
-# T3 — Builder (yellow)
-printf "\033]11;rgb:FFCC00\033\\"
-
-# T4 — Validator (purple)
-printf "\033]11;rgb:9933FF\033\\"
-```
-
-Then set the terminal role for `/wf-next`:
+Then set the terminal role and invoke the next skill:
 ```bash
 export TERMINAL_ROLE="T2 — Planner"
 /wf-next
@@ -154,7 +139,7 @@ Based on role:
 **T1 (Intake) 🔵:**
 ```
 NEXT STEPS:
-1. Set terminal color: printf "\033]11;rgb:0066FF\033\\"
+1. /color blue
 2. /model sonnet
 3. /loop 10m /wf-status
 4. /wf-brainstorm to capture new ideas
@@ -167,7 +152,7 @@ Run /wf-help to understand the flow.
 **T2 (Planner) 🟢:**
 ```
 NEXT STEPS:
-1. Set terminal color: printf "\033]11;rgb:00CC00\033\\"
+1. /color green
 2. /model opus
 3. /wf-spec BRF-001 (or pick a brief)
 4. Convert briefs to plans, move to ready/
@@ -179,7 +164,7 @@ Run /wf-help to understand the flow.
 **T3 (Builder) 🟡:**
 ```
 NEXT STEPS:
-1. Set terminal color: printf "\033]11;rgb:FFCC00\033\\"
+1. /color yellow
 2. /model opus
 3. /wf-implement
 4. Follow prompts to create feature branch + worktree
@@ -194,7 +179,7 @@ Run /wf-help to understand the flow.
 **T4 (Validator) 🟣:**
 ```
 NEXT STEPS:
-1. Set terminal color: printf "\033]11;rgb:9933FF\033\\"
+1. /color purple
 2. /model sonnet
 3. Join T3 in the worktree directory (same feature branch)
 4. After /wf-implement finishes, run /wf-verify
