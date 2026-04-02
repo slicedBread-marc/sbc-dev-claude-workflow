@@ -2,10 +2,20 @@
 # Logging utilities for workflow session tracking
 # Source this in each terminal: source .logs-utils.sh
 
-# Initialize session ID (call once at terminal startup)
+# Initialize session ID (call once per terminal at startup)
+# All terminals in the same working directory share the same SESSION_ID
 init_session() {
-  export SESSION_ID="${1:-$(date +%Y-%m-%d)-$(whoami)-T$(date +%s | tail -c 2)}"
+  local session_file=".logs/SESSION_ID"
   mkdir -p .logs
+
+  # First terminal creates the session ID; others read it
+  if [ ! -f "$session_file" ]; then
+    export SESSION_ID="$(date +%Y-%m-%d-%s)"
+    echo "$SESSION_ID" > "$session_file"
+  else
+    export SESSION_ID=$(cat "$session_file")
+  fi
+
   echo "SESSION_ID: $SESSION_ID"
 }
 
