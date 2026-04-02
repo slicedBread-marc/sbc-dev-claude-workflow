@@ -19,6 +19,46 @@ This is the ideal setup for running the workflow with maximum throughput. It ena
 └─────────────────────┴─────────────────────┘
 ```
 
+## Logging & Session Tracking
+
+All terminals append to a single unified log file: `.logs/workflow.log`
+
+### Setup (one time)
+```bash
+source .logs-utils.sh
+init_session "2026-04-02-A"  # or let it auto-generate
+```
+
+### Session ID format
+`YYYY-MM-DD-TERMINAL-ID` (e.g., `2026-04-02-T1`, `2026-04-02-A`)
+
+### Each skill logs on start and completion
+```bash
+log_start "wf-spec" "BRF-001"
+# ... do work ...
+log_done "wf-spec" "PLN-001→ready"
+```
+
+### Log format
+```
+[HH:MM:SS] SESSION_ID | SKILL | ACTION | METRIC | Q: ready=N verify=N active=N open=N triaged=N
+```
+
+### Useful commands
+```bash
+source .logs-utils.sh
+log_tail 20              # show last 20 lines
+log_watch                # stream log in real-time (tail -f)
+log_summary 2026-04-02   # show all lines from a session
+```
+
+### File locking (automatic)
+- Uses `flock` to serialize writes
+- Prevents line interleaving if multiple terminals log simultaneously
+- Blocking: processes wait their turn (~1ms overhead per write)
+
+---
+
 ## Terminal Setup
 
 ### T1: Opus Planner
@@ -26,8 +66,10 @@ This is the ideal setup for running the workflow with maximum throughput. It ena
 
 - **Model:** Opus 4.6
 - **Skills:** `/wf-spec` (primary)
-- **Session command:** Set model to Opus at startup
-  ```
+- **Startup sequence:**
+  ```bash
+  source .logs-utils.sh
+  init_session "2026-04-02-T1"  # or auto-generate
   /model opus
   ```
 - **Responsibilities:**
@@ -42,9 +84,12 @@ This is the ideal setup for running the workflow with maximum throughput. It ena
 
 - **Model:** Opus 4.6
 - **Skills:** `/wf-implement` (primary)
-- **Session command:** Set model to Opus at startup
-  ```
+- **Startup sequence:**
+  ```bash
+  source .logs-utils.sh
+  init_session "2026-04-02-T2"  # or match T1's date for same session
   /model opus
+  /loop 2m /wf-implement
   ```
 - **Responsibilities:**
   - Pick plans from `plans/ready/`
@@ -57,9 +102,12 @@ This is the ideal setup for running the workflow with maximum throughput. It ena
 
 - **Model:** Sonnet 4.6
 - **Skills:** `/wf-verify`, `/wf-debug`, `/wf-rollback`
-- **Session command:** Set model to Sonnet at startup
-  ```
+- **Startup sequence:**
+  ```bash
+  source .logs-utils.sh
+  init_session "2026-04-02-T3"
   /model sonnet
+  /loop 3m /wf-verify
   ```
 - **Responsibilities:**
   - Run `/wf-verify` on plans in `plans/verify/`
@@ -73,9 +121,12 @@ This is the ideal setup for running the workflow with maximum throughput. It ena
 
 - **Model:** Sonnet 4.6
 - **Skills:** `/wf-status`, `/wf-brainstorm`, `/wf-bug`
-- **Session command:** Set model to Sonnet at startup
-  ```
+- **Startup sequence:**
+  ```bash
+  source .logs-utils.sh
+  init_session "2026-04-02-T4"
   /model sonnet
+  /loop 10m /wf-status
   ```
 - **Responsibilities:**
   - Run `/wf-status` every 10–15 minutes to check pipeline health
@@ -155,6 +206,34 @@ If `/wf-status` shows < 3 Decided briefs:
 - **If pipeline is starving (< 2 ready):** Alert T1 or spec yourself
 - **If new bugs discovered:** File them with `/wf-bug`
 
+## Logging Examples
+
+### Sample log output
+```
+[14:23:15] 2026-04-02-T1 | wf-spec | start | BRF-001 | Q: ready=1 verify=0 active=0 open=5 triaged=2
+[14:33:42] 2026-04-02-T1 | wf-spec | done | PLN-001→ready | Q: ready=2 verify=0 active=0 open=5 triaged=2
+[14:35:10] 2026-04-02-T2 | wf-implement | start | PLN-001 | Q: ready=1 verify=0 active=0 open=5 triaged=2
+[14:52:30] 2026-04-02-T2 | wf-implement | done | PLN-001→verify | Q: ready=1 verify=1 active=0 open=5 triaged=2
+[14:53:00] 2026-04-02-T3 | wf-verify | start | PLN-001 | Q: ready=1 verify=0 active=0 open=5 triaged=2
+[15:08:45] 2026-04-02-T3 | wf-verify | done | PLN-001→complete | Q: ready=1 verify=0 active=0 open=5 triaged=2
+[15:09:10] 2026-04-02-T4 | wf-bug | create | BUG-004 | Q: ready=1 verify=0 active=0 open=6 triaged=2
+```
+
+### Watch log in real-time
+```bash
+source .logs-utils.sh
+log_watch
+# Streams new lines as they're appended
+```
+
+### Check recent activity
+```bash
+log_tail 50  # last 50 lines
+log_summary 2026-04-02  # all lines from that date
+```
+
+---
+
 ## Example Session (90 minutes)
 
 ```
@@ -200,10 +279,18 @@ T2 [00:55] Pulls PLN-003 from ready/ → starts /wf-implement
 
 ## Checklist: Before Each Session
 
-- [ ] T1: Set `/model opus`
-- [ ] T2: Set `/model opus`
-- [ ] T3: Set `/model sonnet`
-- [ ] T4: Set `/model sonnet`
+**Logging setup (all terminals):**
+- [ ] All: `source .logs-utils.sh`
+- [ ] All: `init_session "YYYY-MM-DD-TN"` (T1, T2, T3, T4 — same date)
+- [ ] One: `log_watch` (in a 5th window) to monitor log in real-time
+
+**Terminal startup:**
+- [ ] T1: `/model opus` (+ any /loop or /wf-spec)
+- [ ] T2: `/model opus` + `/loop 2m /wf-implement`
+- [ ] T3: `/model sonnet` + `/loop 3m /wf-verify`
+- [ ] T4: `/model sonnet` + `/loop 10m /wf-status`
+
+**Pipeline health check:**
 - [ ] T4: Run `/wf-status` to see current state
 - [ ] T1: Check if specs are needed (ready/ < 2)
 - [ ] T2: Check if ready plans exist to implement
@@ -223,6 +310,9 @@ During a session, watch for these signs of bottlenecks:
 ## Notes
 
 - **Model switching cost:** Each terminal does `/model X` once at startup. Don't switch models mid-terminal.
-- **Session length:** Typically 60–90 minutes per session. After that, review with `/wf-status`.
-- **Parallel limits:** Realistically, T1 and T2 can run in true parallel only if you have 2 physical terminals or split-screen. If sharing one screen, context-switch between them every 5–10 minutes.
+- **Session length:** Typically 60–90 minutes per session. After that, review metrics and start a new session.
+- **Logging:** All terminals append to `.logs/workflow.log` with file locking (flock). Safe for concurrent writes.
+- **Metrics:** Parse `.logs/workflow.log` to analyze queue trends, bottlenecks, throughput. `/wf-metrics` skill (TODO) will automate this.
+- **Parallel limits:** Realistically, T1 and T2 can run in true parallel only if you have 2+ physical terminals or split-screen. If sharing one screen, context-switch between them every 5–10 minutes.
 - **Idle time is OK:** T1 or T3 being idle briefly is fine. T2 (builder) being idle is a sign to help T1.
+- **.logs directory:** Gitignored (local only). Logs persist across sessions for historical analysis.
