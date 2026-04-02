@@ -59,13 +59,16 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 3. **Read the plan**:
    - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `findings.md` to understand any existing findings
-4. **Set the feature port** — calculate it from the plan folder name so the app runs on a unique port (8100+ range, never colliding with staging at 8081):
+4. **Set the feature port and project name** — calculate from the plan folder to run on a unique port (8100+ range, never colliding with staging at 8081):
    ```bash
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
+   # Extract the plan name (slug) from PLN-NNN-<name>, e.g., "deployment-date-footer" from "PLN-004-deployment-date-footer"
+   PLAN_NAME=$(echo $PLAN_FOLDER | sed 's/^PLN-[0-9]*-//')
+   # Extract the plan ID number (e.g., "004" from "PLN-004-deployment-date-footer")
    PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
    # Port range 8000-8099 reserved for static site (staging at 8081); features use 8100+
    FEATURE_PORT=$((8100 + PLAN_ID))
-   export FEATURE_PORT COMPOSE_PROJECT_NAME="sbc-$PLAN_FOLDER"
+   export FEATURE_PORT COMPOSE_PROJECT_NAME="sbc-$PLAN_NAME"
    ```
 5. **Deploy to local container**:
    ```bash
@@ -271,6 +274,6 @@ git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
   - **Static site:** 8000-8099 (reserved for staging at 8081 and other static/non-feature uses)
   - **Feature branches:** 8100+ (calculated as 8100 + plan ID, e.g., PLN-004 → 8104, PLN-012 → 8112)
 - **Health check endpoint:** `http://localhost:$FEATURE_PORT/health`
-- **Project name:** `sbc-PLN-NNN-<name>` (set in step 4)
+- **Project name:** `sbc-<plan-name>` (e.g., `sbc-deployment-date-footer`, set in step 4)
 - **Environment:** Development (localhost testing)
 - **Collision prevention:** Feature range (8100+) is completely separate from static range (8000-8099)
