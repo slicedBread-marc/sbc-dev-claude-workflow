@@ -22,9 +22,9 @@ If already on haiku, skip the prompt and continue directly.
 ## Folder structure
 
 ```
-release/          → staging integration (merge here, test, then promote to main)
+release/          → staging integration (merge PRs here, then promote to main)
 main/             → ready for production (git push origin main triggers deploy in GitHub Actions)
-plans/staging/    → plans with Status Tested (move to complete on main)
+plans/verify/     → plans with Status Tested (PR created, awaiting merge in wf-release)
 plans/complete/   → plans promoted to main (ready or live)
 bugs/triaged/     → bugs linked to verified plans (move to closed when plan completes)
 bugs/closed/      → closed bugs
@@ -33,48 +33,61 @@ bugs/closed/      → closed bugs
 ## What you do
 
 1. **Confirm you are on the `release` branch** — run `git branch --show-current`. Must be `release`.
-2. **Verify staging has been tested** — ask user: "Have you manually tested this on staging and confirmed it's ready for production?"
-3. **Find tested plans** — scan `plans/staging/` for plan folders with Status `Tested` in `plan.md`
-4. **List them** — show user which plans will be promoted
-5. **Switch to `main` branch**:
+2. **List open PRs targeting `release`**:
+   ```bash
+   gh pr list --base release --state open --json number,title,headRefName
+   ```
+3. **If no PRs exist**: inform the user and exit. Next step: work on a plan with `/wf-implement`, test it with `/wf-test`, then return here.
+4. **If PRs exist**: display them as a numbered list with PR number, title, and source branch.
+5. **Prompt user**: "Which PRs should I merge? (enter numbers separated by spaces, or 'all')"
+6. **Merge selected PRs**:
+   ```bash
+   gh pr merge <PR-number> --squash --auto
+   # or
+   gh pr merge <PR-number> --merge --auto
+   ```
+   For each PR merged, extract the plan name from the PR title (format: `feat: <plan-name>`) and note it.
+7. **Verify all selected PRs merged** — check git log that release now includes those commits
+8. **Switch to `main` branch**:
    ```bash
    git checkout main
    git pull origin main
    ```
-6. **Merge `release` into `main`**:
+9. **Merge `release` into `main`**:
    ```bash
    git merge --no-ff release -m "release: promote to main"
    ```
    If there are merge conflicts in `plans/`, resolve in favor of release:
    ```bash
-   # If merge conflicts occur
    git diff --name-only --diff-filter=U | grep '^plans/' | xargs -r git checkout --theirs
    git add plans/
    git commit --no-edit
    ```
-7. **Move plans from `verify/` → `complete/`** (on the main branch):
-   ```bash
-   git mv plans/staging/<plan-name> plans/complete/<plan-name>
-   ```
-   For each plan moved, update `plan.md`: set Status to `Complete` and add a note:
-   ```
-   Completed: YYYY-MM-DD — deployed to production
-   ```
-8. **Close linked bugs**:
-   - For each plan in `plans/complete/`, read `plan.md` Goal to find the `**Bug:**` line (if present)
-   - Extract BUG-NNN identifier
-   - Move `bugs/triaged/BUG-NNN-<slug>/` → `bugs/closed/BUG-NNN-<slug>/`
-   - Update `bug.md` in that folder:
-     ```
-     Status: Closed
-     Notes: Closed YYYY-MM-DD — fixed by plan: <plan-folder-path>
-     ```
-9. **Commit all plan moves and bug closures**:
-   ```bash
-   git add plans/complete/ bugs/closed/
-   git commit -m "release: complete [plan-names], close bugs"
-   ```
-10. **Back-merge `main` → `develop`**:
+10. **Move plans from `verify/` → `complete/`** (on the main branch):
+    For each merged PR's plan name:
+    ```bash
+    git mv plans/verify/<plan-name> plans/complete/<plan-name>
+    ```
+    Update `plan.md`: set Status to `Complete` and add a note:
+    ```
+    Completed: YYYY-MM-DD — deployed to production
+    ```
+11. **Close linked bugs**:
+    - For each plan in `plans/complete/`, read `plan.md` Goal to find the `**Bug:**` line (if present)
+    - Extract BUG-NNN identifier
+    - Move `bugs/triaged/BUG-NNN-<slug>/` → `bugs/closed/BUG-NNN-<slug>/`
+    - Update `bug.md` in that folder:
+      ```
+      Status: Closed
+      Closed: YYYY-MM-DD
+      Notes: Fixed by plan: plans/complete/<plan-folder>/
+      ```
+12. **Commit all plan moves and bug closures**:
+    ```bash
+    git add plans/complete/ bugs/closed/
+    git commit -m "release: complete [plan-names], close bugs"
+    ```
+13. **Back-merge `main` → `develop`**:
     ```bash
     git checkout develop
     git pull origin develop
@@ -82,26 +95,26 @@ bugs/closed/      → closed bugs
     ```
     If there are merge conflicts in `plans/`, resolve in favor of main (--ours, since main has complete/):
     ```bash
-    # If merge conflicts occur
     git diff --name-only --diff-filter=U | grep '^plans/' | xargs -r git checkout --ours
     git add plans/
     git commit --no-edit
     ```
-11. **Push develop branch**:
+14. **Push develop branch**:
     ```bash
     git push origin develop
     ```
     (This syncs the completed plans back to develop)
 
-12. **Do NOT push main** — that's a separate step:
+15. **Do NOT push main** — that's a separate step:
     ```
     To deploy to production, run:
     git push origin main
     (This triggers the production deploy in GitHub Actions)
     ```
 
-13. **Display success**:
+16. **Display success**:
     ```
+    ✓ [N] PRs merged to release
     ✓ Plans marked complete on main
     ✓ Bugs closed
     ✓ Back-merged to develop and pushed
@@ -151,15 +164,17 @@ Extract BUG-NNN and slug, then:
 ## On startup
 
 1. Confirm on `release` branch
-2. List `Tested` plans from `plans/staging/`
-3. Confirm staging validation before proceeding
+2. List open PRs targeting `release` using GitHub CLI
+3. If PRs exist: prompt user to select which ones to merge
+4. If no PRs: inform user that there is no work to release
 
 ## Committing work
 
-Three commits are normal:
-1. Merge commit (release → main): `"release: promote to main"`
-2. Plans + bugs: `"release: complete [plan-names], close bugs"`
-3. Back-merge: `"sync: bring completed plans back to develop"`
+Four commits are normal:
+1. Merge commits (PR merges to release): done by `gh pr merge` — one per PR
+2. Merge commit (release → main): `"release: promote to main"`
+3. Plans + bugs: `"release: complete [plan-names], close bugs"`
+4. Back-merge: `"sync: bring completed plans back to develop"`
 
 If you need to resume after an interruption, tell the user which step to pick up at.
 
