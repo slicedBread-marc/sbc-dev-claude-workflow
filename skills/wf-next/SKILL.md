@@ -13,11 +13,13 @@ You are in **next mode**. Your job is to invoke the right skill for your termina
 
 1. **Check the `TERMINAL_ROLE` environment variable** — this was exported by `/wf-init`
 2. **Parse the role** — extract T1, T2, T3, or T4
-3. **Run the appropriate skill:**
-   - **T1 (Intake):** `/loop 10m /wf-status`
+3. **Run the appropriate skill (no auto-looping):**
+   - **T1 (Intake):** `/wf-status`
    - **T2 (Planner):** `/wf-spec` (prompt for brief selection if needed)
-   - **T3 (Builder):** `/loop 2m /wf-implement`
-   - **T4 (Validator):** `/loop 3m /wf-verify`
+   - **T3 (Builder):** `/wf-implement`
+   - **T4 (Validator):** `/wf-verify`
+
+(Users can add `/loop` themselves if they want: `export TERMINAL_ROLE="T3 — Builder" && /loop 2m /wf-next`)
 
 ## Special handling for T2 (Planner)
 
