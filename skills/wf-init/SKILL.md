@@ -52,6 +52,13 @@ What you'll do:
   • Moves completed plans to verify/
 ```
 
+Also set the terminal window title:
+```bash
+printf '\033]0;%s\007' "T2 — Builder"
+```
+
+(This sets the iTerm/Terminal.app window title so you can identify terminals visually)
+
 ### 4. Set up logging context
 
 Create/read session files:
