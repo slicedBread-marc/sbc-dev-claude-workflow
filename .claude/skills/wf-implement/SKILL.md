@@ -63,21 +63,37 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    ```
    This creates a new feature branch FROM the current HEAD (develop, with the locked-plan commit) and a new worktree directory separate from your main repo.
 
+6. **Drop settings.local.json into worktree** for full write permissions:
+   ```
+   cat > ../sbc-feature-<plan-name>/.claude/settings.local.json << 'EOF'
+   {
+     "permissions": {
+       "allow": [
+         "Read(//**)",
+         "Write(//**)",
+         "Bash(*)"
+       ]
+     }
+   }
+   EOF
+   ```
+   This grants broad permissions within the worktree so you can freely edit and build.
+
 **Phase 2: Implementation (in the worktree, on feature branch)**
 
-6. **Change to worktree directory** (within the Bash session — this persists for all subsequent Phase 2 steps):
+7. **Change to worktree directory** (within the Bash session — this persists for all subsequent Phase 2 steps):
    ```
    cd ../sbc-feature-<plan-name>
    ```
-7. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/<plan-name>`, not `develop`.
-8. **Read `plan.md`** — understand the goal, design decisions, and all steps
-9. **Execute steps in order** — follow each step exactly as specified
-10. **Write tests** — implement all tests listed in the Tests table
-11. **Check off steps** — mark each step's checkbox in `progress.md` when done
-12. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
-13. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
+8. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/<plan-name>`, not `develop`.
+9. **Read `plan.md`** — understand the goal, design decisions, and all steps
+10. **Execute steps in order** — follow each step exactly as specified
+11. **Write tests** — implement all tests listed in the Tests table
+12. **Check off steps** — mark each step's checkbox in `progress.md` when done
+13. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
+14. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
    - After each step, commit: `git add src/,tests/ plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
-14. **When all steps complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+15. **When all steps complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
    ```
    git mv plans/active/<name> plans/verify/<name>
    git commit -m "implement(<feature-name>): all steps complete, moving to verify"
@@ -85,11 +101,11 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 **Phase 3: Cleanup (return to `develop`)**
 
-15. **Return to develop directory**:
+16. **Return to develop directory**:
    ```
    cd ../sbc
    ```
-16. **Post completion message** — display:
+17. **Post completion message** — display:
    ```
    ✓ Implementation complete — all steps done, plan moved to verify/
    
