@@ -59,11 +59,12 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 3. **Read the plan**:
    - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `findings.md` to understand any existing findings
-4. **Set the feature port** — calculate it from the plan folder name so the app runs on a unique port:
+4. **Set the feature port** — calculate it from the plan folder name so the app runs on a unique port (8100+ range, never colliding with staging at 8081):
    ```bash
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
    PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
-   FEATURE_PORT=$((8000 + PLAN_ID))
+   # Port range 8000-8099 reserved for static site (staging at 8081); features use 8100+
+   FEATURE_PORT=$((8100 + PLAN_ID))
    export FEATURE_PORT COMPOSE_PROJECT_NAME="sbc-$PLAN_FOLDER"
    ```
 5. **Deploy to local container**:
@@ -73,7 +74,7 @@ Solution: Test sequentially. After testing completes, the container is destroyed
    Wait for health check pass (app should be ready within 10 seconds)
 6. **Ask testing mode**:
    ```
-   ✓ App is running at http://localhost:$FEATURE_PORT (e.g., http://localhost:8004 for PLN-004)
+   ✓ App is running at http://localhost:$FEATURE_PORT (e.g., http://localhost:8104 for PLN-004)
    
    How would you like to test?
    [each] - Walk through each criterion individually
@@ -266,8 +267,10 @@ git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
 
 ## Notes
 
-- **Container port:** Unique per feature (8000 + plan ID). For PLN-004 → 8004, PLN-012 → 8012. Calculated in step 4.
+- **Port ranges:**
+  - **Static site:** 8000-8099 (reserved for staging at 8081 and other static/non-feature uses)
+  - **Feature branches:** 8100+ (calculated as 8100 + plan ID, e.g., PLN-004 → 8104, PLN-012 → 8112)
 - **Health check endpoint:** `http://localhost:$FEATURE_PORT/health`
 - **Project name:** `sbc-PLN-NNN-<name>` (set in step 4)
 - **Environment:** Development (localhost testing)
-- **Port collisions:** Avoided by using plan ID-based port assignment. Staging uses port 8081 (never collides).
+- **Collision prevention:** Feature range (8100+) is completely separate from static range (8000-8099)

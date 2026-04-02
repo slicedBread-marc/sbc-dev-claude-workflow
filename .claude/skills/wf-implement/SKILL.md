@@ -92,14 +92,16 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    PLAN_FOLDER=$(basename $(ls -d plans/active/PLN-*/ | head -1) | tr -d '/')
    # Extract the plan ID number (e.g., "004" from "PLN-004-deployment-date-footer")
    PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
-   # Calculate port: 8000 + NNN (e.g., PLN-004 → 8004, PLN-012 → 8012)
-   FEATURE_PORT=$((8000 + PLAN_ID))
+   # Calculate port: 8100 + NNN (e.g., PLN-004 → 8104, PLN-012 → 8112)
+   # Port range 8000-8099 is reserved for static site (includes staging at 8081)
+   FEATURE_PORT=$((8100 + PLAN_ID))
    export COMPOSE_PROJECT_NAME="sbc-$PLAN_FOLDER"
    export FEATURE_PORT
    ```
    This ensures:
    - Container name: `sbc-PLN-NNN-<name>` (isolated from `sbc-staging`)
-   - Port: 8000 + plan ID (e.g., PLN-004 → 8004, PLN-012 → 8012) — no collisions between features
+   - Port: 8100 + plan ID (e.g., PLN-004 → 8104, PLN-012 → 8112)
+   - **Port ranges:** 8000-8099 reserved (static site, staging at 8081); 8100+ for features (no collisions)
    - All `docker compose up` commands in plan steps use these values automatically
 10. **Read `plan.md`** — understand the goal, design decisions, and all steps
 11. **Execute steps in order** — follow each step exactly as specified. Update any `docker compose up` commands to use the port variable:
@@ -261,19 +263,24 @@ The workflow is:
 
 ## Docker port configuration
 
-For feature branches to use unique ports (8000 + plan ID), `docker-compose.yml` must reference the `FEATURE_PORT` environment variable:
+For feature branches to use unique ports in the 8100+ range, `docker-compose.yml` must reference the `FEATURE_PORT` environment variable:
 
 ```yaml
 services:
   web:
     ports:
-      - "${FEATURE_PORT:-8080}:8080"  # Default 8080 if FEATURE_PORT not set; otherwise use the env var (e.g., 8004)
+      - "${FEATURE_PORT:-8080}:8080"  # Default 8080 if FEATURE_PORT not set; otherwise use the env var (e.g., 8104 for PLN-004)
 ```
 
-This allows:
-- Feature branches: automatic port assignment based on plan ID
-- Staging (wf-stage): hardcoded port 8081 (via `--project-name sbc-staging` in stage-start.sh)
-- Local development: default 8080 when `FEATURE_PORT` is not set
+**Port ranges:**
+- **8000-8099:** Static site (reserved). Staging uses 8081 via `wf-stage` script.
+- **8100+:** Feature branches (8100 + plan ID). E.g., PLN-004 → 8104, PLN-012 → 8112.
+- **8080:** Default for local development (when `FEATURE_PORT` not set).
+
+This ensures:
+- Zero collisions between features (each gets a unique port)
+- Staging always at 8081 (never conflicts with features)
+- Clear separation of concerns (static range vs. feature range)
 
 ## Committing work
 
