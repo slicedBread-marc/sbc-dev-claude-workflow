@@ -146,9 +146,20 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 
 10. **Destroy the container** (whether tests pass or fail):
    ```bash
-   docker compose -f docker/docker-compose.yml down -v
+   # Use the same project name that was set during deploy to ensure correct container is stopped
+   PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ 2>/dev/null || ls -d plans/replanning/PLN-*/ 2>/dev/null | head -1) | tr -d '/')
+   PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
+   COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
+   
+   # Stop and remove containers
+   docker compose -f docker/docker-compose.yml \
+     --project-name "$COMPOSE_PROJECT_NAME" \
+     down -v 2>/dev/null || true
+   
+   # Force remove any remaining containers with this project name
+   docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
    ```
-   This removes the container and volumes to keep the worktree clean. The next feature branch test will have a fresh environment on port 8080.
+   This removes the container and volumes to keep the worktree clean. Uses explicit project name to ensure the correct container is stopped, with fallback force-kill if compose down fails.
 
 ## Filing a bug during testing
 

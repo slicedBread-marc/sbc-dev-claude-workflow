@@ -141,13 +141,20 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 20. **Destroy the docker container** — clean up before leaving the worktree:
    ```bash
-   # Extract full plan folder name (PLN-NNN-<name>) and use for project naming
+   # Extract plan ID from the verified plan folder
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
+   PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
+   COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
+   
+   # Stop and remove containers
    docker compose -f docker/docker-compose.yml \
-     --project-name sbc-$PLAN_FOLDER \
-     down -v
+     --project-name "$COMPOSE_PROJECT_NAME" \
+     down -v 2>/dev/null || true
+   
+   # Force remove any remaining containers with this project name
+   docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
    ```
-   This removes the container and volumes, keeping the worktree clean for T4's later verification testing.
+   This removes the container and volumes, keeping the worktree clean for T4's later verification testing. Uses explicit project name and fallback force-kill to ensure cleanup succeeds.
 
 **Phase 3: Cleanup (return to `develop`)**
 
