@@ -36,7 +36,9 @@ plans/verify/    → move here when done
 
 ### New implementation (plan folder is in `ready/`)
 
-1. **Confirm you are on `develop`** — run `git branch --show-current`. If you are not on `develop`, stop and alert the user. This workflow requires planning to happen on `develop` and implementation on a feature branch.
+**Phase 1: Setup (on `develop` branch)**
+
+1. **Confirm you are on `develop`** — run `git branch --show-current`. If not, stop and alert the user.
 2. **Compute the feature branch name** — use the plan folder name: `feature/<plan-name>`
 3. **Lock the plan** — update `plan.md`:
    - Set Status to `Active`
@@ -52,39 +54,43 @@ plans/verify/    → move here when done
    ```
    git worktree add -b feature/<plan-name> ../sbc-feature-<plan-name> HEAD
    ```
-   This creates a new feature branch FROM the current HEAD (the locked-plan commit) and a new worktree directory.
-6. **Instruct user to switch** — display:
+   This creates a new feature branch FROM the current HEAD (develop, with the locked-plan commit) and a new worktree directory separate from your main repo.
+6. **Display next steps**:
    ```
    ✓ Feature branch created: feature/<plan-name>
    ✓ Worktree created at: ../sbc-feature-<plan-name>
    
-   Switch your T3/T4 terminals to that directory:
+   T3/T4 terminals: switch to the worktree directory
      cd ../sbc-feature-<plan-name>
    
-   Then run /wf-implement again to begin implementation.
+   Then run /wf-implement again in that directory to begin coding.
    ```
-   Once user confirms they've switched, continue to step 7.
-7. **Read `plan.md`** — understand the goal, design decisions, and all steps
-3. **Execute steps in order** — follow each step exactly as specified
-4. **Write tests** — implement all tests listed in the Tests table
-5. **Check off steps** — mark each step's checkbox in `progress.md` when done
-6. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
-7. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
+
+**Phase 2: Implementation (in the worktree, on feature branch)**
+
+When you run `/wf-implement` again from the worktree directory:
+
+7. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/<plan-name>`, not `develop`.
+8. **Read `plan.md`** — understand the goal, design decisions, and all steps
+9. **Execute steps in order** — follow each step exactly as specified
+10. **Write tests** — implement all tests listed in the Tests table
+11. **Check off steps** — mark each step's checkbox in `progress.md` when done
+12. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
+13. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
    - After each step, commit: `git add src/,tests/ plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
-8. **When all steps complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+14. **When all steps complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
    ```
    git mv plans/active/<name> plans/verify/<name>
    git commit -m "implement(<feature-name>): all steps complete, moving to verify"
    ```
-9. **Post completion message** — after the commit succeeds, display:
+15. **Post completion message** — after the commit succeeds, display:
    ```
    ✓ Implementation complete — all steps done, plan moved to verify/
    
-   Your local environment should be starting. To see the status and URL, type:
-   ! .claude/on-implement-commit.sh status
-   
    NEXT: Run /wf-verify for automated checks
          Then run /wf-test for human acceptance testing
+   
+   When done testing, your PR will be created to the release branch.
    ```
 
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
@@ -107,6 +113,15 @@ plans/verify/    → move here when done
    git commit -m "implement(<feature-name>): fix findings (FND-NNN), moving to verify"
    ```
 
+## Worktree isolation
+
+Each plan gets its own worktree (isolated directory with its own working tree). Benefits:
+
+- **T3 and T4 work in the same directory** — no need to switch branches
+- **No accidental changes** — code in one feature branch won't affect develop or other features
+- **Clean git history** — each feature is a linear sequence of commits from develop
+- **Easy cleanup** — when testing completes, delete the worktree: `git worktree remove ../sbc-feature-<name>`
+
 ## Rules
 
 - **Do NOT** make design decisions not covered by the plan
@@ -116,12 +131,22 @@ plans/verify/    → move here when done
 - You may edit src/,tests/ and the plan's Progress/Findings Queue status
 - **Do NOT** edit the plan's Steps, Tests, or Design Decisions sections
 - **Do NOT** add findings — only `/wf-review` and `/wf-verify` produce findings
+- **Worktree discipline** — always work in the worktree directory once created; do NOT switch back to develop for implementation
 
 ## On startup
 
-1. Check `plans/ready/` for new plan folders to implement
-2. Check `plans/verify/` for plan folders with `Open` findings in `findings.md` (fix cycle)
-3. Ask the user which plan to work on if multiple are available
+1. **Detect current branch** — run `git branch --show-current`
+2. **If on `develop`:**
+   - Check `plans/ready/` for new plan folders to implement
+   - Ask the user which one to pick up (if multiple exist)
+   - Execute Phase 1 (setup: lock plan, create worktree)
+   - Instruct user to switch to the worktree directory and run `/wf-implement` again
+3. **If on a feature branch** (e.g. `feature/site-version-indicator`):
+   - Confirm the corresponding plan is in `plans/active/`
+   - Execute Phase 2 (implementation: code the steps)
+4. **If a plan in `verify/` has `Open` findings:**
+   - Ask if user wants to fix those findings (fix cycle)
+   - Move to active/, fix findings, then move back to verify/
 
 ## Committing work
 
