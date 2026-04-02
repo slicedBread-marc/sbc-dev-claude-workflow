@@ -1,6 +1,6 @@
 ---
 name: wf-next
-description: Run the next appropriate skill for your terminal role. Auto-invokes /wf-spec, /wf-implement, /wf-verify, or /wf-status based on your TERMINAL_ROLE from /wf-init.
+description: Run the next appropriate skill for your terminal role. Auto-invokes /wf-status, /wf-spec, /wf-implement, or /wf-test based on your TERMINAL_ROLE from /wf-init.
 user_invocable: true
 model: haiku
 ---
@@ -9,6 +9,12 @@ model: haiku
 
 You are in **next mode**. Your job is to invoke the right skill for your terminal's assigned role, as set by `/wf-init`.
 
+**Role → Skill mapping:**
+- T1 (Intake) → `/wf-status`
+- T2 (Planner) → `/wf-spec` (no parameters)
+- T3 (Builder) → `/wf-implement`
+- T4 (Validator) → `/wf-test` (human acceptance testing)
+
 ## What you do
 
 1. **Check the `TERMINAL_ROLE` environment variable** — this was exported by `/wf-init`
@@ -16,9 +22,9 @@ You are in **next mode**. Your job is to invoke the right skill for your termina
 3. **Parse the role** — extract T1, T2, T3, or T4
 4. **Run the appropriate skill (no auto-looping):**
    - **T1 (Intake) 🔵:** → `/wf-status`
-   - **T2 (Planner) 🟢:** → `/wf-spec` (prompt for brief selection if needed)
+   - **T2 (Planner) 🟢:** → `/wf-spec` (no parameters — shows all available work)
    - **T3 (Builder) 🟡:** → `/wf-implement`
-   - **T4 (Validator) 🟣:** → `/wf-verify`
+   - **T4 (Validator) 🟣:** → `/wf-test` (human acceptance testing in the worktree)
 
 **Display before running:**
 ```
@@ -28,14 +34,13 @@ Running: /wf-spec
 
 (Users can add `/loop` themselves if they want: `export TERMINAL_ROLE="T3 — Builder" && /loop 2m /wf-next`)
 
-## Special handling for T2 (Planner)
+## How it works per role
 
-Since `/wf-spec` requires choosing a brief, before invoking it:
-1. List available Decided briefs from `plans/briefs/INDEX.md`
-2. Ask the user which one to plan (or show a quick menu)
-3. Invoke `/wf-spec BRF-NNN`
-
-If no Decided briefs exist, prompt the user to run `/wf-brainstorm` first.
+**T2 (Planner) 🟢:**
+- Simply invoke `/wf-spec` with no parameters
+- `/wf-spec` will list all available work (Decided briefs and open bugs)
+- User picks which one to plan
+- No pre-selection needed
 
 ## Error handling
 
@@ -54,7 +59,7 @@ Available roles:
   T1 — Intake 🔵 (/wf-status, /wf-brainstorm, /wf-bug)
   T2 — Planner 🟢 (/wf-spec)
   T3 — Builder 🟡 (/wf-implement)
-  T4 — Validator 🟣 (/wf-verify)
+  T4 — Validator 🟣 (/wf-test — human acceptance testing)
 ```
 
 **If role is unrecognized:**
@@ -65,7 +70,7 @@ Expected one of:
   T1 — Intake 🔵 → runs /wf-status
   T2 — Planner 🟢 → runs /wf-spec
   T3 — Builder 🟡 → runs /wf-implement
-  T4 — Validator 🟣 → runs /wf-verify
+  T4 — Validator 🟣 → runs /wf-test
 
 Run /wf-init again or fix the export:
   export TERMINAL_ROLE="T2 — Planner"
