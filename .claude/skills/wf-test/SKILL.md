@@ -1,6 +1,6 @@
 ---
 name: wf-test
-description: Human acceptance testing for a verified plan. Deploy to container, walk through acceptance criteria, capture pass/fail. File new bugs on develop, reference them in findings, create PR to release.
+description: Human acceptance testing for verified plans. From develop, T4 sees a menu of completed worktrees ready for testing, picks one, and runs acceptance criteria. Files bugs on develop, creates PR to release.
 user_invocable: true
 model: haiku
 ---
@@ -46,18 +46,25 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 
 ## What you do
 
+**If starting from develop:**
+1. **Scan for available worktrees** — check `feature-branches/*/plans/verify/*/plan.md` for Status `Verified`
+2. **Show menu** — list all worktrees with completed, verified plans ready for testing
+3. **User picks a worktree** — they select which feature to test
+4. **Switch to worktree** — `cd feature-branches/<selected-plan>/`
+5. **Continue with testing below**
+
+**Once in the feature branch worktree:**
 1. **Confirm you are on a feature branch** — run `git branch --show-current`. The branch should be `feature/*`
-2. **List plans in `plans/verify/`** — find plan folders with Status `Verified` in `plan.md`
-3. **Pick a plan** to test (ask user if multiple exist)
-4. **Read the plan**:
+2. **Find the plan** — locate the plan in `plans/verify/<plan-name>/`
+3. **Read the plan**:
    - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `findings.md` to understand any existing findings
-5. **Deploy to local container**:
+4. **Deploy to local container**:
    ```bash
    docker compose -f docker/docker-compose.yml up --build -d
    ```
    Wait for health check pass (app should be ready within 10 seconds)
-6. **Ask testing mode**:
+5. **Ask testing mode**:
    ```
    ✓ App is running at http://localhost:8080
    
@@ -66,9 +73,9 @@ Solution: Test sequentially. After testing completes, the container is destroyed
    [all]  - Pass all criteria (assume they all passed)
    ```
 
-7. **If mode = [all]**: Skip to step 9 below — mark all criteria as pass
+6. **If mode = [all]**: Skip to step 8 below — mark all criteria as pass
 
-8. **If mode = [each]**: For each acceptance criterion in the Verification Checklist**:
+7. **If mode = [each]**: For each acceptance criterion in the Verification Checklist**:
    - Display the criterion clearly
    - Ask user: `[pass/fail/skip/bug]`
    - If **pass**: note it and continue to next criterion
@@ -79,10 +86,10 @@ Solution: Test sequentially. After testing completes, the container is destroyed
        ```
        | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
        ```
-       Display: "Findings written. Run `/wf-implement` to fix. Then re-run `/wf-verify` and `/wf-test`."
+       Display: "Findings written. Run `/wf-implement` to fix. Then re-run `/wf-test`."
      - **Pre-existing bug:** follow "Filing a bug during testing" workflow below
    - If **skip**: note it and continue (user may skip non-critical items)
-9. **If all pass**:
+8. **If all pass**:
    - Update `plan.md`: set Status to `Tested`
    - Move plan from `verify/` → `staging/` and commit:
      ```bash
@@ -214,13 +221,27 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 ## On startup
 
 1. Check current branch — run `git branch --show-current`
-2. Confirm you are on one of: `feature/*`, `release`, or `main`
-   - If not, stop with error message
-   - `feature/*` = testing before PR to release (new workflow)
-   - `release` = testing existing plans before /wf-release (transitional)
-   - `main` = testing on production branch (rare, verification only)
-3. List plans in `plans/verify/` with Status `Verified` — these are ready for human testing
-4. If multiple plans exist, ask user which one to test. If none exist, stop with message: "No plans ready for testing."
+2. **If on `develop`:**
+   - Scan `feature-branches/*/plans/verify/*/plan.md` for Status `Verified`
+   - List all worktrees with completed, verified plans ready for testing
+   - Show menu:
+     ```
+     Available worktrees ready for testing:
+     1) feature/site-version-indicator — Site Version Indicator
+     2) feature/another-plan — Another Feature
+     
+     Which worktree would you like to test? (enter number)
+     ```
+   - User selects one
+   - `cd` into that worktree (e.g., `cd feature-branches/site-version-indicator`)
+   - Continue to step 3
+
+3. **If on a feature branch** (e.g., `feature/site-version-indicator`):
+   - Confirm you are on one of: `feature/*`, `release`, or `main`
+   - Find the matching plan in `plans/verify/`
+   - Continue to testing
+
+4. If no plans ready for testing anywhere, stop with message: "No worktrees ready for testing. Run /wf-status to see pipeline state."
 
 ## Committing work
 
