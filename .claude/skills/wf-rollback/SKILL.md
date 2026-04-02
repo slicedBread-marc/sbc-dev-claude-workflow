@@ -29,7 +29,7 @@ plans/rolled-back/   → where plan folders go after rollback
 
 ### 1. Identify the plan
 
-Ask the user which feature to roll back. List candidates from `plans/complete/` and `plans/active/`. Read each `plan.md` Status and Goal to help the user identify the right one.
+Ask the user which feature to roll back. List candidates from `plans/complete/PLN-NNN-*/` and `plans/active/PLN-NNN-*/`. Read each `plan.md` Status and Goal to help the user identify the right one.
 
 ### 2. Read the rollback section
 
@@ -79,13 +79,13 @@ Update `plan.md`:
   [date] — Rolled back. Reason: [user-provided reason]. Data migrations: [Reversible/Irreversible/N/A]. Verification: [passed/partial — notes].
   ```
 
-Move the plan folder from its current location → `plans/rolled-back/<name>/` and commit:
+Move the plan folder from its current location → `plans/rolled-back/PLN-NNN-<name>/` and commit:
 ```
-git mv plans/complete/<name> plans/rolled-back/<name>
-git commit -m "rollback: <feature-name> — <reason>"
+git mv plans/complete/PLN-NNN-<name> plans/rolled-back/PLN-NNN-<name>
+git commit -m "rollback(PLN-NNN-<name>): <reason>"
 ```
 
-(If rolling back from `plans/active/`, use `git mv plans/active/<name> plans/rolled-back/<name>`)
+(If rolling back from `plans/active/`, use `git mv plans/active/PLN-NNN-<name> plans/rolled-back/PLN-NNN-<name>`)
 
 ### 6. File a bug (optional)
 

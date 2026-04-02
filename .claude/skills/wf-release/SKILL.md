@@ -59,9 +59,9 @@ bugs/closed/      → closed bugs
    ```
    The `-X theirs` option automatically accepts release's version of any conflicting files in `plans/`.
 10. **Move plans from `verify/` → `complete/`** (on the main branch):
-    For each merged PR's plan name:
+    For each merged PR's plan name (e.g., `PLN-004-deployment-date-footer`):
     ```bash
-    git mv plans/verify/<plan-name> plans/complete/<plan-name>
+    git mv plans/verify/PLN-NNN-<plan-name> plans/complete/PLN-NNN-<plan-name>
     ```
     Update `plan.md`: set Status to `Complete` and add a note:
     ```

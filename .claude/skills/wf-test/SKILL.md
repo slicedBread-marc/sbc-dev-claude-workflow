@@ -47,15 +47,15 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 ## What you do
 
 **If starting from develop:**
-1. **Scan for available worktrees** — check `feature-branches/*/plans/verify/*/plan.md` for Status `Verified`
-2. **Show menu** — list all worktrees with completed, verified plans ready for testing
+1. **Scan for available worktrees** — check `feature-branches/PLN-*-*/plans/verify/PLN-*-*/plan.md` for Status `Verified`
+2. **Show menu** — list all worktrees with completed, verified plans ready for testing (show PLN-NNN and feature name)
 3. **User picks a worktree** — they select which feature to test
-4. **Switch to worktree** — `cd feature-branches/<selected-plan>/`
+4. **Switch to worktree** — `cd feature-branches/PLN-NNN-<plan-name>/`
 5. **Continue with testing below**
 
 **Once in the feature branch worktree:**
-1. **Confirm you are on a feature branch** — run `git branch --show-current`. The branch should be `feature/*`
-2. **Find the plan** — locate the plan in `plans/verify/<plan-name>/`
+1. **Confirm you are on a feature branch** — run `git branch --show-current`. The branch should be `feature/PLN-NNN-*`
+2. **Find the plan** — locate the plan in `plans/verify/PLN-NNN-<plan-name>/`
 3. **Read the plan**:
    - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `findings.md` to understand any existing findings
@@ -91,16 +91,16 @@ Solution: Test sequentially. After testing completes, the container is destroyed
    - If **skip**: note it and continue (user may skip non-critical items)
 8. **If all pass**:
    - Update `plan.md`: set Status to `Tested`
-   - Move plan from `verify/` → `staging/` and commit:
+   - Plan stays in `verify/` (no folder move — only wf-release moves to complete/)
+   - Commit the status update:
      ```bash
-     git mv plans/verify/<plan-name> plans/staging/<plan-name>
-     git commit -m "test(<plan-name>): human test passed, moving to staging"
+     git commit -m "test(PLN-NNN-<plan-name>): human test passed"
      ```
    - Check current branch and handle PR creation:
      ```bash
      CURRENT_BRANCH=$(git branch --show-current)
-     PLAN_NAME=$(basename $(ls -d plans/staging/*/ | head -1) | tr -d '/')
-     PLAN_GOAL=$(grep -A 1 "^## Goal" plans/staging/$PLAN_NAME/plan.md | tail -1)
+     PLAN_NAME=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
+     PLAN_GOAL=$(grep -A 1 "^## Goal" plans/verify/$PLAN_NAME/plan.md | tail -1)
      
      if [[ "$CURRENT_BRANCH" == "release" || "$CURRENT_BRANCH" == "main" ]]; then
        # Already on release/main, no PR needed
@@ -248,13 +248,13 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 After all criteria pass:
 ```
 git add plans/verify/
-git commit -m "test(<plan-name>): human test passed"
+git commit -m "test(PLN-NNN-<plan-name>): human test passed"
 ```
 
 If findings are found:
 ```
 git add plans/verify/
-git commit -m "test(<plan-name>): N findings from human test"
+git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
 ```
 
 ## Notes

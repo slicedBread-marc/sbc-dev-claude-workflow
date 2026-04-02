@@ -46,27 +46,27 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 **Phase 1: Setup (on `develop` branch)**
 
 1. **Confirm you are on `develop`** — run `git branch --show-current`. If not, stop and alert the user.
-2. **Compute the feature branch name** — use the plan folder name: `feature/<plan-name>`
+2. **Compute the feature branch name** — use the plan folder name (including `PLN-NNN-` prefix): `feature/PLN-NNN-<plan-name>` (e.g. `feature/PLN-004-deployment-date-footer`)
 3. **Lock the plan** — update `plan.md`:
    - Set Status to `Active`
    - Fill in `Implementing session` with today's date and session identifier (e.g. `2026-04-02 — implement session`)
-   - Add `locked_by: feature/<plan-name>` and `locked_at: YYYY-MM-DD` to the Status block
+   - Add `locked_by: feature/PLN-NNN-<plan-name>` and `locked_at: YYYY-MM-DD` to the Status block
 4. **Move and commit on develop**:
    ```
-   git mv plans/ready/<name> plans/active/<name>
+   git mv plans/ready/PLN-NNN-<name> plans/active/PLN-NNN-<name>
    git add plans/active/
-   git commit -m "implement(<plan-name>): lock plan (branch: feature/<plan-name>)"
+   git commit -m "implement(PLN-NNN-<plan-name>): lock plan (branch: feature/PLN-NNN-<plan-name>)"
    ```
 5. **Create feature branch and worktree**:
    ```
    mkdir -p feature-branches
-   git worktree add -b feature/<plan-name> feature-branches/<plan-name> HEAD
+   git worktree add -b feature/PLN-NNN-<plan-name> feature-branches/PLN-NNN-<plan-name> HEAD
    ```
    This creates the feature-branches folder inside sbc if needed, then creates a new feature branch FROM the current HEAD (develop, with the locked-plan commit) and a new worktree directory.
 
 6. **Drop settings.local.json into worktree** for full write permissions:
    ```
-   cat > feature-branches/<plan-name>/.claude/settings.local.json << 'EOF'
+   cat > feature-branches/PLN-NNN-<plan-name>/.claude/settings.local.json << 'EOF'
    {
      "permissions": {
        "allow": [
@@ -84,9 +84,9 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 7. **Change to worktree directory** (within the Bash session — this persists for all subsequent Phase 2 steps):
    ```
-   cd feature-branches/<plan-name>
+   cd feature-branches/PLN-NNN-<plan-name>
    ```
-8. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/<plan-name>`, not `develop`.
+8. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/PLN-NNN-<plan-name>`, not `develop`.
 9. **Read `plan.md`** — understand the goal, design decisions, and all steps
 10. **Execute steps in order** — follow each step exactly as specified
 11. **Write tests** — implement all tests listed in the Tests table
@@ -115,18 +115,18 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    - All E2E tests must pass before proceeding
    - Log results in `progress.md`: `[date] E2E tests: all passing`
 
-18. **When all steps, reviews, and E2E tests complete** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+18. **When all steps, reviews, and E2E tests complete** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
    ```
-   git mv plans/active/<name> plans/verify/<name>
-   git commit -m "implement(<feature-name>): all steps complete, verified, ready for human test"
+   git mv plans/active/PLN-NNN-<name> plans/verify/PLN-NNN-<name>
+   git commit -m "implement(PLN-NNN-<name>): all steps complete, verified, ready for human test"
    ```
 
 19. **Destroy the docker container** — clean up before leaving the worktree:
    ```bash
-   # Extract feature name from plan folder name for consistent project naming
-   FEATURE_NAME=$(basename $(ls -d plans/verify/*/ | head -1) | tr -d '/')
+   # Extract full plan folder name (PLN-NNN-<name>) and use for project naming
+   PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
    docker compose -f docker/docker-compose.yml \
-     --project-name sbc-$FEATURE_NAME \
+     --project-name sbc-$PLAN_FOLDER \
      down -v
    ```
    This removes the container and volumes, keeping the worktree clean for T4's later verification testing.
@@ -164,21 +164,21 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
 
 1. **Claim the plan** — before moving, update `plan.md`: set Status to `Active` and update `Implementing session` with today's date
-2. **Move the plan folder** from `plans/verify/<name>/` → `plans/active/<name>/`:
+2. **Move the plan folder** from `plans/verify/PLN-NNN-<name>/` → `plans/active/PLN-NNN-<name>/`:
    ```
-   git mv plans/verify/<name> plans/active/<name>
-   git commit -m "implement(<feature-name>): claim plan for fix cycle, moving to active"
+   git mv plans/verify/PLN-NNN-<name> plans/active/PLN-NNN-<name>
+   git commit -m "implement(PLN-NNN-<name>): claim plan for fix cycle, moving to active"
    ```
-2. **Read `findings.md`** — look for rows with status `Open`
-3. **Ignore `Escalated` findings** — these require a planner, not an implementer. Do not attempt to fix them.
-4. **Fix each `Open` finding** — address the issue described, using the file paths and line numbers provided
-5. **Set finding status to `Fixed`** — update the row in `findings.md`
-6. **Log in `progress.md`** — `[date] Finding FND-003 — fixed (description of fix)`
-7. **When all `Open` findings are `Fixed`** — move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+3. **Read `findings.md`** — look for rows with status `Open`
+4. **Ignore `Escalated` findings** — these require a planner, not an implementer. Do not attempt to fix them.
+5. **Fix each `Open` finding** — address the issue described, using the file paths and line numbers provided
+6. **Set finding status to `Fixed`** — update the row in `findings.md`
+7. **Log in `progress.md`** — `[date] Finding FND-003 — fixed (description of fix)`
+8. **When all `Open` findings are `Fixed`** — move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
    ```
    git add src/,tests/
-   git mv plans/active/<name> plans/verify/<name>
-   git commit -m "implement(<feature-name>): fix findings (FND-NNN), moving to verify"
+   git mv plans/active/PLN-NNN-<name> plans/verify/PLN-NNN-<name>
+   git commit -m "implement(PLN-NNN-<name>): fix findings (FND-NNN), moving to verify"
    ```
 
 ## Worktree workflow

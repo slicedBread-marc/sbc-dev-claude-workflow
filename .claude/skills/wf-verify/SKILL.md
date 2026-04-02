@@ -38,7 +38,7 @@ plans/complete/    → all findings resolved (you move here when queue is clean)
 
 ## What you do
 
-1. **Pick a plan folder** from `plans/verify/`
+1. **Pick a plan folder** from `plans/verify/PLN-NNN-*/`
    - Skip plans with Status `Verified` — they've already passed verification and are awaiting human test
    - Only work on plans with Status that is NOT `Verified`
    
@@ -98,12 +98,12 @@ After running all checks and verifying all fixes:
 - **Any new `Open` findings** → update `plan.md` Status to `Verifying` (already claimed); folder stays in `plans/verify/`; commit findings for the implementer:
   ```
   git add plans/verify/
-  git commit -m "verify: <feature-name> — N open findings"
+  git commit -m "verify(PLN-NNN-<plan-name>): N open findings"
   ```
-- **Any `Escalated` findings** → update `plan.md` Status to `Replanning`, move folder from `plans/verify/<name>/` → `plans/replanning/<name>/`, and commit:
+- **Any `Escalated` findings** → update `plan.md` Status to `Replanning`, move folder from `plans/verify/PLN-NNN-<name>/` → `plans/replanning/PLN-NNN-<name>/`, and commit:
   ```
-  git mv plans/verify/<name> plans/replanning/<name>
-  git commit -m "verify: <feature-name> — escalated findings, needs replanning"
+  git mv plans/verify/PLN-NNN-<name> plans/replanning/PLN-NNN-<name>
+  git commit -m "verify(PLN-NNN-<plan-name>): escalated findings, needs replanning"
   ```
 - **Any `Fixed` findings that fail re-verification** → set back to `Open` with a note in `findings.md`
 - A plan with both `Open` and `Escalated` findings should move to `plans/replanning/` — the planner will address the design issues first, then the implementer will fix the rest
