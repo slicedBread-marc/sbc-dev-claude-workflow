@@ -53,16 +53,11 @@ bugs/closed/      → closed bugs
    git checkout main
    git pull origin main
    ```
-9. **Merge `release` into `main`**:
+9. **Merge `release` into `main`** (auto-resolve in favor of release):
    ```bash
-   git merge --no-ff release -m "release: promote to main"
+   git merge -X theirs --no-ff release -m "release: promote to main"
    ```
-   If there are merge conflicts in `plans/`, resolve in favor of release:
-   ```bash
-   git diff --name-only --diff-filter=U | grep '^plans/' | xargs -r git checkout --theirs
-   git add plans/
-   git commit --no-edit
-   ```
+   The `-X theirs` option automatically accepts release's version of any conflicting files in `plans/`.
 10. **Move plans from `verify/` → `complete/`** (on the main branch):
     For each merged PR's plan name:
     ```bash
@@ -87,18 +82,13 @@ bugs/closed/      → closed bugs
     git add plans/complete/ bugs/closed/
     git commit -m "release: complete [plan-names], close bugs"
     ```
-13. **Back-merge `main` → `develop`**:
+13. **Back-merge `main` → `develop`** (auto-resolve in favor of main):
     ```bash
     git checkout develop
     git pull origin develop
-    git merge main -m "sync: bring completed plans back to develop"
+    git merge -X ours main -m "sync: bring completed plans back to develop"
     ```
-    If there are merge conflicts in `plans/`, resolve in favor of main (--ours, since main has complete/):
-    ```bash
-    git diff --name-only --diff-filter=U | grep '^plans/' | xargs -r git checkout --ours
-    git add plans/
-    git commit --no-edit
-    ```
+    The `-X ours` option automatically accepts main's version of any conflicting files in `plans/` (main has complete/).
 14. **Push develop branch**:
     ```bash
     git push origin develop
@@ -127,11 +117,12 @@ bugs/closed/      → closed bugs
 
 ## Plan conflict resolution
 
-**During release → main merge:** Use release's version (--theirs) because release has tested/staged plans
+Merge strategy `-X theirs` (step 9) and `-X ours` (step 13) automatically resolve all plan conflicts:
 
-**During main → develop back-merge:** Use main's version (--ours) because main now has complete/ plans
+- **release → main:** Accept release's version (has tested plans)
+- **main → develop:** Accept main's version (has complete/ plans)
 
-Both merges auto-resolve plan conflicts inline (steps 6 and 10). If conflicts are complex and can't auto-resolve, abort and notify the user.
+If a merge fails despite the `-X` flag, a complex conflict exists. Abort and notify the user for manual resolution.
 
 ## Rules
 
