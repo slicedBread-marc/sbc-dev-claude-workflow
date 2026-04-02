@@ -52,25 +52,19 @@ What you'll do:
   • Moves completed plans to verify/
 ```
 
-Also export the terminal role as an environment variable:
+Set the terminal role for `/wf-next`:
 ```bash
 export TERMINAL_ROLE="T2 — Builder"
 ```
 
-(For other roles: "T1 — Intake", "T3 — Builder", "T4 — Validator")
+(Replace with your role: "T1 — Intake", "T3 — Builder", or "T4 — Validator")
 
-This variable will be used to set your terminal title on every prompt. To make it permanent, add this to your `~/.zshrc`:
-
+Then run:
 ```bash
-# Set terminal title from TERMINAL_ROLE (workflow terminals)
-precmd() {
-  if [ -n "$TERMINAL_ROLE" ]; then
-    echo -ne "\033]0;$TERMINAL_ROLE\007"
-  fi
-}
+/wf-next
 ```
 
-Then reload your shell: `source ~/.zshrc`
+This will automatically invoke the right skill for your role.
 
 ### 4. Set up logging context
 

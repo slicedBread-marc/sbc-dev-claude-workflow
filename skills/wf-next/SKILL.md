@@ -32,15 +32,25 @@ If no Decided briefs exist, prompt the user to run `/wf-brainstorm` first.
 
 **If `TERMINAL_ROLE` is not set:**
 ```
-✗ TERMINAL_ROLE not found.
-  Run /wf-init first to set up your terminal role.
+ℹ️  TERMINAL_ROLE not found in this session.
+
+Run /wf-init first to see your role, then set it:
+  export TERMINAL_ROLE="T1 — Intake"
+  /wf-next
+
+(Or run /wf-init again and remember to export after.)
 ```
 
 **If role is unrecognized:**
 ```
-✗ TERMINAL_ROLE="$TERMINAL_ROLE" not recognized.
-  Expected: T1, T2, T3, or T4.
-  Run /wf-init again to reset.
+✗ TERMINAL_ROLE="T5 — Unknown" not recognized.
+  Expected one of:
+    T1 — Intake
+    T2 — Planner
+    T3 — Builder
+    T4 — Validator
+
+Run /wf-init again or fix the export.
 ```
 
 ## Rules
