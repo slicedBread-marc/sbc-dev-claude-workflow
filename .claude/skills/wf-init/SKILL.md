@@ -49,13 +49,14 @@ Which terminal are you?
 
 Wait for user input (1–4).
 
-### 3. Confirm role and model
+### 3. Confirm role and set terminal color
 
-Based on selection, show:
+Based on selection, show and apply:
 ```
 ✓ You are T2 (Planner) 🟢
 ✓ Model: Opus 4.6
 ✓ Command: /model opus
+✓ Terminal color: GREEN
 
 What you'll do:
   • /wf-spec to convert briefs to plans
@@ -64,19 +65,28 @@ What you'll do:
   • Keep T3 fed with work
 ```
 
-Set the terminal role for `/wf-next`:
+**Set terminal background color** (per role):
 ```bash
-export TERMINAL_ROLE="T2 — Planner"
+# T1 — Intake (blue)
+printf "\033]11;rgb:0066FF\033\\"
+
+# T2 — Planner (green)
+printf "\033]11;rgb:00CC00\033\\"
+
+# T3 — Builder (yellow)
+printf "\033]11;rgb:FFCC00\033\\"
+
+# T4 — Validator (purple)
+printf "\033]11;rgb:9933FF\033\\"
 ```
 
-(Replace with your role: "T1 — Intake", "T2 — Planner", "T3 — Builder", or "T4 — Validator")
-
-Then run:
+Then set the terminal role for `/wf-next`:
 ```bash
+export TERMINAL_ROLE="T2 — Planner"
 /wf-next
 ```
 
-This will automatically invoke the right skill for your role.
+This will automatically invoke the right skill for your role and the terminal background will remain colored.
 
 ### 4. Set up logging context
 
@@ -141,51 +151,55 @@ Show:
 
 Based on role:
 
-**T1 (Intake):**
+**T1 (Intake) 🔵:**
 ```
 NEXT STEPS:
-1. /model sonnet
-2. /loop 10m /wf-status
-3. /wf-brainstorm to capture new ideas
-4. /wf-bug to file discovered issues
-5. Keep T2 fed with decided briefs
+1. Set terminal color: printf "\033]11;rgb:0066FF\033\\"
+2. /model sonnet
+3. /loop 10m /wf-status
+4. /wf-brainstorm to capture new ideas
+5. /wf-bug to file discovered issues
+6. Keep T2 fed with decided briefs
 
 Run /wf-help to understand the flow.
 ```
 
-**T2 (Planner):**
+**T2 (Planner) 🟢:**
 ```
 NEXT STEPS:
-1. /model opus
-2. /wf-spec BRF-001 (or pick a brief)
-3. Convert briefs to plans, move to ready/
-4. Keep ready/ queue at 2–3 plans for T3
+1. Set terminal color: printf "\033]11;rgb:00CC00\033\\"
+2. /model opus
+3. /wf-spec BRF-001 (or pick a brief)
+4. Convert briefs to plans, move to ready/
+5. Keep ready/ queue at 2–3 plans for T3
 
 Run /wf-help to understand the flow.
 ```
 
-**T3 (Builder):**
+**T3 (Builder) 🟡:**
 ```
 NEXT STEPS:
-1. /model opus
-2. /wf-implement
-3. Follow prompts to create feature branch + worktree
-4. Switch to worktree directory (shown by /wf-implement)
-5. Run /wf-implement again in the worktree to start coding
-6. When done: /wf-verify → /wf-test → creates PR to release
+1. Set terminal color: printf "\033]11;rgb:FFCC00\033\\"
+2. /model opus
+3. /wf-implement
+4. Follow prompts to create feature branch + worktree
+5. Switch to worktree directory (shown by /wf-implement)
+6. Run /wf-implement again in the worktree to start coding
+7. When done: /wf-verify → /wf-test → creates PR to release
 
 After: wait for staging validation, then /wf-release moves to production.
 Run /wf-help to understand the flow.
 ```
 
-**T4 (Validator):**
+**T4 (Validator) 🟣:**
 ```
 NEXT STEPS:
-1. /model sonnet
-2. Join T3 in the worktree directory (same feature branch)
-3. After /wf-implement finishes, run /wf-verify
-4. If all tests pass, /wf-test walks through acceptance criteria
-5. On pass, PR is created to release branch
+1. Set terminal color: printf "\033]11;rgb:9933FF\033\\"
+2. /model sonnet
+3. Join T3 in the worktree directory (same feature branch)
+4. After /wf-implement finishes, run /wf-verify
+5. If all tests pass, /wf-test walks through acceptance criteria
+6. On pass, PR is created to release branch
 
 Wait for staging validation, then /wf-release handles production.
 Run /wf-help to understand the flow.
@@ -197,6 +211,7 @@ Run /wf-help to understand the flow.
 ═══════════════════════════════════════════════════════════════════════════
 Session: 2026-04-02-1743868195
 Terminal: T2 (Planner) 🟢
+Background: GREEN
 Model: Opus 4.6
 Logging: Enabled → .logs/workflow.log
 
