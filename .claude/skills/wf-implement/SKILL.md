@@ -59,13 +59,14 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    ```
 5. **Create feature branch and worktree**:
    ```
-   git worktree add -b feature/<plan-name> ../sbc-feature-<plan-name> HEAD
+   mkdir -p ../feature-branches
+   git worktree add -b feature/<plan-name> ../feature-branches/<plan-name> HEAD
    ```
-   This creates a new feature branch FROM the current HEAD (develop, with the locked-plan commit) and a new worktree directory separate from your main repo.
+   This creates the worktrees folder if needed, then creates a new feature branch FROM the current HEAD (develop, with the locked-plan commit) and a new worktree directory separate from your main repo.
 
 6. **Drop settings.local.json into worktree** for full write permissions:
    ```
-   cat > ../sbc-feature-<plan-name>/.claude/settings.local.json << 'EOF'
+   cat > ../feature-branches/<plan-name>/.claude/settings.local.json << 'EOF'
    {
      "permissions": {
        "allow": [
@@ -83,7 +84,7 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 7. **Change to worktree directory** (within the Bash session — this persists for all subsequent Phase 2 steps):
    ```
-   cd ../sbc-feature-<plan-name>
+   cd ../feature-branches/<plan-name>
    ```
 8. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/<plan-name>`, not `develop`.
 9. **Read `plan.md`** — understand the goal, design decisions, and all steps
@@ -143,7 +144,7 @@ Each plan gets its own worktree (isolated directory with its own working tree). 
 - **T3 and T4 can observe/pair** — both work in the worktree; T4 can join and monitor progress
 - **No accidental changes** — code in one feature branch won't affect develop or other features
 - **Clean git history** — each feature is a linear sequence of commits from develop
-- **Easy cleanup** — when testing completes, delete the worktree: `git worktree remove ../sbc-feature-<name>`
+- **Easy cleanup** — when testing completes, delete the worktree: `git worktree remove ../feature-branches/<name>`
 
 The workflow is:
 ```
