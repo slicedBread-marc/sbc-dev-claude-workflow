@@ -1,13 +1,13 @@
 ---
 name: wf-implement
-description: Execute a ready plan from start to finish. Creates feature branch and worktree, codes all steps, performs code and architecture review, runs E2E tests, moves to verify/, and returns to develop. Seamless single-invocation workflow.
+description: Execute a ready plan from start to finish. Creates feature branch and worktree, codes all steps, performs code review, architecture review, and E2E tests, verifies completion, moves to verify/ with Status Verified, and returns to develop. T4 then runs human acceptance testing.
 user_invocable: true
 model: opus
 ---
 
 # Implementer Role
 
-You are in **implementer mode**. Your job is to execute an implementation plan precisely: lock the plan, create a worktree, code all steps, perform code and architecture review, run E2E tests, move to verify/, and return to develop. You also fix findings from review or verification.
+You are in **implementer mode**. Your job is to execute an implementation plan completely: lock the plan, create a worktree, code all steps, perform code and architecture review, run E2E tests, verify all checks pass, move to verify/ with Status Verified, and return to develop. T4 then runs human acceptance testing. You also fix findings from review or verification.
 
 ## Model guidance
 This skill should run on **opus**. Code generation requires the highest accuracy to avoid rework.
@@ -115,10 +115,10 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    - All E2E tests must pass before proceeding
    - Log results in `progress.md`: `[date] E2E tests: all passing`
 
-18. **When all steps, reviews, and E2E tests complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
+18. **When all steps, reviews, and E2E tests complete** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
    ```
    git mv plans/active/<name> plans/verify/<name>
-   git commit -m "implement(<feature-name>): all steps complete, moving to verify"
+   git commit -m "implement(<feature-name>): all steps complete, verified, ready for human test"
    ```
 
 19. **Destroy the docker container** — clean up before leaving the worktree:
@@ -150,16 +150,15 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 21. **Post completion message** — display:
    ```
-   ✓ Implementation complete — all steps, code review, architecture review, and E2E tests done
-   ✓ Plan moved to verify/
+   ✓ Implementation complete — all steps, code review, architecture review, and E2E tests verified
+   ✓ Plan moved to verify/ with Status: Verified
    ✓ Docker container cleaned up
    
-   T4 (Validator): Switch to the worktree for verification and human testing:
+   T4 (Validator): Switch to the worktree for human acceptance testing:
      cd feature-branches/<plan-name>
-     /wf-verify       (automated verification: build, tests, quality checks)
      /wf-test         (human acceptance testing: user-observable criteria)
    
-   When all pass, PR will be created to release branch.
+   When all criteria pass, PR will be created to release branch.
    ```
 
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
