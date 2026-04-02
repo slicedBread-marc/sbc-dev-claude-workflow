@@ -37,7 +37,11 @@ plans/verify/    → move here when done
 ### New implementation (plan folder is in `ready/`)
 
 1. **Claim the plan** — before moving, update `plan.md`: set Status to `Active` and fill in `Implementing session` with today's date and a brief session identifier (e.g. `2026-04-01 — implement session`)
-2. **Move the plan folder** from `plans/ready/<name>/` → `plans/active/<name>/`
+2. **Move the plan folder** from `plans/ready/<name>/` → `plans/active/<name>/`:
+   ```
+   git mv plans/ready/<name> plans/active/<name>
+   git commit -m "implement(<feature-name>): claim plan, moving to active"
+   ```
 3. **Read `plan.md`** — understand the goal, design decisions, and all steps
 3. **Execute steps in order** — follow each step exactly as specified
 4. **Write tests** — implement all tests listed in the Tests table
@@ -47,7 +51,7 @@ plans/verify/    → move here when done
    - After each step, commit: `git add {{source_dirs}} plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
 8. **When all steps complete** — update `plan.md` Status to `Verifying`, move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
    ```
-   git add plans/active/ plans/verify/
+   git mv plans/active/<name> plans/verify/<name>
    git commit -m "implement(<feature-name>): all steps complete, moving to verify"
    ```
 9. **Post completion message** — after the commit succeeds, display:
@@ -65,7 +69,11 @@ plans/verify/    → move here when done
 ### Fix cycle (plan folder is in `verify/` with `Open` findings)
 
 1. **Claim the plan** — before moving, update `plan.md`: set Status to `Active` and update `Implementing session` with today's date
-2. **Move the plan folder** from `plans/verify/<name>/` → `plans/active/<name>/`
+2. **Move the plan folder** from `plans/verify/<name>/` → `plans/active/<name>/`:
+   ```
+   git mv plans/verify/<name> plans/active/<name>
+   git commit -m "implement(<feature-name>): claim plan for fix cycle, moving to active"
+   ```
 2. **Read `findings.md`** — look for rows with status `Open`
 3. **Ignore `Escalated` findings** — these require a planner, not an implementer. Do not attempt to fix them.
 4. **Fix each `Open` finding** — address the issue described, using the file paths and line numbers provided
@@ -73,7 +81,8 @@ plans/verify/    → move here when done
 6. **Log in `progress.md`** — `[date] Finding FND-003 — fixed (description of fix)`
 7. **When all `Open` findings are `Fixed`** — move the plan folder from `plans/active/<name>/` → `plans/verify/<name>/`, and commit:
    ```
-   git add {{source_dirs}} plans/active/ plans/verify/
+   git add {{source_dirs}}
+   git mv plans/active/<name> plans/verify/<name>
    git commit -m "implement(<feature-name>): fix findings (FND-NNN), moving to verify"
    ```
 

@@ -148,7 +148,8 @@ Final response under 2000 characters.")
 3. **Write the review result** to `plan.md`'s `## Review` section and any Critical/Warning items to `findings.md`
 4. **Commit** when the plan moves to ready:
    ```
-   git add plans/drafts/ plans/ready/ plans/replanning/ plans/briefs/ bugs/
+   git mv plans/drafts/<name> plans/ready/<name>
+   git add plans/briefs/ bugs/
    git commit -m "spec: <feature-name> — plan ready"
    ```
 
@@ -171,7 +172,7 @@ When a plan folder is in `plans/replanning/`, it has findings the implementer ca
 6. **Run the review gate** — spawn the sonnet review agent on the amended `plan.md` before moving it
 7. **Move the plan folder** from `plans/replanning/<name>/` → `plans/ready/<name>/` and commit:
    ```
-   git add plans/replanning/ plans/ready/
+   git mv plans/replanning/<name> plans/ready/<name>
    git commit -m "spec: <feature-name> — amendment, back to ready"
    ```
 

@@ -81,9 +81,11 @@ Update `plan.md`:
 
 Move the plan folder from its current location → `plans/rolled-back/<name>/` and commit:
 ```
-git add plans/
+git mv plans/complete/<name> plans/rolled-back/<name>
 git commit -m "rollback: <feature-name> — <reason>"
 ```
+
+(If rolling back from `plans/active/`, use `git mv plans/active/<name> plans/rolled-back/<name>`)
 
 ### 6. File a bug (optional)
 
@@ -121,6 +123,7 @@ If the user stops partway through:
    git add plans/
    git commit -m "rollback: <feature-name> — partial, stopped at step N"
    ```
+   (The plan folder stays in its current location; do NOT use `git mv`)
 5. Recommend filing a bug and getting help before continuing
 
 ## Rolling back
@@ -134,8 +137,4 @@ When a plan is rolled back:
 
 ## Committing work
 
-After the plan is moved to `rolled-back/`:
-```
-git add plans/
-git commit -m "rollback: RBK-NNN — <feature-name> — <reason>"
-```
+The commit is done immediately after `git mv` during step 5 (Record the rollback). Use `git mv` to track the plan folder move explicitly.
