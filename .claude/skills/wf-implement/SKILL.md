@@ -60,10 +60,10 @@ plans/verify/    → move here when done
    ✓ Feature branch created: feature/<plan-name>
    ✓ Worktree created at: ../sbc-feature-<plan-name>
    
-   T3/T4 terminals: switch to the worktree directory
-     cd ../sbc-feature-<plan-name>
+   T3/T4 terminals: Start implementation with:
+     ! cd ../sbc-feature-<plan-name> && /wf-implement
    
-   Then run /wf-implement again in that directory to begin coding.
+   This switches to the worktree and begins Phase 2 (coding).
    ```
 
 **Phase 2: Implementation (in the worktree, on feature branch)**
