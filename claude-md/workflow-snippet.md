@@ -9,7 +9,18 @@ If `claude-workflow.yml` exists in the project root but has blank values, detect
 
 Do this once. After `claude-workflow.yml` is filled in, the workflow skills will use those values automatically.
 
-## Multi-Session Workflow (Brainstorm → Plan → Implement → Verify)
+## Multi-Session Workflow (Brainstorm → Plan → Implement → Verify → Release)
+
+### Branch Strategy
+
+| Branch | Role | Terminals | Plans Role |
+|-|-|-|-|
+| `develop` | Planning & coordination | T1 (Intake), T2 (Planner) | Planning only (briefs, ready/) |
+| `feature/*` | Implementation | T3/T4 (Builder/Validator) | Execution (active/ → verify/) |
+| `release` | Staging integration | T5 (Release manager) | Pre-production testing |
+| `main` | Production | — | Historical record (complete/) |
+
+Each branch is checked out in its own worktree directory to avoid conflicts. T3/T4 share a worktree for the same feature branch.
 
 ### Folder Structure
 ```
@@ -21,27 +32,28 @@ plans/
     plan.md                  #   static spec (goal, steps, tests, design decisions)
     findings.md              #   shared findings queue (/review + /verify write; /implement updates)
     progress.md              #   implementer log (step completions, notes)
-  ready/<feature-name>/      # reviewed & approved — waiting for /implement
-  active/<feature-name>/     # /implement is working on it
-  verify/<feature-name>/     # implementation done — waiting for /verify
+  ready/<feature-name>/      # reviewed & approved — waiting for /implement (on develop)
+  active/<feature-name>/     # /implement is working on it (locked with branch name)
+  verify/<feature-name>/     # implementation done — awaiting /verify & /test (on feature branch)
   replanning/<feature-name>/ # verify found design-scope issues — waiting for /spec to amend
-  complete/<feature-name>/   # all findings resolved — static historical record
+  complete/<feature-name>/   # shipped to production — static historical record (on main)
   TEMPLATE.md                # implementation plan spec
 ```
 
-**The folder IS the status.** Each plan is a uniquely named subfolder that moves between stage directories. `ls plans/ready/` shows what's waiting to be built. Multiple plans can be in flight simultaneously without collision.
+**The folder + branch combination shows status.** Plans live on develop (planning) or feature branches (coding) or main (history). Plans move through states: ready/ → active/ → verify/ → complete/.
 
 ### Model & Agent Strategy
 Each skill specifies its recommended model. Use `/model` to switch before invoking a skill.
 
-| Skill | Model | Agents | Agent model |
-|-|-|-|-|
-| `/status` | haiku | none | — |
-| `/brainstorm` | sonnet | none | — |
-| `/spec` | opus | codebase exploration | haiku |
-| `/review` | sonnet | parallel checks (code review only) | haiku |
-| `/implement` | opus | lookup only (sparingly) | haiku |
-| `/verify` | sonnet | parallel build/test/quality checks | haiku |
+| Skill | Model | Role | Agents | Agent model |
+|-|-|-|-|-|
+| `/status` | haiku | T1 Orchestrator | none | — |
+| `/brainstorm` | sonnet | T1 Intake | none | — |
+| `/spec` | opus | T2 Planner | codebase exploration | haiku |
+| `/implement` | opus | T3 Builder | lookup only (sparingly) | haiku |
+| `/verify` | sonnet | T4 Validator | parallel build/test/quality checks | haiku |
+| `/test` | haiku | T4 Acceptance tester | none | — |
+| `/release` | sonnet | T5 Release manager | none | — |
 
 **Principle:** Opus for creation (plans, code), sonnet for evaluation (review, verify), haiku for data gathering (agents, status). Agents should have strict output limits (under 1000-2000 chars) and be spawned in parallel where possible.
 
@@ -69,13 +81,17 @@ Priority order: open findings → ready plans → drafts needing review → deci
 - Moves plan folder `drafts/<name>/` → `ready/<name>/` only after review passes
 - If a plan is already in `active/` or beyond, only append to `plan.md`'s **Amendments**
 
-### Implementer Role (`/implement`)
-- Picks up plan folders from `plans/ready/`, moves to `plans/active/`
+### Implementer Role (`/implement`, T3)
+- Runs on `develop` branch to claim a plan
+- Locks plan with `locked_by: feature/<name>` metadata
+- Creates feature branch + git worktree (isolated working directory)
+- Picks up plan folders from `plans/ready/`, moves to `plans/active/` on develop, then continues on feature branch
 - Reads `plan.md` for steps and design decisions
 - Tracks completions and notes in `progress.md`
-- When done: moves folder `active/<name>/` → `verify/<name>/`
-- Fix cycle: reads `Open` findings from `findings.md`, fixes, updates status to `Fixed`, moves back to `verify/`
+- When done: moves folder `active/<name>/` → `verify/<name/` and commits on feature branch
+- Fix cycle: reads `Open` findings from `findings.md`, fixes, updates status to `Fixed`
 - **Ignores `Escalated` findings** — these require a planner, not an implementer
+- Post-completion: directs user to `/verify` and `/test`
 
 ### Reviewer Role (`/review`)
 - Runs automatically as a gate within `/spec` before `drafts/` → `ready/`
@@ -83,13 +99,30 @@ Priority order: open findings → ready plans → drafts needing review → deci
 - Writes plan review result to `plan.md`'s Review section; appends findings to `findings.md`
 - Critical findings block the plan from reaching `ready/`
 
-### Verifier Role (`/verify`)
-- Works on plan folders in `plans/verify/`
+### Verifier Role (`/verify`, T4)
+- Runs automated checks on feature branches in `plans/verify/`
 - Reads `plan.md` for the verification checklist; appends findings to `findings.md`
 - Confirms `Fixed` findings → sets to `Verified` in `findings.md`
-- When queue is clean: moves folder `verify/<name>/` → `complete/<name>/`
+- When queue is clean: updates `plan.md` Status to `Verified` (stays in verify/ folder)
 - **Escalation path:** if a finding requires a design change (not a code fix), sets status to `Escalated` and moves folder to `plans/replanning/`
 - Does NOT write code, implementation steps, or solutions — describes what is wrong and why only
+- Post-completion: directs user to `/test` for human acceptance testing
+
+### Tester Role (`/test`, T4)
+- Runs on feature branches after `/verify` completes
+- Deploys to local container, walks through plan acceptance criteria
+- Captures pass/fail feedback for each criterion
+- On all-pass: updates plan.md Status to `Tested`, creates PR from feature branch → release branch
+- On any fail: adds findings and directs user back to `/implement` for fixes
+
+### Release Manager Role (`/release`, T5)
+- Runs on `release` branch (or coordinating main/release merges)
+- Confirms staging validation is complete
+- Merges `release` → `main` 
+- Moves plans from `verify/<name>/` → `complete/<name>/` on main
+- Closes linked bugs
+- Back-merges `main` → `develop` (syncs completed plans)
+- Pushes `main` to trigger production deployment
 
 ### Planner Role — Replanning (`/spec` with escalated findings)
 - On startup, checks `plans/replanning/` before new briefs
@@ -123,6 +156,8 @@ All diagnostic roles (`/review`, `/verify`) write to a shared **Findings Queue**
 ## Local Dev Environment
 
 If `local_start_command`, `local_deploy_command`, and `local_stop_command` are configured in `claude-workflow.yml`, a local dev environment script is installed at `.claude/on-implement-commit.sh`. It starts automatically on every `implement(` commit and shuts down after 60 minutes of inactivity.
+
+**Runs on feature branch worktrees** — T3/T4 work in their isolated worktree directory, so the local environment is isolated per feature.
 
 | Command | Effect |
 |-|-|
