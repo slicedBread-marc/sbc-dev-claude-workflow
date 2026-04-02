@@ -52,12 +52,25 @@ What you'll do:
   • Moves completed plans to verify/
 ```
 
-Also set the terminal window title:
+Also export the terminal role as an environment variable:
 ```bash
-printf '\033]0;%s\007' "T2 — Builder"
+export TERMINAL_ROLE="T2 — Builder"
 ```
 
-(This sets the iTerm/Terminal.app window title so you can identify terminals visually)
+(For other roles: "T1 — Intake", "T3 — Builder", "T4 — Validator")
+
+This variable will be used to set your terminal title on every prompt. To make it permanent, add this to your `~/.zshrc`:
+
+```bash
+# Set terminal title from TERMINAL_ROLE (workflow terminals)
+precmd() {
+  if [ -n "$TERMINAL_ROLE" ]; then
+    echo -ne "\033]0;$TERMINAL_ROLE\007"
+  fi
+}
+```
+
+Then reload your shell: `source ~/.zshrc`
 
 ### 4. Set up logging context
 
@@ -171,6 +184,7 @@ Ready to go! Follow the NEXT STEPS above.
 - **Session file:** `.logs/SESSION_TIMESTAMP` is created by first terminal, read by others
 - **No errors:** If .logs/ can't be created, warn but continue (logging just won't work)
 - **Always helpful:** Show `/wf-help` reference in output
+- **Terminal title:** To make the title persist across all sessions, add the `precmd` hook to `~/.zshrc` (see step 3)
 
 ## Logging gate
 
