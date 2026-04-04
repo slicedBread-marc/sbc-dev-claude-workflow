@@ -69,6 +69,69 @@ Design screens that test the concepts from different angles:
 - **drag-to-slot**: Good for matching pairs. Works best with 4 items.
 - **sorting**: Good for ordering. Requires meaningful `order` values on concepts.
 
+#### Screen Confidence Check
+
+After designing each screen, evaluate it against this checklist. Any failed check downgrades confidence:
+
+| Check | Applies to |
+|-|-|
+| Every concept in the pool has a unique `order` value | sorting |
+| Ranking criterion is factually unambiguous (pH scale, distance, sequential steps — NOT subjective descriptors like "moderately populated") | sorting |
+| Pool is homogeneous — all concepts are the same entity type (not process steps mixed with chemical compounds) | sorting |
+| Instruction names only entity types actually in the pool (don't say "planets" if pool includes stars and moons) | sorting |
+| Concept `name` does not contain or strongly imply the answer category | classify |
+| Displayed field (`ask`) does not reveal the answer through notation or symbols (e.g., operator symbol revealing operation type) | classify, multiple-choice |
+| Each category has >= 2 concepts in the pool | classify |
+| `ask` != `answer` property | multiple-choice, drag-to-slot |
+| Pool has >= 4 concepts for distractor generation | multiple-choice |
+| `instruction` field is present and states the criterion explicitly | all |
+
+**Confidence levels:**
+- All checks pass → **HIGH** — proceed automatically
+- Any check fails → **NOT HIGH** — the screen is **blocked from output**
+
+Only HIGH-confidence screens are written to the lesson file. Students only see content that passed all checks or was manually verified by the user.
+
+When any check fails:
+1. State which check(s) failed and why
+2. Propose a concrete fix (rename concepts, change ask/answer fields, replace screen type)
+3. **Do not write the screen.** Wait for the user to approve the fix or provide an alternative
+4. Re-evaluate the fixed screen against the checklist before writing
+
+#### Reading Review Feedback
+
+Before generating a new lesson, check for `review.json` files in existing lessons:
+
+1. Prompt the user: "Review feedback exists for previous lessons. Read it to improve this session? (y/n)"
+2. If yes, scan `src/SBC.Web/wwwroot/lessons/*/review.json` for flagged screens
+3. Summarize patterns in the feedback (e.g., "3 classify screens flagged as 'answer is obvious'")
+4. Use these patterns as additional guardrails for the current lesson — treat recurring feedback categories as HIGH-priority checks
+
+When rewriting flagged screens in an existing lesson:
+1. Read the lesson's `review.json` for all screens with status `flagged`
+2. For each flagged screen, read the feedback category and comment
+3. Regenerate the screen addressing the specific feedback
+4. Reset the screen's status to `unreviewed` in `review.json`
+5. Run the confidence checklist on the rewritten screen before writing
+
+The `review.json` schema (preliminary — BRF-002 will finalize):
+```json
+{
+  "screens": [
+    { "index": 0, "status": "approved" },
+    { "index": 1, "status": "flagged", "category": "bad-question", "comment": "..." }
+  ]
+}
+```
+Gracefully skip lessons that don't have a `review.json` file or where the file is malformed.
+
+#### Confidence Calibration
+
+If a screen generated with HIGH confidence is later flagged in review, that signals a gap in the checklist:
+1. Identify which check should have caught the issue
+2. Add a new check to the table above or refine an existing one
+3. Note the calibration update in the commit message
+
 ### 2. Fetch images from Twemoji
 
 Images come from Twitter's Twemoji library (MIT license) on GitHub:
