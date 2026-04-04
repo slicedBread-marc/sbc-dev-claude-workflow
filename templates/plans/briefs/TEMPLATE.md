@@ -1,6 +1,7 @@
 # [Brief Title]
 
 > **ID:** BRF-NNN
+> **schema_version:** 2
 > **Status:** Idea | Exploring | Decided | Planned
 > **Created:** YYYY-MM-DD
 > **Plan:** (link to implementation plan once one exists, e.g., `../feature-name.md`)

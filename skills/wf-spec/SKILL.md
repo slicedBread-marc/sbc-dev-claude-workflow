@@ -30,9 +30,9 @@ bugs/open/         → bugs available to plan fixes for
 ## ID Assignment
 
 When creating a plan, assign it a `PLN-NNN` ID:
-- Look at existing plans in all stages (drafts/, ready/, active/, verify/, complete/, replanning/, rolled-back/)
-- Find the highest PLN- number and increment by 1
-- If this is a bug fix, also reference the BUG- number in the plan
+- Read `plans/.counter` to get the next number N. Write N+1 back to `plans/.counter`. The plan ID is `PLN-N` (zero-padded to 3 digits, e.g. `PLN-009`).
+- If `plans/.counter` does not exist, fall back to scanning all plan stages for the highest `PLN-NNN` number and increment by 1 (legacy fallback only).
+- If this is a bug fix, also reference the BUG- number in the plan.
 
 ## On startup
 
@@ -81,7 +81,7 @@ If the user picks a bug BUG-NNN:
 5. **Create the plan folder** — `plans/drafts/<feature-name>/` with three files following `plans/TEMPLATE.md`:
    - For briefs: `plans/drafts/<slug>/` (e.g. `plans/drafts/user-auth/`)
    - For bugs: `plans/drafts/bug-NNN-<slug>/` (e.g. `plans/drafts/bug-003-login-crash/`)
-   - In `plan.md`, fill in `> **ID:** PLN-NNN` at the top
+   - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 2` at the top
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty findings table with header
    - `progress.md` — step list (copied from plan steps), empty log

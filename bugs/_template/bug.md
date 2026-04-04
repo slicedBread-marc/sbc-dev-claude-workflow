@@ -2,6 +2,7 @@
 
 > **Status:** Open | Triaged | In Progress | Fixed | Closed
 > **ID:** BUG-000
+> **schema_version:** 2
 > **Filed:** YYYY-MM-DD
 > **Project:** [project name or path]
 > **Severity:** Critical | High | Medium | Low

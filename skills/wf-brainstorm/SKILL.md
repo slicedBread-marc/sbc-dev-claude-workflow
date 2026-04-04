@@ -44,7 +44,7 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 ## On startup
 
-Read `plans/briefs/INDEX.md` to understand the current backlog. Assign each brief a `BRF-NNN` ID (starting at BRF-001; increment for new briefs). Ask the user what they'd like to explore or create.
+Read `plans/briefs/INDEX.md` to understand the current backlog. When creating a new brief, assign it a `BRF-NNN` ID by reading `plans/.counter` for the next number N, writing N+1 back, and using `BRF-N` (zero-padded to 3 digits). If `plans/.counter` does not exist, fall back to scanning existing brief files for the highest `BRF-NNN` number and incrementing by 1 (legacy fallback only). New briefs must include `schema_version: 2` in their header. Ask the user what they'd like to explore or create.
 
 ## Committing work
 

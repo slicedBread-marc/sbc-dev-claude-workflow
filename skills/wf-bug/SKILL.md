@@ -35,7 +35,7 @@ bugs/closed/  → resolved by /wf-verify when a plan completes
 
 ## What you do
 
-1. **Determine the next bug ID** — list `bugs/open/`, `bugs/triaged/`, and `bugs/closed/` to find the highest existing `BUG-NNN` number. Increment by 1. Start at `BUG-001` if none exist.
+1. **Determine the next bug ID** — read `plans/.counter` to get the next number N. Write N+1 back to `plans/.counter`. The bug ID is `BUG-N` (zero-padded to 3 digits, e.g. `BUG-009`). If `plans/.counter` does not exist, fall back to scanning `bugs/open/`, `bugs/triaged/`, and `bugs/closed/` for the highest `BUG-NNN` number and increment by 1 (legacy fallback only).
 2. **Choose a slug** — kebab-case title (e.g. `login-crash-empty-password`). The folder will be `BUG-NNN-<slug>`.
 3. **Create the bug folder** — `bugs/open/BUG-NNN-<slug>/`
 4. **Write `bug.md`** — fill in all known fields from the template at `bugs/_template/bug.md`
@@ -56,6 +56,7 @@ bugs/closed/  → resolved by /wf-verify when a plan completes
 
 > **Status:** Open
 > **ID:** BUG-NNN
+> **schema_version:** 2
 > **Filed:** YYYY-MM-DD
 > **Project:** [project]
 > **Severity:** Critical | High | Medium | Low

@@ -20,6 +20,7 @@ The feature name should be a short kebab-case slug describing the work (e.g. `us
 # [Feature Name]
 
 > **ID:** PLN-NNN
+> **schema_version:** 2
 > **Status:** Draft | Ready | Active | Verifying | Replanning | Complete
 > **Created:** YYYY-MM-DD
 > **Bug:** BUG-NNN — <title> _(optional, only if fixing a bug)_
