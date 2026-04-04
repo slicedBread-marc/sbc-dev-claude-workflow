@@ -68,20 +68,21 @@ If the user picks a bug BUG-NNN:
 2. **Extract the bug ID** — save BUG-NNN for use in the plan folder name
 3. **Use it as context** — the bug's description, steps, and expected behavior become the plan's Goal and acceptance criteria
 4. **Choose a feature name** — a short kebab-case slug describing the fix (e.g. `login-crash`, `webhook-timeout`)
-5. **Construct the plan folder name** — use `bug-NNN-<slug>` (e.g. `bug-003-login-crash`) so the bug linkage is visible in the folder structure
-6. **Treat it like a brief** — proceed with step 1 below, but the scope is defined by fixing the bug, not a separate brief
-7. The bug consumption happens in step 11 (see [Bug consumption](#bug-consumption) below)
+5. **Assign a plan ID** — next available `PLN-NNN`
+6. **Construct the plan folder name** — use `PLN-NNN-bug-BUG-NNN-<slug>` (e.g. `PLN-003-bug-BUG-003-login-crash`) so both plan and bug IDs are visible
+7. **Treat it like a brief** — proceed as normal, but the scope is defined by fixing the bug
+8. The bug consumption happens in the "Bug consumption" section below
 
 ## What you do
 
 1. **Read the input** — if from a brief: read the relevant brief in `plans/briefs/`; if from a bug: the bug's `bug.md` becomes the scope definition
-2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `login-crash`). If from a bug, prefix with `bug-NNN-` (e.g. `bug-003-login-crash`).
-3. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
-4. **Assign a plan ID** — next available `PLN-NNN` (check all plan folders to find the highest)
-5. **Create the plan folder** — `plans/drafts/<feature-name>/` with three files following `plans/TEMPLATE.md`:
-   - For briefs: `plans/drafts/<slug>/` (e.g. `plans/drafts/user-auth/`)
-   - For bugs: `plans/drafts/bug-NNN-<slug>/` (e.g. `plans/drafts/bug-003-login-crash/`)
-   - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 2` at the top
+2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `login-crash`).
+3. **Assign a plan ID** — next available `PLN-NNN` (check all plan folders to find the highest)
+4. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
+5. **Create the plan folder** — `plans/drafts/PLN-NNN-<feature-name>/` with three files following `plans/TEMPLATE.md`:
+   - For briefs: `plans/drafts/PLN-NNN-<slug>/` (e.g. `plans/drafts/PLN-001-user-auth/`)
+   - For bugs: `plans/drafts/PLN-NNN-bug-<slug>/` (e.g. `plans/drafts/PLN-003-bug-003-login-crash/`)
+   - In `plan.md`, fill in `> **ID:** PLN-NNN` at the top
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty findings table with header
    - `progress.md` — step list (copied from plan steps), empty log
@@ -127,7 +128,7 @@ When the user approves the plan (says "looks good", "approved", "ready", etc.):
 1. **Spawn a sonnet agent** to run the architectural and security review:
 
 ```
-Agent(model: sonnet, prompt: "You are a code reviewer. Read plans/drafts/[name]/plan.md 
+Agent(model: sonnet, prompt: "You are a code reviewer. Read plans/drafts/PLN-NNN-[name]/plan.md 
 and evaluate against: architecture (project patterns, dependency direction), 
 security (auth on endpoints, input sanitization, no hardcoded secrets), 
 performance (no unbounded queries, N+1 patterns), 
@@ -144,18 +145,18 @@ Final response under 2000 characters.")
 2. **Process the review result:**
    - **Critical findings:** do NOT move to `ready/`. Present findings to the user, revise the plan, and re-review.
    - **Warnings only:** present to the user for acknowledgement.
-   - **Clean or Notes only:** move the plan folder from `plans/drafts/<name>/` → `plans/ready/<name>/`
+   - **Clean or Notes only:** move the plan folder from `plans/drafts/PLN-NNN-<name>/` → `plans/ready/PLN-NNN-<name>/`
 3. **Write the review result** to `plan.md`'s `## Review` section and any Critical/Warning items to `findings.md`
 4. **Commit** when the plan moves to ready:
    ```
-   git mv plans/drafts/<name> plans/ready/<name>
+   git mv plans/drafts/PLN-NNN-<name> plans/ready/PLN-NNN-<name>
    git add plans/briefs/ bugs/
    git commit -m "spec: <feature-name> — plan ready"
    ```
 
 ## Rules
 
-- **Do NOT** edit source code files ({{source_dirs}})
+- **Do NOT** edit source code files (src/,tests/)
 - **Do NOT** leave ambiguous steps — if you're unsure, spawn a haiku agent to investigate
 - If a plan is already in `active/` or beyond, only append to **Amendments**
 - Plans become static decision records — they document what was decided and why
@@ -170,9 +171,9 @@ When a plan folder is in `plans/replanning/`, it has findings the implementer ca
 4. **Update Design Decisions** — add any new decisions to `plan.md`
 5. **Update `findings.md`** — for each `Escalated` finding now addressed by the amendment, set status to `Open` (the implementer will fix the code). If fully resolved by the design change alone, set to `Fixed`.
 6. **Run the review gate** — spawn the sonnet review agent on the amended `plan.md` before moving it
-7. **Move the plan folder** from `plans/replanning/<name>/` → `plans/ready/<name>/` and commit:
+7. **Move the plan folder** from `plans/replanning/PLN-NNN-<name>/` → `plans/ready/PLN-NNN-<name>/` and commit:
    ```
-   git mv plans/replanning/<name> plans/ready/<name>
+   git mv plans/replanning/PLN-NNN-<name> plans/ready/PLN-NNN-<name>
    git commit -m "spec: <feature-name> — amendment, back to ready"
    ```
 
@@ -182,7 +183,7 @@ When the plan being created is a fix for a tracked bug (either from "Plan from b
 
 1. **Update the bug's `bug.md`** in `bugs/open/BUG-NNN-<slug>/`:
    - Set `Status` to `Triaged`
-   - Set `Plan` to the plan folder path (e.g. `plans/ready/bug-003-login-crash/`)
+   - Set `Plan` to the plan folder path (e.g. `plans/ready/PLN-003-bug-BUG-003-login-crash/`)
 2. **Move the bug folder** from `bugs/open/BUG-NNN-<slug>/` → `bugs/triaged/BUG-NNN-<slug>/`
 3. **Link back in `plan.md`** — add to the Goal section: `> **Bug:** BUG-NNN — <title>`
 

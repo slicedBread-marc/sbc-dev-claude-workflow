@@ -1,6 +1,6 @@
 ---
 name: wf-help
-description: Display the overall workflow strategy, architecture, and reference guide. Shows how the 4-terminal setup works and explains the full pipeline.
+description: Display the overall workflow strategy, architecture, and reference guide. Shows how the terminal setup works and explains the full pipeline.
 user_invocable: true
 model: haiku
 ---
@@ -15,11 +15,11 @@ Display the full strategy with ASCII diagrams and clear explanations:
 
 ```
 ╔════════════════════════════════════════════════════════════════════════════╗
-║                    Workflow Strategy: 4-Terminal Pipeline                  ║
+║                    Workflow Strategy: Terminal Pipeline                    ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 
-T1: Intake                T2: Planner              T3: Builder              T4: Validator
-(/wf-status,              (/wf-spec)               (/wf-implement)          (/wf-verify)
+T1: Intake                T2: Planner              T3: Builder              T4: Tester
+(/wf-status,              (/wf-spec)               (/wf-implement)          (/wf-test)
 /wf-brainstorm,                  │                        │                        │
 /wf-bug)                         └──→ [ready/] ←─────────┘                        │
 [Sonnet]                               │                                          │
@@ -38,12 +38,13 @@ THE FLOW:
 1. T1 monitors pipeline with /wf-status, captures ideas with /wf-brainstorm, files bugs
 2. T1 feeds Decided briefs to T2
 3. T2 runs /wf-spec → converts briefs to plans → moves to ready/
-4. T3 runs /wf-implement in a loop → auto-picks plans from ready/
-5. T3 executes steps, writes tests, commits, moves to verify/
-6. T4 runs /wf-verify in a loop → tests + checks against plan
-7. T4 can run /wf-debug for manual verification
-8. T4 moves verified plans to complete/
-9. Loop continues: intake → plan → build → verify → back to intake for next work
+4. T3 runs /wf-implement → auto-picks plans from ready/
+5. T3 executes steps, writes tests, runs code/architecture review, E2E tests, moves to verify/
+6. T4 runs /wf-test → human acceptance testing against plan criteria
+7. T4 creates PR to release on pass
+8. Merge PR to release, validate staging
+9. /wf-release: merge release → main, plans move to complete/, bugs closed, back-merge to develop
+10. Loop continues: intake → plan → build → test → release → production → back to intake
 
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -67,12 +68,17 @@ T3: Opus Builder
   • Auto-picks plans from ready/ when available
   • BOTTLENECK: If idle, means T2 is too slow
 
-T4: Sonnet Validator
-  • /wf-verify: Run tests, check against plan
-  • Runs in loop: /loop 3m /wf-verify
-  • /wf-debug: Manual verification with screenshots
+T4: Haiku Tester
+  • /wf-test: Human acceptance testing against plan criteria
+  • Deploys to local container, walks through checklist
+  • Creates PR to release on pass
   • /wf-rollback: Revert plans if issues found
-  • Validates in parallel with T3's building
+  • Tests in parallel with T3's next build
+
+Release (any terminal on release/main branch):
+  • /wf-release: Promote release → main, mark plans complete, close bugs
+  • Merges release to main, moves plans to complete/, back-merges to develop
+  • Run after PRs are merged to release and staging is validated
 
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -80,7 +86,7 @@ QUEUE STATES:
 
 plans/ready/     → Plans waiting for T3 to implement
 plans/active/    → Plan being worked on by T3
-plans/verify/    → Plan waiting for T4 to verify
+plans/verify/    → Plan waiting for T4 to test (human acceptance)
 plans/complete/  → Plan finished and verified
 plans/rolled-back/ → Plan reverted due to issues
 
@@ -108,8 +114,8 @@ Rule 1: T3 (Builder) should never be idle
 Rule 2: T2 should keep 2–3 plans ready ahead of T3
   → Check ready/ before T2 finishes each spec
 
-Rule 3: T4 validates in parallel
-  → Don't wait for T3 to finish before T4 validates
+Rule 3: T4 tests in parallel
+  → While T3 builds the next feature, T4 tests the previous one
 
 Rule 4: T1 keeps the intake flowing
   → If < 3 Decided briefs, run /wf-brainstorm more
@@ -121,13 +127,13 @@ GETTING STARTED:
 1. Terminal 1: /wf-init → select T1 (Intake), follow prompts
 2. Terminal 2: /wf-init → select T2 (Planner), follow prompts
 3. Terminal 3: /wf-init → select T3 (Builder), follow prompts
-4. Terminal 4: /wf-init → select T4 (Validator), follow prompts
+4. Terminal 4: /wf-init → select T4 (Tester), follow prompts
 
 Then:
   T1: /loop 10m /wf-status (monitor queue) + /wf-brainstorm (feed work)
   T2: /wf-spec BRF-001 (convert briefs to plans)
-  T3: /loop 2m /wf-implement (auto-picks ready plans)
-  T4: /loop 3m /wf-verify (auto-validates completed plans)
+  T3: /wf-implement (auto-picks ready plans, includes code/arch review + E2E tests)
+  T4: /wf-test (human acceptance testing in worktree)
 
 ═══════════════════════════════════════════════════════════════════════════
 ```

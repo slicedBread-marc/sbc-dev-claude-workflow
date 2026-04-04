@@ -19,21 +19,21 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 ## On startup
 
-First, read `.claude/workflow-version` and include it in the header of your output (e.g. `Workflow v1.0.0`). If the file doesn't exist, omit the version.
+1. Display current branch: `git branch --show-current` and include it in the header
+2. Read `.claude/workflow-version` and include it in the header of your output (e.g. `Workflow v1.0.0`). If the file doesn't exist, omit the version.
+3. Scan these locations in order and build a summary (branch-specific folders):
 
-Then scan these locations in order and build a summary:
-
-### 1. Findings needing fixes (`plans/verify/`)
-For each plan folder in `verify/`, read `findings.md`. If any findings have status `Open`, this is the **highest priority** — unresolved findings block completion.
+### 1. Findings needing fixes (`plans/verify/` or `plans/active/`)
+For each plan folder in `verify/` or `active/`, read `findings.md`. If any findings have status `Open`, this is the **highest priority** — unresolved findings block completion.
 
 ### 2. Plans needing replanning (`plans/replanning/`)
 For each plan folder in `replanning/`, read `findings.md` and list the `Escalated` findings. These require a planner session — they cannot be fixed by the implementer.
 
 ### 3. Plans ready to implement (`plans/ready/`)
-List any plan folders waiting for an implementer. Check each `plan.md` Status field — if Status is `Active` or `Verifying`, the plan has been claimed by another session; note it as in-progress rather than available.
+List any plan folders waiting for an implementer. Check each `plan.md` Status field — if Status is `Active`, the plan has been claimed by another session; note it as in-progress rather than available.
 
 ### 4. Plans being implemented (`plans/active/`)
-List active plan folders and read their `progress.md` to show current step.
+List active plan folders. For each, read `plan.md` to show `locked_by` branch name, and read `progress.md` to show current step. Format: `PLN-NNN — description [locked: feature/branch-name] — Step 3/7`
 
 ### 5. Plans in draft (`plans/drafts/`)
 List plan folders being written but not yet reviewed.
@@ -67,6 +67,13 @@ If any exist, list them with the rollback reason from Amendments. These are info
 
 ```
 ## Pipeline Status — Workflow v{workflow-version}
+### (On branch: {current-branch})
+
+**Note:** Status view is branch-specific:
+- **develop**: briefs/, ready/, complete/ (planning and historical record)
+- **feature/***:  active/, verify/ (implementation and testing)
+- **release**: staging/ (tested and ready to ship)
+- **main**: complete/ (shipped to production)
 
 ### Needs attention
 - PLN-002 in verify/ — 2 Open findings (FND-001, FND-002)
@@ -75,10 +82,16 @@ If any exist, list them with the rollback reason from Amendments. These are info
 - PLN-001 in replanning/ — 1 Escalated finding: FND-003 "Auth model requires design change"
 
 ### Ready to build
-- PLN-001 (BUG-003) — Login crash fix
+- PLN-001 (BUG-003) — Login crash fix [locked: feature/bug-003]
 
 ### In flight
-- PLN-002 (BUG-005) — Payment webhook fix — Step 3/7, last progress: [date]
+- PLN-002 (BUG-005) — Payment webhook fix [locked: feature/bug-005] — Step 3/7, last progress: [date]
+
+### Ready to test
+- PLN-003 — Login form validation — Status: Verified (code checks pass, awaiting human test)
+
+### In staging
+- PLN-004 — User session timeout — Status: Tested (awaiting release → main promotion)
 
 ### Drafts
 - PLN-003 (BRF-002) — Notifications system — awaiting review

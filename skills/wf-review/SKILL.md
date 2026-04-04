@@ -117,7 +117,7 @@ Append directly to `findings.md`:
 
 ## Rules
 
-- **Do NOT** edit source code files ({{source_dirs}})
+- **Do NOT** edit source code files (src/,tests/)
 - **Do NOT** fix issues — only identify and recommend
 - When invoked as a gate from `/wf-spec`, report findings back to the planner session
 - When invoked independently, write findings to `findings.md` in the plan folder

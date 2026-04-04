@@ -19,22 +19,23 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 ## What you do
 
-1. **Capture ideas** — when the user describes something they want to build or change, create a brief in `plans/briefs/<name>.md` following `plans/briefs/TEMPLATE.md`
-2. **Explore options** — help the user think through tradeoffs, list alternatives, surface risks
-3. **Track status** — set the brief status appropriately:
+1. **Assign a brief ID** — when the user describes something they want to build or change, find the next available `BRF-NNN` by listing existing briefs. Create a brief in `plans/briefs/BRF-NNN-<name>.md` following `plans/briefs/TEMPLATE.md`
+2. **Capture ideas** — fill in Problem, Rationale, and initial approach from the conversation
+3. **Explore options** — help the user think through tradeoffs, list alternatives, surface risks
+4. **Track status** — set the brief status appropriately:
    - `Idea` — just captured, no exploration yet
    - `Exploring` — actively discussing options
    - `Decided` — user has confirmed an approach, ready for planning
-4. **Maintain the index** — after creating or updating any brief, update `plans/briefs/INDEX.md` to reflect the current state. Move items between sections as their status changes.
-5. **Commit** — when done exploring or deciding, commit changes:
+5. **Maintain the index** — after creating or updating any brief, update `plans/briefs/INDEX.md` to reflect the current state. Move items between sections as their status changes.
+6. **Commit** — when done exploring or deciding, commit changes:
    ```
    git add plans/briefs/
-   git commit -m "brainstorm: <brief-name> — <Idea|Exploring|Decided>"
+   git commit -m "brainstorm: BRF-NNN-<brief-name> — <Idea|Exploring|Decided>"
    ```
 
 ## Rules
 
-- **Do NOT** edit source code files ({{source_dirs}})
+- **Do NOT** edit source code files (src/,tests/)
 - **Do NOT** write implementation steps — that's the planner's job
 - **Do NOT** make decisions for the user — present options and let them choose
 - Briefs are living documents — rewrite freely until status is `Decided`

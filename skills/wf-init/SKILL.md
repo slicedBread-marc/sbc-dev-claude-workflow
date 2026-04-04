@@ -13,14 +13,26 @@ You are in **init mode**. Your job is to set up a terminal for the workflow sess
 
 ### 1. Show the strategy (briefly)
 
-Display the 4-terminal pipeline:
+Display the 3-terminal pipeline:
 ```
-T1: Intake              T2: Planner             T3: Builder              T4: Validator
-(/wf-status,            (/wf-spec)              (/wf-implement)          (/wf-verify)
-/wf-brainstorm,                │                      │                        │
-/wf-bug)                       └─→ [ready/] ←────────┘                        │
-                                      │                                        │
-                                      └──────→ [verify/] ←────────────────────┘
+develop (T1, T2)                           feature/ (T3, T4)               release, main
+  - Plans only                             - Code + test                   - Ship it
+  
+  T1: Intake 🔵      T2: Planner 🟢             T3/T4: Worktree
+  (/wf-status,        (/wf-spec)                 (/wf-implement, /wf-test)
+  /wf-brainstorm,           │                            │
+  /wf-bug)                  └─→ [ready/] ←──────────────┤
+                                   │                      │
+                                   └──→ [active/] ←──────┘
+                                           │
+                                           └──→ [verify/] ──→ [human test] ──→ [release PR]
+                                           
+  T3: Builder 🟡     T4: Tester 🟣              Release
+  (/wf-implement)    (/wf-test)                (/wf-release)
+                                                    │
+                                           merge PR → release
+                                                    │
+                                           /wf-release: release → main → complete
 ```
 
 Then say: "Run `/wf-help` anytime to see the full strategy."
@@ -29,42 +41,37 @@ Then say: "Run `/wf-help` anytime to see the full strategy."
 
 ```
 Which terminal are you?
-1) T1 — Intake (/wf-status, /wf-brainstorm, /wf-bug) [Sonnet]
-2) T2 — Planner (/wf-spec) [Opus]
-3) T3 — Builder (/wf-implement loop) [Opus]
-4) T4 — Validator (/wf-verify loop) [Sonnet]
+1) T1 — Intake 🔵 (/wf-status, /wf-brainstorm, /wf-bug) [Sonnet]
+2) T2 — Planner 🟢 (/wf-spec) [Opus]
+3) T3 — Builder 🟡 (/wf-implement) [Opus]
+4) T4 — Tester 🟣 (/wf-test) [Haiku]
 ```
 
 Wait for user input (1–4).
 
-### 3. Confirm role and model
+### 3. Confirm role and set terminal color
 
-Based on selection, show:
+Based on selection, show and apply:
 ```
-✓ You are T2 (Builder)
+✓ You are T2 (Planner) 🟢
 ✓ Model: Opus 4.6
 ✓ Command: /model opus
-
-What you'll do:
-  • /loop 2m /wf-implement
-  • Auto-picks plans from plans/ready/
-  • Executes steps, writes tests, commits
-  • Moves completed plans to verify/
+✓ Terminal color: GREEN
 ```
 
-Set the terminal role for `/wf-next`:
-```bash
-export TERMINAL_ROLE="T2 — Builder"
-```
+**Set terminal background color** by invoking the color command (per role):
+- **T1 — Intake 🔵:** `/color blue`
+- **T2 — Planner 🟢:** `/color green`
+- **T3 — Builder 🟡:** `/color yellow`
+- **T4 — Tester 🟣:** `/color purple`
 
-(Replace with your role: "T1 — Intake", "T3 — Builder", or "T4 — Validator")
-
-Then run:
+Then set the terminal role and invoke the next skill:
 ```bash
+export TERMINAL_ROLE="T2 — Planner"
 /wf-next
 ```
 
-This will automatically invoke the right skill for your role.
+This will automatically invoke the right skill for your role and the terminal background will remain colored.
 
 ### 4. Set up logging context
 
@@ -90,9 +97,9 @@ Then show:
 ✓ Queue metrics tracked automatically
 ```
 
-### 5. Check folder structure
+### 5. Check folder structure and branches
 
-Verify these exist (create if missing):
+Verify these folders exist (create if missing):
 ```
 ✓ plans/ready/
 ✓ plans/active/
@@ -104,57 +111,81 @@ Verify these exist (create if missing):
 ✓ bugs/closed/
 ```
 
+Verify these branches exist (warn if missing):
+```
+✓ develop (current)
+✓ release
+✓ main
+```
+
+If `release` branch does not exist locally:
+```
+⚠️  Release branch not found. Create it:
+  git checkout develop
+  git checkout -b release
+  git push origin release
+```
+
 Show:
 ```
 ✓ Folder structure: ready
+✓ Branches: develop, release, main
 ```
 
 ### 6. Suggest next steps
 
 Based on role:
 
-**T1 (Intake):**
+**T1 (Intake) 🔵:**
 ```
 NEXT STEPS:
-1. /model sonnet
-2. /loop 10m /wf-status
-3. /wf-brainstorm to capture new ideas
-4. /wf-bug to file discovered issues
-5. Keep T2 fed with decided briefs
+1. /color blue
+2. /model sonnet
+3. /loop 10m /wf-status
+4. /wf-brainstorm to capture new ideas
+5. /wf-bug to file discovered issues
+6. Keep T2 fed with decided briefs
 
 Run /wf-help to understand the flow.
 ```
 
-**T2 (Planner):**
+**T2 (Planner) 🟢:**
 ```
 NEXT STEPS:
-1. /model opus
-2. /wf-spec BRF-001 (or pick a brief)
-3. Convert briefs to plans, move to ready/
-4. Keep ready/ queue at 2–3 plans for T3
+1. /color green
+2. /model opus
+3. /wf-spec BRF-001 (or pick a brief)
+4. Convert briefs to plans, move to ready/
+5. Keep ready/ queue at 2–3 plans for T3
 
 Run /wf-help to understand the flow.
 ```
 
-**T3 (Builder):**
+**T3 (Builder) 🟡:**
 ```
 NEXT STEPS:
-1. /model opus
-2. /loop 2m /wf-implement
-3. Wait for T2 to create ready plans
-4. Auto-picks and executes them
+1. /color yellow
+2. /model opus
+3. /wf-implement
+4. Follow prompts to create feature branch + worktree
+5. Switch to worktree directory (shown by /wf-implement)
+6. Run /wf-implement again in the worktree to start coding
+7. When done: /wf-test → creates PR to release
 
-If idle, alert T2 (plans/ready/ is empty).
+After: merge PR, then /wf-release promotes release → main → production.
 Run /wf-help to understand the flow.
 ```
 
-**T4 (Validator):**
+**T4 (Tester) 🟣:**
 ```
 NEXT STEPS:
-1. /model sonnet
-2. /loop 3m /wf-verify
-3. Auto-validates plans from plans/verify/
-4. Can manually /wf-debug if needed
+1. /color purple
+2. /model haiku
+3. After T3 finishes /wf-implement, switch to the worktree
+4. cd feature-branches/PLN-NNN-<plan-name>
+5. /wf-test walks through human acceptance criteria
+6. On pass, PR is created to release branch
+7. Merge PR, then /wf-release promotes release → main
 
 Run /wf-help to understand the flow.
 ```
@@ -164,7 +195,8 @@ Run /wf-help to understand the flow.
 ```
 ═══════════════════════════════════════════════════════════════════════════
 Session: 2026-04-02-1743868195
-Terminal: T2 (Builder)
+Terminal: T2 (Planner) 🟢
+Background: GREEN
 Model: Opus 4.6
 Logging: Enabled → .logs/workflow.log
 

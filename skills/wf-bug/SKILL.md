@@ -30,24 +30,36 @@ If the user says "new bug" or provides no description, prompt for:
 ```
 bugs/open/    → new bugs land here (you create here)
 bugs/triaged/ → picked up by /wf-spec when a fix plan is created
-bugs/closed/  → resolved by /wf-verify when a plan completes
+bugs/closed/  → resolved by /wf-release when a plan completes
 ```
 
 ## What you do
 
-1. **Determine the next bug ID** — read `plans/.counter` to get the next number N. Write N+1 back to `plans/.counter`. The bug ID is `BUG-N` (zero-padded to 3 digits, e.g. `BUG-009`). If `plans/.counter` does not exist, fall back to scanning `bugs/open/`, `bugs/triaged/`, and `bugs/closed/` for the highest `BUG-NNN` number and increment by 1 (legacy fallback only).
-2. **Choose a slug** — kebab-case title (e.g. `login-crash-empty-password`). The folder will be `BUG-NNN-<slug>`.
-3. **Create the bug folder** — `bugs/open/BUG-NNN-<slug>/`
-4. **Write `bug.md`** — fill in all known fields from the template at `bugs/_template/bug.md`
-5. **Handle attachments** — if the user provides a file path, copy or note it:
+1. **Check branch** — if not on `develop`, save current branch and switch:
+   ```
+   CURRENT_BRANCH=$(git branch --show-current)
+   if [ "$CURRENT_BRANCH" != "develop" ]; then
+     git checkout develop
+   fi
+   ```
+2. **Determine the next bug ID** — read `plans/.counter` to get the next number N. Write N+1 back to `plans/.counter`. The bug ID is `BUG-N` (zero-padded to 3 digits, e.g. `BUG-009`). If `plans/.counter` does not exist, fall back to scanning `bugs/open/`, `bugs/triaged/`, and `bugs/closed/` for the highest `BUG-NNN` number and increment by 1 (legacy fallback only).
+3. **Choose a slug** — kebab-case title (e.g. `login-crash-empty-password`). The folder will be `BUG-NNN-<slug>`.
+4. **Create the bug folder** — `bugs/open/BUG-NNN-<slug>/`
+5. **Write `bug.md`** — fill in all known fields from the template at `bugs/_template/bug.md`
+6. **Handle attachments** — if the user provides a file path, copy or note it:
    - If the file exists locally, note its path in `bug.md` under `## Attachments` with a relative reference
    - If the user describes a file they'll add later, add a placeholder: `- [ ] Attach: <description>`
-6. **Commit immediately**:
+7. **Commit and push**:
    ```
    git add bugs/open/BUG-NNN-<slug>/
    git commit -m "bug: BUG-NNN — <short title>"
+   git push origin develop
    ```
-7. **Confirm** — show the user the bug ID, folder path, and commit hash
+8. **Restore branch** — if you switched branches in step 1, switch back:
+   ```
+   git checkout $CURRENT_BRANCH
+   ```
+9. **Confirm** — show the user the bug ID, folder path, and commit hash
 
 ## bug.md format
 
@@ -56,7 +68,6 @@ bugs/closed/  → resolved by /wf-verify when a plan completes
 
 > **Status:** Open
 > **ID:** BUG-NNN
-> **schema_version:** 2
 > **Filed:** YYYY-MM-DD
 > **Project:** [project]
 > **Severity:** Critical | High | Medium | Low
@@ -100,7 +111,15 @@ When an attachment is provided:
 
 ## Notes
 
+- **Branch-aware:** You can run `/wf-bug` from any branch (develop, feature/*, release, main). It will:
+  - Save your current branch
+  - Switch to develop
+  - Create the bug
+  - Commit and push
+  - Switch back to your original branch
+  - This makes it safe to file bugs discovered during feature testing without affecting your worktree
 - Bugs are committed immediately upon creation — no manual commit step needed
+- Bugs are always created on develop (the planning branch)
 - Attachments are co-located with `bug.md` in the bug folder
 - The bug can be moved to `triaged/` by `/wf-spec` when a fix plan is created
-- The bug moves to `closed/` by `/wf-verify` when the fix plan completes
+- The bug moves to `closed/` by `/wf-release` when the fix plan completes
