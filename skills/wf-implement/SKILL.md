@@ -189,11 +189,13 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    - If issues are minor (code-level fixes), fix them and note in `progress.md`
 
 20. **Collect agent results** — by now the background agents should have completed. Check each result:
-   - **Build agent:** If build failed, fix errors and re-run build inline before proceeding
-   - **Test agent:** If tests failed, fix failures and re-run tests inline. All tests must pass.
-   - **E2E agent:** If E2E tests failed, fix and re-run inline. All must pass.
+   - **Build agent:** If build failed, fix errors on Opus (code reasoning required), then re-verify via a haiku agent: `Agent(model: haiku, prompt: "Run ~/.dotnet/dotnet build SBC.slnx. Report: success or failure. Errors only, under 500 chars.")`
+   - **Test agent:** If tests failed, fix failures on Opus, then re-verify via a haiku agent: `Agent(model: haiku, prompt: "Run ~/.dotnet/dotnet test SBC.slnx --no-build. Report: total, passed, failed. List failures with name and error. Under 1000 chars.")`
+   - **E2E agent:** If E2E tests failed, fix on Opus, then re-verify via a haiku agent with the same E2E command
+   - Never re-run build or test commands inline on Opus — always delegate verification runs to haiku
    - Log results in `progress.md`: `[date] Build: pass | Tests: N passed, 0 failed | E2E: pass`
    - If code review (step 18) found issues that required fixes, re-launch a haiku build+test agent to verify the fixes didn't break anything
+   - **Tick off all automated checklist sections** in `plan.md` — mark every item in `### Build & Tests`, `### Code Quality`, and `### Regression Scope` as `[x]`. These sections are fully owned by `/wf-implement` and must be complete before the plan moves to verify.
 
 21. **When all steps, reviews, and tests pass** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
    ```

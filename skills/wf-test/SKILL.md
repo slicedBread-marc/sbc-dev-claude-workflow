@@ -28,9 +28,7 @@ plans/verify/     → plans waiting for human test (Status: Verified)
 
 ## Important: One testing worktree at a time
 
-Only one feature branch should be actively testing simultaneously. Each worktree's Docker container binds to port 8080. If two tests run in parallel, the second will fail with "port already in use."
-
-Solution: Test sequentially. After testing completes, the container is destroyed (see step 11 below).
+Only one feature branch should be actively testing simultaneously. Each worktree uses a unique port (8100 + plan ID), but parallel testing is still discouraged as it's confusing for the user. Test sequentially. After testing completes, the container is destroyed (see step 11 below).
 
 ## Bug reference model
 
@@ -59,6 +57,7 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 3. **Read the plan**:
    - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `findings.md` to understand any existing findings
+   - **Ignore `### Build & Tests` and `### Code Quality` sections** — these were already completed by `/wf-implement`. Only present `### Human Test Criteria` items to the user.
 4. **Set the feature port and project name** — calculate from the plan ID to run on a unique port (8100+ range, never colliding with staging at 8081):
    ```bash
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
@@ -84,7 +83,7 @@ Solution: Test sequentially. After testing completes, the container is destroyed
 
 6. **If mode = [all]**: Skip to step 8 below — mark all criteria as pass
 
-7. **If mode = [each]**: For each acceptance criterion in the Verification Checklist**:
+7. **If mode = [each]**: For each criterion in the `### Human Test Criteria` section only (skip all other sections):
    - Display the criterion clearly
    - **Let the user describe what they see** — don't force a rigid [pass/fail/skip/bug] prompt. Accept natural descriptions like "this works", "it's broken because...", "I also noticed...", etc.
    - Interpret their response and classify:
