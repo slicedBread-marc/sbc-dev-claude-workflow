@@ -46,7 +46,7 @@ for plan in plans/verify/*/plan.md; do
   plan_name=$(basename "$(dirname "$plan")")
   goal=$(grep -A 1 "^## Goal" "$plan" 2>/dev/null | tail -1 | sed 's/^[[:space:]]*//' || true)
 
-  if grep -q "^Status:.*with-findings" "$plan" 2>/dev/null; then
+  if grep -qiE "(^|\*\*)?Status:\*?\*?\s*.*with-findings" "$plan" 2>/dev/null; then
     printf "fix\t%s\t%s\n" "$plan_name" "$goal"
   else
     printf "handoff\t%s\t%s\n" "$plan_name" "$goal"

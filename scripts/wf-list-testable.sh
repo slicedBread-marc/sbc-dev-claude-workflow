@@ -13,8 +13,9 @@ for plan in plans/verify/*/plan.md; do
   [ -f "$plan" ] || continue
 
   # Must have Status: Verified (not Verified-with-findings)
-  grep -q "^Status:.*Verified" "$plan" 2>/dev/null || continue
-  grep -q "^Status:.*with-findings" "$plan" 2>/dev/null && continue
+  # Status line may be plain or markdown-formatted ("> **Status:** Verified")
+  grep -qiE "(^|\*\*)?Status:\*?\*?\s*Verified" "$plan" 2>/dev/null || continue
+  grep -qi "with-findings" "$plan" 2>/dev/null && continue
 
   plan_name=$(basename "$(dirname "$plan")")
   goal=$(grep -A 1 "^## Goal" "$plan" 2>/dev/null | tail -1 | sed 's/^[[:space:]]*//' || true)
