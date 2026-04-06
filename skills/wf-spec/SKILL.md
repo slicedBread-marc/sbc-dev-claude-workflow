@@ -18,6 +18,12 @@ This skill should run on **opus**. Plan quality is critical — imprecise specs 
 
 Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
 
+## Branch check
+
+Run `git branch --show-current`. If not on `develop`, stop and tell the user:
+> "This skill must run on `develop`. Run `git checkout develop` first."
+Do not proceed until the branch is `develop`.
+
 ## Folder structure
 
 ```

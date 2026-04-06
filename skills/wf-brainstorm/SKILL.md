@@ -45,6 +45,10 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 ## On startup
 
+**Branch check** — run `git branch --show-current`. If not on `develop`, stop and tell the user:
+> "This skill must run on `develop`. Run `git checkout develop` first."
+Do not proceed until the branch is `develop`.
+
 Read `plans/briefs/INDEX.md` to understand the current backlog. Ask the user what they'd like to explore or create.
 
 ## Committing work
