@@ -50,7 +50,7 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 
 **Phase 1: Setup (on `develop` branch)**
 
-1. **Confirm you are on `develop`** — run `git branch --show-current`. If not, stop and alert the user.
+1. **Confirm you are on `develop`** — run `git branch --show-current`. If not on `develop`, run `git checkout develop` automatically and continue.
 2. **Compute the feature branch name** — use the plan folder name (including `PLN-NNN-` prefix): `feature/PLN-NNN-<plan-name>` (e.g. `feature/PLN-004-deployment-date-footer`)
 3. **Lock the plan** — update `plan.md`:
    - Set Status to `Active`
@@ -341,11 +341,16 @@ The workflow is:
 
 1. **Detect current branch** — run `git branch --show-current`
 2. **If on `develop`:**
-   - Check `plans/ready/` for new plan folders to implement
-   - Ask the user which one to pick up (if multiple exist)
-   - Execute Phase 1 (lock plan, create worktree with isolated docker project name)
-   - Execute Phase 2 (cd to worktree, code all steps, code review, architecture review, E2E tests, move to verify/, destroy docker container)
-   - Execute Phase 3 (cd back to develop, display T4 handoff instructions)
+   - Run these two commands to find available work:
+     ```bash
+     ls plans/ready/ 2>/dev/null          # new plans to implement
+     ls feature-branches/*/plans/ready/ 2>/dev/null   # amended plans in existing worktrees
+     ```
+   - Combine results and show the user a numbered list. Label amended plans clearly: `(amendment — existing worktree)`
+   - If nothing in either location, stop with: "No plans ready to implement. Run /wf-status to see pipeline state."
+   - **Do NOT scan feature-branches for anything else** — only `plans/ready/` within a worktree counts. Do not produce a general worktree status table; that is /wf-status's job.
+   - **If user picks a new plan** (from `plans/ready/`): Execute Phase 1 (lock plan, create worktree), then Phase 2, then Phase 3
+   - **If user picks an amended plan** (from `feature-branches/PLN-NNN/plans/ready/`): follow the Amendment cycle section — lock plan on develop, cd to the existing worktree, merge develop, continue with Phase 2
    - Done — user is back on develop with worktree ready for T4
 3. **If on a feature branch** (e.g. `feature/site-version-indicator`):
    - Confirm the corresponding plan is in `plans/active/`

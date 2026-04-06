@@ -22,9 +22,7 @@ If already on opus, skip the prompt and continue directly.
 
 ## Branch check
 
-Run `git branch --show-current`. If not on `develop`, stop and tell the user:
-> "This skill must run on `develop`. Run `git checkout develop` first."
-Do not proceed until the branch is `develop`.
+Run `git branch --show-current`. If not on `develop`, run `git checkout develop` automatically and continue. Do not prompt the user.
 
 ## Folder structure
 
