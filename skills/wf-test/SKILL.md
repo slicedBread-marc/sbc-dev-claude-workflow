@@ -45,8 +45,8 @@ Only one feature branch should be actively testing simultaneously. Each worktree
 ## What you do
 
 **If starting from develop:**
-1. **Scan for available worktrees** — check `feature-branches/PLN-*-*/plans/verify/PLN-*-*/plan.md` for Status `Verified`
-2. **Show menu** — list all worktrees with completed, verified plans ready for testing (show PLN-NNN and feature name)
+1. **Scan for available worktrees** — run `scripts/wf-list-testable.sh`. Each output line is `<plan-name>\t<goal>`. Exit 1 means no eligible plans. Only plans with Status: Verified AND zero `| Open |` findings rows are eligible.
+2. **Show menu** — list only the eligible worktrees (show PLN-NNN and plan goal)
 3. **User picks a worktree** — they select which feature to test
 4. **Switch to worktree** — `cd feature-branches/PLN-NNN-<plan-name>/`
 5. **Continue with testing below**
@@ -58,15 +58,13 @@ Only one feature branch should be actively testing simultaneously. Each worktree
    - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `findings.md` to understand any existing findings
    - **Ignore `### Build & Tests` and `### Code Quality` sections** — these were already completed by `/wf-implement`. Only present `### Human Test Criteria` items to the user.
-4. **Set the feature port and project name** — calculate from the plan ID to run on a unique port (8100+ range, never colliding with staging at 8081):
+4. **Set the feature port and project name** — run the helper script and eval its output:
    ```bash
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
-   # Extract the plan ID number (e.g., "004" from "PLN-004-deployment-date-footer")
-   PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
-   # Port range 8000-8099 reserved for static site (staging at 8081); features use 8100+
-   FEATURE_PORT=$((8100 + PLAN_ID))
-   export FEATURE_PORT COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
+   eval $(scripts/wf-plan-port.sh "$PLAN_FOLDER")
+   export FEATURE_PORT COMPOSE_PROJECT_NAME
    ```
+   Port range 8000-8099 is reserved for staging; features always use 8100+.
 5. **Deploy to local container**:
    ```bash
    docker compose -f docker/docker-compose.yml up --build -d
@@ -186,20 +184,13 @@ Only one feature branch should be actively testing simultaneously. Each worktree
 
 11. **Destroy the container** (whether tests pass or fail):
    ```bash
-   # Use the same project name that was set during deploy to ensure correct container is stopped
+   # Re-derive project name in case env vars are not still set
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ 2>/dev/null || ls -d plans/replanning/PLN-*/ 2>/dev/null | head -1) | tr -d '/')
-   PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
-   COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
-   
-   # Stop and remove containers
-   docker compose -f docker/docker-compose.yml \
-     --project-name "$COMPOSE_PROJECT_NAME" \
-     down -v 2>/dev/null || true
-   
-   # Force remove any remaining containers with this project name
+   eval $(scripts/wf-plan-port.sh "$PLAN_FOLDER")
+   docker compose -f docker/docker-compose.yml --project-name "$COMPOSE_PROJECT_NAME" down -v 2>/dev/null || true
    docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
    ```
-   This removes the container and volumes to keep the worktree clean. Uses explicit project name to ensure the correct container is stopped, with fallback force-kill if compose down fails.
+   This removes the container and volumes to keep the worktree clean.
 
 ## Handling failures and bugs during testing
 
@@ -270,18 +261,20 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 
 1. Check current branch — run `git branch --show-current`
 2. **If on `develop`:**
-   - Scan `feature-branches/*/plans/verify/*/plan.md` for Status `Verified`
-   - List all worktrees with completed, verified plans ready for testing
-   - Show menu:
+   - Run `scripts/wf-list-testable.sh` to find eligible plans. Each line is `<plan-name>\t<goal>`. Exit 1 = none found.
+     **Only** plans with Status: Verified AND zero `| Open |` rows in `findings.md` are eligible.
+   - Show menu (only eligible plans):
      ```
      Available worktrees ready for testing:
-     1) feature/site-version-indicator — Site Version Indicator
-     2) feature/another-plan — Another Feature
+     1) PLN-NNN — <plan goal>
+     2) PLN-NNN — <plan goal>
      
      Which worktree would you like to test? (enter number)
      ```
+   - If plans exist in verify/ but all have Open findings, stop with: "No worktrees ready for testing — N plan(s) have open findings that must be fixed first. Run /wf-implement to address them."
+   - If no plans in verify/ at all, stop with: "No worktrees ready for testing. Run /wf-status to see pipeline state."
    - User selects one
-   - `cd` into that worktree (e.g., `cd feature-branches/site-version-indicator`)
+   - `cd` into that worktree (e.g., `cd feature-branches/PLN-NNN-name`)
    - Continue to step 3
 
 3. **If on a feature branch** (e.g., `feature/site-version-indicator`):
