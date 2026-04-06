@@ -46,7 +46,14 @@ for plan in plans/verify/*/plan.md; do
   plan_name=$(basename "$(dirname "$plan")")
   goal=$(grep -A 1 "^## Goal" "$plan" 2>/dev/null | tail -1 | sed 's/^[[:space:]]*//' || true)
 
-  if grep -qiE "(^|\*\*)?Status:\*?\*?\s*.*with-findings" "$plan" 2>/dev/null; then
+  # Check both status line and actual findings to determine type
+  findings="plans/verify/$plan_name/findings.md"
+  has_open_findings=0
+  if [ -f "$findings" ] && grep -qE '\| Open \|' "$findings" 2>/dev/null; then
+    has_open_findings=1
+  fi
+
+  if grep -qiE "(^|\*\*)?Status:\*?\*?\s*.*with-findings" "$plan" 2>/dev/null || [ "$has_open_findings" -eq 1 ]; then
     printf "fix\t%s\t%s\n" "$plan_name" "$goal"
   else
     printf "handoff\t%s\t%s\n" "$plan_name" "$goal"
