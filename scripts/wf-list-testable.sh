@@ -21,9 +21,9 @@ for plan in plans/verify/*/plan.md; do
 
   plan_name=$(basename "$(dirname "$plan")")
 
-  # Skip plans with open findings
+  # Skip plans with unresolved findings (Open or Fixed — Fixed needs re-verification first)
   findings="plans/verify/$plan_name/findings.md"
-  if [ -f "$findings" ] && grep -qE '\| Open \|' "$findings" 2>/dev/null; then
+  if [ -f "$findings" ] && grep -qE '\| Open \|| \| Fixed \|' "$findings" 2>/dev/null; then
     skipped_findings=$((skipped_findings + 1))
     continue
   fi

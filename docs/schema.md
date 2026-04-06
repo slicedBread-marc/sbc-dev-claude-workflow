@@ -36,6 +36,74 @@ When reading an artifact, check `schema_version`:
 
 Skills must not assume global uniqueness when operating on v1 documents. When creating new artifacts, always write `schema_version: 3` and draw from the global counter. On feature branches, check for `.plan/` first (v3); fall back to `plans/{stage}/PLN-NNN-*/` (v2) for legacy worktrees.
 
+## Plan Status Field
+
+The `Status:` line in `plan.md` tracks where a plan is in its lifecycle. Status may appear plain (`Status: Verified`) or markdown-formatted (`> **Status:** Verified`).
+
+| Status | Folder | Meaning |
+|-|-|-|
+| *(none/Drafted)* | `drafts/` | Being written by T2 |
+| Ready | `ready/` | Reviewed, approved, waiting for T3 |
+| Active | `active/` | Claimed by T3, implementation in progress |
+| Verified | `verify/` | Implementation verified by T4, eligible for human testing |
+| Verified-with-findings | `verify/` | Has unresolved findings — needs T3 fix cycle |
+| Tested | `verify/` | Human test passed, pending merge to release |
+| *(moved)* | `complete/` | Merged to release, closed |
+| *(moved)* | `replanning/` | Escalated findings require T2 design decisions |
+| *(moved)* | `rolled-back/` | Reverted |
+
+## Finding Status Field
+
+Each row in `findings.md` has a Status column tracking resolution.
+
+| Finding Status | Meaning | Who acts next |
+|-|-|-|
+| Open | Unresolved — needs attention | T3 (Warning/Critical) or T2 (Escalated) |
+| Fixed | Implementer claims fixed, not yet re-verified | T4 (re-verify or re-test) |
+| Closed | Verified as resolved | No action needed |
+
+**Key rule:** a plan is only "clean" when it has zero Open **and** zero Fixed findings. Fixed ≠ Closed — Fixed findings still need T4 to confirm the fix before the plan can advance.
+
+## Detector Scripts
+
+Three scripts in `scripts/` scan `plans/` on develop to build menus for each terminal role. All run from the project root on the develop branch.
+
+### `wf-list-specable.sh` (T2 — Planner)
+
+Finds work for `/wf-spec`. Output sections prefixed with `# type` headers:
+
+| Section | Source | Condition |
+|-|-|-|
+| `# replanning` | `plans/replanning/*/plan.md` | Any plan with Escalated findings |
+| `# bugs` | `bugs/open/*/bug.md` | Any open bug |
+| `# briefs` | `plans/briefs/INDEX.md` | Entries under `## Decided` heading |
+
+### `wf-list-implementable.sh` (T3 — Builder)
+
+Finds work for `/wf-implement`. Each line: `<type>\t<plan-name>\t<goal>`
+
+| Type | Source | Condition |
+|-|-|-|
+| `new` | `plans/ready/` | No existing worktree |
+| `amendment` | `plans/ready/` | Worktree already exists (re-spec'd plan) |
+| `resume` | `plans/active/` | Mid-implementation |
+| `fix` | `plans/verify/` | Status: Verified-with-findings **OR** any `\| Open \|` findings |
+| `handoff` | `plans/verify/` | Status: Verified, no open findings (Phase 3 pending) |
+
+### `wf-list-testable.sh` (T4 — Validator)
+
+Finds work for `/wf-test`. Each line: `<plan-name>\t<goal>`
+
+| Condition | Filter |
+|-|-|
+| Folder | `plans/verify/*/plan.md` |
+| Status | Must match `Verified` (not `Verified-with-findings`) |
+| Findings | Zero `\| Open \|` rows **AND** zero `\| Fixed \|` rows |
+
+**Why filter Fixed:** `Fixed` means the implementer claims a fix but T4 hasn't confirmed it. These plans need `/wf-verify` first (to move findings from Fixed → Closed), then they become eligible for `/wf-test`.
+
+Plans skipped due to Open or Fixed findings are counted and reported to stderr.
+
 ## Counter File
 
 Location: `plans/.counter` (relative to project root)

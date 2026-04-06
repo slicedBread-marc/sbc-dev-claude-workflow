@@ -56,11 +56,11 @@ Bugs move through: `bugs/open/` → `bugs/triaged/` → `bugs/closed/`
 
 3. **T3 (Builder)** runs `/wf-implement` to claim a plan from `ready/`, create a feature branch worktree with `.plan/`, execute each step, and update develop's pipeline stage to `verify/`.
 
-4. **T4 (Validator)** runs `/wf-verify` to check the implementation against `.plan/` in the worktree. Appends findings to `.plan/findings.md`. Open findings go back to T3 (fix cycle). Escalated findings go back to T2 (replanning). Clean plans move to `complete/` on develop and get a PR to `release`.
+4. **T4 (Validator)** runs `/wf-verify` to check the implementation against `.plan/` in the worktree. Appends findings to `.plan/findings.md`. Open findings go back to T3 (fix cycle). Escalated findings go back to T2 (replanning). Clean plans move to `verify/` on develop.
 
-5. **T4** runs `/wf-test` for human acceptance testing before release.
+5. **T4** runs `/wf-test` for human acceptance testing. On pass, merges the feature PR to release, merges feature branch back to develop (so subsequent plans see the work), and rebuilds the staging container on port 8081.
 
-6. **Release** — completed plans are promoted from `release` to `main`. `/wf-stage` spins up a staging container on port 8081 for final checks.
+6. **Release** — `/wf-release` promotes the combined release branch to `main`. Plans move to `complete/`, bugs close, and main back-merges to develop. Staging container is stopped. Pushing main triggers production deploy.
 
 ---
 
