@@ -29,7 +29,7 @@ Each terminal runs `/wf-init` once per session to establish its role. `/wf-next`
 
 ### Plan Pipeline (folder stages)
 
-Plans move through these folders as they progress:
+Plans move through these folders on **develop** (the pipeline source of truth):
 
 ```
 plans/briefs/       → ideas and decided briefs (T1/T2 input)
@@ -42,6 +42,8 @@ plans/complete/     → accepted by T4, merged to release
 plans/rolled-back/  → reverted plans
 ```
 
+On **feature branches**, the working plan lives in `.plan/` (plan.md, findings.md, progress.md). Feature branches never modify `plans/` — pipeline stage moves only happen on develop. This prevents cross-contamination between worktrees and eliminates merge conflicts on unrelated plans.
+
 Bugs move through: `bugs/open/` → `bugs/triaged/` → `bugs/closed/`
 
 ---
@@ -52,9 +54,9 @@ Bugs move through: `bugs/open/` → `bugs/triaged/` → `bugs/closed/`
 
 2. **T2 (Planner)** runs `/wf-spec` to convert a decided brief or open bug into a plan. Writes steps, tests, rollback, design decisions. A sonnet review agent gates the plan before it moves to `ready/`.
 
-3. **T3 (Builder)** runs `/wf-implement` to claim a plan from `ready/`, execute each step, commit per step, and move the plan to `verify/`.
+3. **T3 (Builder)** runs `/wf-implement` to claim a plan from `ready/`, create a feature branch worktree with `.plan/`, execute each step, and update develop's pipeline stage to `verify/`.
 
-4. **T4 (Validator)** runs `/wf-verify` to check the implementation against the plan. Appends findings to `findings.md`. Open findings go back to T3 (fix cycle). Escalated findings go back to T2 (replanning). Clean plans move to `complete/` and get a PR to `release`.
+4. **T4 (Validator)** runs `/wf-verify` to check the implementation against `.plan/` in the worktree. Appends findings to `.plan/findings.md`. Open findings go back to T3 (fix cycle). Escalated findings go back to T2 (replanning). Clean plans move to `complete/` on develop and get a PR to `release`.
 
 5. **T4** runs `/wf-test` for human acceptance testing before release.
 
@@ -89,6 +91,7 @@ All artifacts (plans, bugs, briefs) use a **global shared counter** stored in `p
 | `schema_version` | Meaning |
 |-|-|
 | absent | Legacy (v1) — independent per-type counters, pre-global system |
-| `2` | Current — global counter, all new artifacts |
+| `2` | Global counter, all new artifacts |
+| `3` | Current — `.plan/` on feature branches, `plans/` on develop only for pipeline stages |
 
-Skills check `schema_version` to handle legacy documents gracefully. New artifacts always write `schema_version: 2`.
+Skills check `schema_version` to handle legacy documents gracefully. New artifacts always write `schema_version: 3`. Plans in worktrees with `plans/verify/` (v2) are supported alongside `.plan/` (v3) during transition.
