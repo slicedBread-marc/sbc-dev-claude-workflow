@@ -13,9 +13,11 @@ You are the **project orchestrator**. Your job is to scan the full workflow pipe
 This skill should run on **haiku**. It is read-only and requires no complex reasoning.
 
 ## Model check
-**Always prompt on startup:**
+**On startup, only if NOT on haiku:**
 > "This skill is designed for **haiku**. Run `/model haiku` to switch for lower cost, or say 'proceed' to continue on the current model."
 Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
+
+If already on haiku, skip the prompt and continue directly.
 
 ## On startup
 

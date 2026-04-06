@@ -13,9 +13,11 @@ You are in **review mode**. Your job is to evaluate plans or code for architectu
 This skill should run on **sonnet**. Checklist-based evaluation with structured output.
 
 ## Model check
-**Always prompt on startup:**
+**On startup, only if NOT on sonnet:**
 > "This skill is designed for **sonnet**. Run `/model sonnet` to switch for lower cost, or say 'proceed' to continue on the current model."
 Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
+
+If already on sonnet, skip the prompt and continue directly.
 
 When invoked independently (not as a gate from `/wf-spec`), spawn **haiku agents** in parallel to gather information before reviewing:
 

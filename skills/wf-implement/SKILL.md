@@ -2,7 +2,7 @@
 name: wf-implement
 description: Execute a ready plan from start to finish. Creates feature branch and worktree, codes all steps, performs code review, architecture review, and E2E tests, moves to verify/ with Status Verified, and returns to develop. T4 then runs human acceptance testing.
 user_invocable: true
-model: opus
+model: sonnet
 ---
 
 # Implementer Role
@@ -10,13 +10,15 @@ model: opus
 You are in **implementer mode**. Your job is to execute an implementation plan completely: lock the plan, create a worktree, code all steps, perform code and architecture review, run E2E tests, verify all checks pass, move to verify/ with Status Verified, and return to develop. T4 then runs human acceptance testing. You also fix findings from testing.
 
 ## Model guidance
-This skill should run on **opus**. Code generation requires the highest accuracy to avoid rework.
+This skill should run on **sonnet**. Implementation follows a detailed spec — heavy reasoning is done; sonnet handles code generation well and is faster.
 
 ## Model check
-**Always prompt on startup:**
-> "This skill is designed for **opus**. Implementation on a cheaper model risks bugs that cost more in verify/fix cycles. Run `/model opus` to switch, or say 'proceed' to continue on the current model."
+**On startup, only if NOT on sonnet:**
+> "This skill is designed for **sonnet**. Run `/model sonnet` to switch, or say 'proceed' to continue on the current model."
 
 Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
+
+If already on sonnet, skip the prompt and continue directly.
 
 Do NOT use agents for writing code — implementation is inherently sequential and context-dependent. Agents are used for:
 
@@ -189,10 +191,10 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    - If issues are minor (code-level fixes), fix them and note in `progress.md`
 
 20. **Collect agent results** — by now the background agents should have completed. Check each result:
-   - **Build agent:** If build failed, fix errors on Opus (code reasoning required), then re-verify via a haiku agent: `Agent(model: haiku, prompt: "Run ~/.dotnet/dotnet build SBC.slnx. Report: success or failure. Errors only, under 500 chars.")`
-   - **Test agent:** If tests failed, fix failures on Opus, then re-verify via a haiku agent: `Agent(model: haiku, prompt: "Run ~/.dotnet/dotnet test SBC.slnx --no-build. Report: total, passed, failed. List failures with name and error. Under 1000 chars.")`
-   - **E2E agent:** If E2E tests failed, fix on Opus, then re-verify via a haiku agent with the same E2E command
-   - Never re-run build or test commands inline on Opus — always delegate verification runs to haiku
+   - **Build agent:** If build failed, fix errors on Sonnet (you are Sonnet), then re-verify via a haiku agent: `Agent(model: haiku, prompt: "Run ~/.dotnet/dotnet build SBC.slnx. Report: success or failure. Errors only, under 500 chars.")`
+   - **Test agent:** If tests failed, fix failures on Sonnet, then re-verify via a haiku agent: `Agent(model: haiku, prompt: "Run ~/.dotnet/dotnet test SBC.slnx --no-build. Report: total, passed, failed. List failures with name and error. Under 1000 chars.")`
+   - **E2E agent:** If E2E tests failed, fix on Sonnet, then re-verify via a haiku agent with the same E2E command
+   - Never re-run build or test commands inline — always delegate verification runs to haiku agents
    - Log results in `progress.md`: `[date] Build: pass | Tests: N passed, 0 failed | E2E: pass`
    - If code review (step 18) found issues that required fixes, re-launch a haiku build+test agent to verify the fixes didn't break anything
    - **Tick off all automated checklist sections** in `plan.md` — mark every item in `### Build & Tests`, `### Code Quality`, and `### Regression Scope` as `[x]`. These sections are fully owned by `/wf-implement` and must be complete before the plan moves to verify.

@@ -20,7 +20,7 @@ The workflow is designed to run across 4 terminal sessions, each with a dedicate
 |-|-|-|-|
 | T1 | Intake | `/wf-status`, `/wf-brainstorm`, `/wf-bug` | Sonnet |
 | T2 | Planner | `/wf-spec` | Opus |
-| T3 | Builder | `/wf-implement` | Opus |
+| T3 | Builder | `/wf-implement` | Sonnet |
 | T4 | Validator | `/wf-verify`, `/wf-test` | Sonnet |
 
 Each terminal runs `/wf-init` once per session to establish its role. `/wf-next` auto-routes to the correct skill based on `TERMINAL_ROLE`.

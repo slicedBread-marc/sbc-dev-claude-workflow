@@ -43,7 +43,7 @@ Then say: "Run `/wf-help` anytime to see the full strategy."
 Which terminal are you?
 1) T1 — Intake 🔵 (/wf-status, /wf-brainstorm, /wf-bug) [Sonnet]
 2) T2 — Planner 🟢 (/wf-spec) [Opus]
-3) T3 — Builder 🟡 (/wf-implement) [Opus]
+3) T3 — Builder 🟡 (/wf-implement) [Sonnet]
 4) T4 — Tester 🟣 (/wf-test) [Haiku]
 ```
 
@@ -165,7 +165,7 @@ Run /wf-help to understand the flow.
 ```
 NEXT STEPS:
 1. /color yellow
-2. /model opus
+2. /model sonnet
 3. /wf-implement
 4. Follow prompts to create feature branch + worktree
 5. Switch to worktree directory (shown by /wf-implement)

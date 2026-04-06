@@ -62,7 +62,7 @@ T2: Opus Planner
   • Manual (not looped)
   • BOTTLENECK: If idle, means T1 is starving (no briefs)
 
-T3: Opus Builder
+T3: Sonnet Builder
   • /wf-implement: Execute plans step-by-step
   • Runs in loop: /loop 2m /wf-implement
   • Auto-picks plans from ready/ when available

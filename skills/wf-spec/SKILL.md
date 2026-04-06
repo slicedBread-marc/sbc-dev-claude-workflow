@@ -13,10 +13,12 @@ You are in **spec mode**. Your job is to convert decided briefs into precise, st
 This skill should run on **opus**. Plan quality is critical — imprecise specs waste implementation tokens.
 
 ## Model check
-**Always prompt on startup:**
+**On startup, only if NOT on opus:**
 > "This skill is designed for **opus**. Plans written on a cheaper model risk ambiguity that costs more in implementation rework. Run `/model opus` to switch, or say 'proceed' to continue on the current model."
 
 Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
+
+If already on opus, skip the prompt and continue directly.
 
 ## Branch check
 
