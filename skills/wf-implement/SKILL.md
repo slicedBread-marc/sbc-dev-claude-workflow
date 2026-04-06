@@ -44,11 +44,14 @@ Do NOT use agents for writing code — implementation is inherently sequential a
 ## Folder structure
 
 ```
-plans/ready/       → pick up from here
-plans/active/      → work here
-plans/verify/      → move here when done
-plans/replanning/  → escalate here if design issues found (picked up by /wf-spec)
+plans/ready/       → pick up from here (on develop)
+plans/active/      → plan claimed, worktree created (on develop)
+plans/verify/      → implementation complete (on develop)
+plans/replanning/  → escalated, needs /wf-spec (on develop)
+.plan/             → working copy of plan files (on feature branch only)
 ```
+
+**Key principle:** `plans/` is only modified on develop. Feature branches work exclusively with `.plan/` (plan.md, findings.md, progress.md). This prevents cross-contamination between worktrees and eliminates merge conflicts on unrelated plans.
 
 ## What you do
 
@@ -82,6 +85,18 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    ```
    This creates the feature-branches folder inside sbc if needed, then creates a new feature branch FROM the current HEAD (develop, with the locked-plan commit) and a new worktree directory.
 
+5a. **Create `.plan/` in the worktree** — copy the plan files so the feature branch works from `.plan/` exclusively:
+   ```bash
+   mkdir -p feature-branches/PLN-NNN-<plan-name>/.plan
+   for f in plan.md findings.md progress.md; do
+     [ -f "plans/active/PLN-NNN-<plan-name>/$f" ] && cp "plans/active/PLN-NNN-<plan-name>/$f" "feature-branches/PLN-NNN-<plan-name>/.plan/"
+   done
+   cd feature-branches/PLN-NNN-<plan-name>
+   git add .plan/
+   git commit -m "chore(PLN-NNN): setup .plan/ for feature branch"
+   cd ../..
+   ```
+
 6. **Drop settings.local.json into worktree** for full write permissions:
    ```
    cat > feature-branches/PLN-NNN-<plan-name>/.claude/settings.local.json << 'EOF'
@@ -105,22 +120,14 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    cd feature-branches/PLN-NNN-<plan-name>
    ```
 8. **Confirm you are on the feature branch** — run `git branch --show-current`. Should be `feature/PLN-NNN-<plan-name>`, not `develop`.
-8a. **Merge develop into feature branch** — pull in the locked plan (and any amendments):
+8a. **Merge develop into feature branch** — pull in any code changes from develop:
    ```bash
-   git merge develop -X theirs --no-edit
+   git merge develop --no-edit
    ```
-   The `-X theirs` bias ensures develop's plan files win (locked/amended state) while preserving feature branch source code. If the worktree is freshly created from HEAD (new implementation), this is a no-op. If this is an amendment cycle, clean up stale plan copies:
+   If the worktree is freshly created from HEAD (new implementation), this is a no-op. Plan files are managed via `.plan/` so there are no plan-related merge conflicts.
+9. **Set the Docker project name and port** — derive from the branch name (no plans/ scan needed):
    ```bash
-   # Remove stale replanning/ copy if it exists (plan is now in active/ from develop)
-   git rm -rf plans/replanning/ 2>/dev/null && git commit -m "implement: consolidate plan after merge" || true
-   ```
-9. **Set the Docker project name and port** — export both as environment variables so all docker compose commands use an isolated container on a unique port:
-   ```bash
-   PLAN_FOLDER=$(basename $(ls -d plans/active/PLN-*/ | head -1) | tr -d '/')
-   # Extract the plan ID number (e.g., "004" from "PLN-004-deployment-date-footer")
-   PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
-   # Calculate port: 8100 + NNN (e.g., PLN-004 → 8104, PLN-012 → 8112)
-   # Port range 8000-8099 is reserved for static site (includes staging at 8081)
+   PLAN_ID=$(git branch --show-current | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
    FEATURE_PORT=$((8100 + PLAN_ID))
    export COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
    export FEATURE_PORT
@@ -130,15 +137,15 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    - Port: 8100 + plan ID (e.g., PLN-004 → 8104, PLN-012 → 8112)
    - **Port ranges:** 8000-8099 reserved (static site, staging at 8081); 8100+ for features (no collisions)
    - All `docker compose up` commands in plan steps use these values automatically
-10. **Read `plan.md`** — understand the goal, design decisions, and all steps
+10. **Read `.plan/plan.md`** — understand the goal, design decisions, and all steps
 11. **Execute steps in order** — follow each step exactly as specified. Update any `docker compose up` commands to use the port variable:
     - If the plan includes `docker compose up`, ensure it maps `$FEATURE_PORT:8080` (or adjust internal port as needed): `docker compose -f docker/docker-compose.yml up --build -d` (ports are controlled via `docker-compose.yml` using `${FEATURE_PORT:-8080}:8080`)
     - The project name is already set, so no need to add `--project-name` flags
 12. **Write tests** — implement all tests listed in the Tests table
-13. **Check off steps** — mark each step's checkbox in `progress.md` when done
-14. **Log progress** — after each step, append to `progress.md`: `[date] Step N — done / blocked (reason)`
+13. **Check off steps** — mark each step's checkbox in `.plan/progress.md` when done
+14. **Log progress** — after each step, append to `.plan/progress.md`: `[date] Step N — done / blocked (reason)`
 15. **Run acceptance checks** — verify each step's acceptance criteria before marking it done
-   - After each step, commit: `git add src/,tests/ plans/active/ && git commit -m "implement(<feature-name>): step N — <desc>"`
+   - After each step, commit: `git add src/ tests/ .plan/ && git commit -m "implement(<feature-name>): step N — <desc>"`
 
 16. **Deploy to local container for testing** — build and start the container using the isolated project name and port from step 9:
    ```bash
@@ -189,18 +196,23 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    - Check if any assumptions from the plan have changed
    - Verify no unintended cross-module dependencies were introduced
    - If scope changes are needed that **cannot be resolved by editing code alone** (design decision conflicts, missing requirements, architectural incompatibilities):
-     1. Write `Escalated` findings to `findings.md`:
+     1. Write `Escalated` findings to `.plan/findings.md`:
         ```
         | FND-NNN | implement | Critical | Design | <description of design issue> | path/to/file.ext:NN | Escalated |
         ```
-     2. Update `plan.md` Status to `Replanning`
-     3. Move the plan and stop implementation:
+     2. Update `.plan/plan.md` Status to `Replanning`
+     3. Commit on the feature branch:
         ```
-        git mv plans/active/PLN-NNN-<name> plans/replanning/PLN-NNN-<name>
+        git add .plan/
         git commit -m "implement(PLN-NNN-<name>): escalated findings, needs replanning"
         ```
      4. Destroy the docker container (step 22) and return to develop (Phase 3)
-     5. Display: "Design issue found. Run `/wf-spec` to amend the plan."
+     5. On develop, move the plan and commit:
+        ```
+        git mv plans/active/PLN-NNN-<name> plans/replanning/PLN-NNN-<name>
+        git commit -m "implement(PLN-NNN-<name>): escalated to replanning"
+        ```
+     6. Display: "Design issue found. Run `/wf-spec` to amend the plan."
    - If issues are minor (code-level fixes), fix them and note in `progress.md`
 
 20. **Collect agent results** — by now the background agents should have completed. Check each result:
@@ -210,19 +222,18 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    - Never re-run build or test commands inline — always delegate verification runs to haiku agents
    - Log results in `progress.md`: `[date] Build: pass | Tests: N passed, 0 failed | E2E: pass`
    - If code review (step 18) found issues that required fixes, re-launch a haiku build+test agent to verify the fixes didn't break anything
-   - **Tick off all automated checklist sections** in `plan.md` — mark every item in `### Build & Tests`, `### Code Quality`, and `### Regression Scope` as `[x]`. These sections are fully owned by `/wf-implement` and must be complete before the plan moves to verify.
+   - **Tick off all automated checklist sections** in `.plan/plan.md` — mark every item in `### Build & Tests`, `### Code Quality`, and `### Regression Scope` as `[x]`. These sections are fully owned by `/wf-implement` and must be complete before the plan moves to verify.
 
-21. **When all steps, reviews, and tests pass** — update `plan.md` Status to `Verified` (verification is complete within /wf-implement), move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
+21. **When all steps, reviews, and tests pass** — update `.plan/plan.md` Status to `Verified` and commit on the feature branch:
    ```
-   git mv plans/active/PLN-NNN-<name> plans/verify/PLN-NNN-<name>
+   git add .plan/
    git commit -m "implement(PLN-NNN-<name>): all steps complete, verified, ready for human test"
    ```
+   Note: the plan folder move to `plans/verify/` on develop happens in Phase 3.
 
 22. **Destroy the docker container** — clean up before leaving the worktree:
    ```bash
-   # Extract plan ID from the verified plan folder
-   PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
-   PLAN_ID=$(echo $PLAN_FOLDER | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
+   PLAN_ID=$(git branch --show-current | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
    COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
    
    # Stop and remove containers
@@ -233,7 +244,7 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    # Force remove any remaining containers with this project name
    docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
    ```
-   This removes the container and volumes, keeping the worktree clean for T4's later human acceptance testing. Uses explicit project name and fallback force-kill to ensure cleanup succeeds.
+   This removes the container and volumes, keeping the worktree clean for T4's later human acceptance testing.
 
 **Phase 3: Cleanup (return to `develop`)**
 
@@ -252,6 +263,20 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    fi
    ```
 
+23a. **Update develop's pipeline** — move the plan to the correct stage on develop and sync the status:
+   ```bash
+   PLAN_NAME=PLN-NNN-<plan-name>
+   # Copy updated plan files from the worktree's .plan/ to develop's plans/ entry
+   cp feature-branches/$PLAN_NAME/.plan/plan.md plans/active/$PLAN_NAME/plan.md
+   cp feature-branches/$PLAN_NAME/.plan/findings.md plans/active/$PLAN_NAME/findings.md 2>/dev/null || true
+   cp feature-branches/$PLAN_NAME/.plan/progress.md plans/active/$PLAN_NAME/progress.md 2>/dev/null || true
+   # Move to verify/ on develop
+   git mv plans/active/$PLAN_NAME plans/verify/$PLAN_NAME
+   git add plans/verify/$PLAN_NAME/
+   git commit -m "implement($PLAN_NAME): verified, moved to verify/ on develop"
+   ```
+   If the plan was escalated (Replanning), the move to `plans/replanning/` was already done in step 19.
+
 24. **Post completion message** — display:
    ```
    ✓ Implementation complete — all steps, code review, architecture review, and E2E tests passed
@@ -265,24 +290,34 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
    When all criteria pass, PR will be created to release branch.
    ```
 
-### Fix cycle (plan folder is in `verify/` with `Open` findings)
+### Fix cycle (plan in `verify/` on develop with `Verified-with-findings` status)
 
-1. **Claim the plan** — before moving, update `plan.md`: set Status to `Active` and update `Implementing session` with today's date
-2. **Move the plan folder** from `plans/verify/PLN-NNN-<name>/` → `plans/active/PLN-NNN-<name>/`:
+1. **cd to the feature worktree** — `cd feature-branches/PLN-NNN-<plan-name>`
+2. **Update `.plan/plan.md`** — set Status to `Active` and update `Implementing session` with today's date
+3. **On develop**, move plan back to active:
    ```
+   cd ../..
    git mv plans/verify/PLN-NNN-<name> plans/active/PLN-NNN-<name>
-   git commit -m "implement(PLN-NNN-<name>): claim plan for fix cycle, moving to active"
+   git commit -m "implement(PLN-NNN-<name>): claim plan for fix cycle"
+   cd feature-branches/PLN-NNN-<name>
    ```
-3. **Read `findings.md`** — look for rows with status `Open`
-4. **Ignore `Escalated` findings** — these require a planner, not an implementer. Do not attempt to fix them.
-5. **Fix each `Open` finding** — address the issue described, using the file paths and line numbers provided
-6. **Set finding status to `Fixed`** — update the row in `findings.md`
-7. **Log in `progress.md`** — `[date] Finding FND-003 — fixed (description of fix)`
-8. **When all `Open` findings are `Fixed`** — move the plan folder from `plans/active/PLN-NNN-<name>/` → `plans/verify/PLN-NNN-<name>/`, and commit:
+4. **Read `.plan/findings.md`** — look for rows with status `Open`
+5. **Ignore `Escalated` findings** — these require a planner, not an implementer. Do not attempt to fix them.
+6. **Fix each `Open` finding** — address the issue described, using the file paths and line numbers provided
+7. **Set finding status to `Fixed`** — update the row in `.plan/findings.md`
+8. **Log in `.plan/progress.md`** — `[date] Finding FND-003 — fixed (description of fix)`
+9. **When all `Open` findings are `Fixed`** — update `.plan/plan.md` Status to `Verified` and commit:
    ```
-   git add src/,tests/
+   git add src/ tests/ .plan/
+   git commit -m "implement(PLN-NNN-<name>): fix findings (FND-NNN)"
+   ```
+10. **Update develop** — return to develop and move plan back to verify with updated status:
+   ```
+   cd ../..
+   cp feature-branches/PLN-NNN-<name>/.plan/{plan.md,findings.md,progress.md} plans/active/PLN-NNN-<name>/
    git mv plans/active/PLN-NNN-<name> plans/verify/PLN-NNN-<name>
-   git commit -m "implement(PLN-NNN-<name>): fix findings (FND-NNN), moving to verify"
+   git add plans/verify/
+   git commit -m "implement(PLN-NNN-<name>): findings fixed, back to verify"
    ```
 
 ### Amendment cycle (plan was replanned on develop, feature branch needs update)
@@ -290,20 +325,15 @@ You start on `develop`, run `/wf-implement` once, and return to `develop` when d
 When a plan goes through replanning (escalated finding → wf-spec amends → back to ready → re-locked to active on develop), the feature branch worktree needs the amended plan.
 
 1. **On develop:** lock the plan as normal (Phase 1 steps 3-4: set Status Active, move ready/ → active/, commit)
-2. **In the worktree:** merge develop into the feature branch with `-X theirs` bias:
+2. **Update `.plan/` in the worktree** — copy the amended plan files from develop:
    ```bash
+   cp plans/active/PLN-NNN-<name>/{plan.md,findings.md,progress.md} feature-branches/PLN-NNN-<name>/.plan/ 2>/dev/null || true
    cd feature-branches/PLN-NNN-<name>
-   git merge develop -X theirs --no-edit
+   git add .plan/
+   git commit -m "chore(PLN-NNN): update .plan/ with amended plan"
    ```
-   The `-X theirs` bias accepts develop's plan files (which have the amendment) over the feature branch's stale copies. Source code on the feature branch is preserved because develop doesn't have those files.
-3. **Consolidate plan location** — after merge, the plan may exist in both `plans/active/` (from develop) and `plans/replanning/` (stale feature branch copy). Remove the stale copy:
-   ```bash
-   git rm -rf plans/replanning/PLN-NNN-<name> 2>/dev/null || true
-   git rm -rf plans/replanning/<name> 2>/dev/null || true
-   git commit -m "implement(PLN-NNN-<name>): consolidate plan after amendment merge" --allow-empty
-   ```
-4. **Read the amended plan** — re-read `plans/active/<name>/plan.md`, focusing on the Amendments section to understand what changed
-5. **Continue with Phase 2** — execute the amended steps as specified
+3. **Read the amended plan** — re-read `.plan/plan.md`, focusing on the Amendments section to understand what changed
+4. **Continue with Phase 2** — execute the amended steps as specified
 
 ## Worktree workflow
 
@@ -370,9 +400,9 @@ The workflow is:
    - **If user picks `handoff`**: cd to the feature worktree, run Phase 3 (return to develop, display T4 handoff message)
    - Done — user is back on develop with worktree ready for T4
 3. **If on a feature branch** (e.g. `feature/site-version-indicator`):
-   - Confirm the corresponding plan is in `plans/active/`
-   - If plan is in `plans/replanning/` instead, this is an amendment cycle — merge develop first (see Amendment cycle section)
-   - Execute Phase 2 (code the steps, move to verify/, destroy docker container)
+   - Confirm `.plan/plan.md` exists — this is the working plan
+   - Read `.plan/plan.md` Status to determine current state
+   - Execute Phase 2 (code the steps, update `.plan/`, destroy docker container)
 
 ## Docker port configuration
 
@@ -403,20 +433,22 @@ This ensures:
 
 ## Committing work
 
-Commit after each completed step to preserve progress:
+Commit after each completed step to preserve progress (on feature branch):
 ```
-git add src/,tests/ plans/active/
+git add src/ tests/ .plan/
 git commit -m "implement(<feature-name>): step N — <short description>"
 ```
 
-When moving to verify:
+When implementation is complete (on feature branch):
 ```
-git add plans/active/ plans/verify/
-git commit -m "implement(<feature-name>): all steps complete, moving to verify"
+git add .plan/
+git commit -m "implement(<feature-name>): all steps complete, verified"
 ```
 
-For fix cycle, commit after all findings are fixed:
+For fix cycle (on feature branch):
 ```
-git add src/,tests/ plans/active/
-git commit -m "implement(<feature-name>): fix F1, F2 — moving to verify"
+git add src/ tests/ .plan/
+git commit -m "implement(<feature-name>): fix F1, F2"
 ```
+
+Pipeline stage changes happen on develop only (Phase 3 / fix cycle step 10).

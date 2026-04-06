@@ -9,23 +9,15 @@ set -euo pipefail
 found=0
 
 # --- Escalated plans (highest priority) ---
+# Only scan develop's plans/replanning/ — it is the source of truth.
 escalated=()
 
 for plan in plans/replanning/*/plan.md; do
   [ -f "$plan" ] || continue
   plan_name=$(basename "$(dirname "$plan")")
-  count=$(grep -c "| Escalated |" "$plan" 2>/dev/null || true)
-  escalated+=("develop	$plan_name	$count escalated finding(s)")
-  found=1
-done
-
-for plan in feature-branches/PLN-*/plans/replanning/*/plan.md; do
-  [ -f "$plan" ] || continue
-  plan_name=$(basename "$(dirname "$plan")")
-  worktree=$(echo "$plan" | cut -d/ -f2)
   findings="$(dirname "$plan")/findings.md"
   count=$(grep -c "| Escalated |" "$findings" 2>/dev/null || true)
-  escalated+=("worktree:$worktree	$plan_name	$count escalated finding(s)")
+  escalated+=("$plan_name	$count escalated finding(s)")
   found=1
 done
 

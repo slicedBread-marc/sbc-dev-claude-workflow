@@ -33,17 +33,20 @@ Then synthesize the agent results into findings.
 ## Folder structure
 
 ```
-plans/verify/      → plans waiting for verification (you work on these)
-plans/replanning/  → plan has design-scope findings that need a planner (you move here)
-plans/complete/    → all findings resolved (you move here when queue is clean)
+plans/verify/      → pipeline stage on develop (source of truth for what needs verification)
+.plan/             → working copy on feature branch (plan.md, findings.md, progress.md)
+plans/replanning/  → plan has design-scope findings (on develop)
+plans/complete/    → all findings resolved (on develop)
 ```
+
+**Key principle:** `plans/` is only modified on develop. Feature branches work exclusively with `.plan/`.
 
 ## What you do
 
-1. **Pick a plan folder** from `plans/verify/`
-2. **Claim the plan** — before doing any work, update `plan.md`: set Status to `Verifying` and fill in `Verifying session` with today's date and a brief session identifier (e.g. `2026-04-01 — verify session`)
-3. **Read `plan.md`** — understand the goal, steps, design decisions, and verification checklist
-3. **Read `findings.md`** — review any existing findings and their status
+1. **Pick a plan** — from develop, check `plans/verify/` for plans needing verification. Then `cd` to the feature branch worktree: `cd feature-branches/PLN-NNN-<plan-name>`
+2. **Claim the plan** — update `.plan/plan.md`: set Status to `Verifying` and fill in `Verifying session` with today's date and a brief session identifier (e.g. `2026-04-01 — verify session`)
+3. **Read `.plan/plan.md`** — understand the goal, steps, design decisions, and verification checklist
+3. **Read `.plan/findings.md`** — review any existing findings and their status
 4. **Spawn parallel agents** to run checks:
    - Build agent (haiku): run build, report errors/warnings
    - Test agent (haiku): run tests, report pass/fail
@@ -55,8 +58,8 @@ plans/complete/    → all findings resolved (you move here when queue is clean)
    - If data migrations exist, reversibility is explicitly assessed (not assumed)
    - If the rollback section is incomplete, raise a `Warning` finding: `Rollback section incomplete — [missing field]`
 7. **Synthesize results** — combine agent reports into findings
-7. **Write findings** — append rows to `findings.md`
-8. **Verify fixes** — for findings with status `Fixed`, confirm the fix and set to `Verified` in `findings.md`
+7. **Write findings** — append rows to `.plan/findings.md`
+8. **Verify fixes** — for findings with status `Fixed`, confirm the fix and set to `Verified` in `.plan/findings.md`
 
 ## Writing Findings
 
@@ -87,24 +90,44 @@ Use `Open` for everything else: bugs, missing tests, convention violations, perf
 
 After running all checks and verifying all fixes:
 
-- **No `Open` or `Fixed` findings remain, no `Escalated`** → update `plan.md` Status to `Complete`, move folder from `plans/verify/<name>/` → `plans/complete/<name>/`, close the linked bug (see [Bug closing](#bug-closing)), and commit:
-  ```
+- **No `Open` or `Fixed` findings remain, no `Escalated`** → update `.plan/plan.md` Status to `Complete`, commit on feature branch, then return to develop and move the plan:
+  ```bash
+  # On feature branch:
+  git add .plan/
+  git commit -m "verify: <feature-name> — clean, complete"
+  # Return to develop:
+  cd ../..
+  cp feature-branches/<plan-name>/.plan/{plan.md,findings.md,progress.md} plans/verify/<name>/
   git mv plans/verify/<name> plans/complete/<name>
   git add bugs/
-  git commit -m "verify: <feature-name> — clean, complete"
+  git commit -m "verify: <feature-name> — complete"
   ```
-- **Any new `Open` findings** → update `plan.md` Status to `Verifying` (already claimed); folder stays in `plans/verify/`; commit findings for the implementer:
-  ```
+  Close the linked bug (see [Bug closing](#bug-closing)) before committing on develop.
+- **Any new `Open` findings** → update `.plan/plan.md` Status to `Verified-with-findings`; commit on feature branch; then update develop's status hint:
+  ```bash
+  # On feature branch:
+  git add .plan/
+  git commit -m "verify: <feature-name> — N open findings"
+  # Return to develop:
+  cd ../..
+  cp feature-branches/<plan-name>/.plan/{plan.md,findings.md} plans/verify/<name>/
+  sed -i '' 's/^Status:.*/Status: Verified-with-findings/' plans/verify/<name>/plan.md
   git add plans/verify/
   git commit -m "verify: <feature-name> — N open findings"
   ```
-- **Any `Escalated` findings** → update `plan.md` Status to `Replanning`, move folder from `plans/verify/<name>/` → `plans/replanning/<name>/`, and commit:
-  ```
+- **Any `Escalated` findings** → update `.plan/plan.md` Status to `Replanning`, commit on feature branch, then move on develop:
+  ```bash
+  # On feature branch:
+  git add .plan/
+  git commit -m "verify: <feature-name> — escalated findings"
+  # Return to develop:
+  cd ../..
+  cp feature-branches/<plan-name>/.plan/{plan.md,findings.md} plans/verify/<name>/
   git mv plans/verify/<name> plans/replanning/<name>
-  git commit -m "verify: <feature-name> — escalated findings, needs replanning"
+  git commit -m "verify: <feature-name> — escalated, needs replanning"
   ```
-- **Any `Fixed` findings that fail re-verification** → set back to `Open` with a note in `findings.md`
-- A plan with both `Open` and `Escalated` findings should move to `plans/replanning/` — the planner will address the design issues first, then the implementer will fix the rest
+- **Any `Fixed` findings that fail re-verification** → set back to `Open` with a note in `.plan/findings.md`
+- A plan with both `Open` and `Escalated` findings should move to `plans/replanning/` on develop — the planner will address the design issues first, then the implementer will fix the rest
 
 ## Bug closing
 
@@ -130,19 +153,20 @@ If no bug is linked, skip this step.
 - **Do NOT** edit source code files ({{source_dirs}})
 - **Do NOT** fix problems — only diagnose and write findings
 - **Do NOT** write implementation steps, code samples, or solutions — describe what is wrong and why, not how to fix it. If you find yourself writing a fix, stop and write a finding instead.
-- You may write to `findings.md` and check off items in `plan.md`'s Verification Checklist
-- Only work on plan folders in `plans/verify/`
+- You may write to `.plan/findings.md` and check off items in `.plan/plan.md`'s Verification Checklist
+- Work in the feature branch worktree, using `.plan/` for all plan files
+- Pipeline stage changes (`plans/` moves) happen on develop only
 
 ## On startup
 
-Check `plans/verify/` for plan folders to verify. Ask the user which one if multiple exist.
+Check `plans/verify/` on develop for plan folders to verify. Ask the user which one if multiple exist. Then `cd` to the corresponding feature branch worktree.
 
 ## Committing work
 
-After writing findings:
+After writing findings (on feature branch):
 ```
-git add plans/verify/
+git add .plan/
 git commit -m "verify: <feature-name> — <findings>"
 ```
 
-When moving plans, use `git mv` (see Determining Completion above).
+Pipeline stage changes happen on develop (see Determining Completion above).

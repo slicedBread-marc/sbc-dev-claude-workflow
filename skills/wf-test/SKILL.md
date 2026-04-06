@@ -22,9 +22,11 @@ If already on haiku, skip the prompt and continue directly.
 ## Folder structure
 
 ```
-plans/verify/     → plans waiting for human test (Status: Verified)
-                    plans stay here after test (Status: Tested) until /wf-release moves to complete/
+plans/verify/     → pipeline stage on develop (source of truth for what's ready to test)
+.plan/            → working copy on feature branch (plan.md, findings.md, progress.md)
 ```
+
+**Key principle:** `plans/` is only modified on develop. Feature branches work exclusively with `.plan/`.
 
 ## Important: One testing worktree at a time
 
@@ -53,15 +55,16 @@ Only one feature branch should be actively testing simultaneously. Each worktree
 
 **Once in the feature branch worktree:**
 1. **Confirm you are on a feature branch** — run `git branch --show-current`. The branch should be `feature/PLN-NNN-*`
-2. **Find the plan** — locate the plan in `plans/verify/PLN-NNN-<plan-name>/`
+2. **Find the plan** — read from `.plan/` directory
 3. **Read the plan**:
-   - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
-   - Read `findings.md` to understand any existing findings
+   - Read `.plan/plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
+   - Read `.plan/findings.md` to understand any existing findings
    - **Ignore `### Build & Tests` and `### Code Quality` sections** — these were already completed by `/wf-implement`. Only present `### Human Test Criteria` items to the user.
-4. **Set the feature port and project name** — run the helper script and capture values:
+4. **Set the feature port and project name** — derive from the branch name:
    ```bash
-   PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
-   eval $(scripts/wf-plan-port.sh "$PLAN_FOLDER")
+   PLAN_ID=$(git branch --show-current | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
+   FEATURE_PORT=$((8100 + PLAN_ID))
+   COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
    echo "Port: $FEATURE_PORT, Project: $COMPOSE_PROJECT_NAME"
    ```
    Port range 8000-8099 is reserved for staging; features always use 8100+.
@@ -88,11 +91,11 @@ Only one feature branch should be actively testing simultaneously. Each worktree
    - Interpret their response and classify:
      - **Pass**: note it and continue to next criterion
      - **Fail**: capture the user's description. Classify using these rules — **do not ask the user**:
-       - **Escalated** (design decision — requires T2 input): the finding describes **new behavior not in the original plan**, a scope addition, a UX change, or anything requiring an Amendment. Examples: new game mechanic, different interaction model, added feature request, changed UX flow. Write to `findings.md`:
+       - **Escalated** (design decision — requires T2 input): the finding describes **new behavior not in the original plan**, a scope addition, a UX change, or anything requiring an Amendment. Examples: new game mechanic, different interaction model, added feature request, changed UX flow. Write to `.plan/findings.md`:
          ```
          | FND-NNN | human-test | Escalated | Design | <description> | — | Open |
          ```
-       - **Warning** (code fix — implementer can resolve): the finding describes a **bug in already-specified behavior** — something the plan describes that doesn't work correctly. Examples: visual glitch, off-by-one, broken edge case, regression. Write to `findings.md`:
+       - **Warning** (code fix — implementer can resolve): the finding describes a **bug in already-specified behavior** — something the plan describes that doesn't work correctly. Examples: visual glitch, off-by-one, broken edge case, regression. Write to `.plan/findings.md`:
          ```
          | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
          ```
@@ -101,13 +104,18 @@ Only one feature branch should be actively testing simultaneously. Each worktree
      - **Additional observation**: the user may add context to the current finding. Append to the existing finding's description.
      - **Skip**: note it and continue (user may skip non-critical items)
 8. **When testing completes** (all criteria reviewed, or user says to stop):
-   - **Check for Escalated findings** in `findings.md` (severity = `Escalated`):
-     - If **any Escalated findings exist**: move plan to replanning and commit:
+   - **Check for Escalated findings** in `.plan/findings.md` (severity = `Escalated`):
+     - If **any Escalated findings exist**: commit on feature branch, then move plan on develop:
        ```bash
-       PLAN_NAME=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
+       # On feature branch:
+       git add .plan/
+       git commit -m "test(PLN-NNN-<plan-name>): escalated findings"
+       # Return to develop and move plan:
+       cd ../..
+       PLAN_NAME=PLN-NNN-<plan-name>
+       cp feature-branches/$PLAN_NAME/.plan/{plan.md,findings.md} plans/verify/$PLAN_NAME/
        git mv plans/verify/$PLAN_NAME plans/replanning/$PLAN_NAME
-       git add plans/replanning/
-       git commit -m "test(PLN-NNN-<plan-name>): escalated findings — move to replanning"
+       git commit -m "test($PLAN_NAME): escalated findings — move to replanning"
        ```
        Display:
        ```
@@ -120,10 +128,18 @@ Only one feature branch should be actively testing simultaneously. Each worktree
        Next: Run /wf-spec — it will find this plan and guide design amendments.
        ```
        Then proceed to step 11 (destroy container).
-   - If **only Warning (code-fix) findings were written**: commit findings and recommend:
+   - If **only Warning (code-fix) findings were written**: commit on feature branch and update develop:
      ```bash
-     git add plans/verify/
+     # On feature branch:
+     git add .plan/
      git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
+     # Return to develop and update status:
+     cd ../..
+     PLAN_NAME=PLN-NNN-<plan-name>
+     cp feature-branches/$PLAN_NAME/.plan/{plan.md,findings.md} plans/verify/$PLAN_NAME/
+     sed -i '' 's/^Status:.*/Status: Verified-with-findings/' plans/verify/$PLAN_NAME/plan.md
+     git add plans/verify/
+     git commit -m "test($PLAN_NAME): N findings from human test"
      ```
      Display:
      ```
@@ -139,17 +155,17 @@ Only one feature branch should be actively testing simultaneously. Each worktree
      Then proceed to step 11 (destroy container).
 
 9. **If all pass**:
-   - Update `plan.md`: set Status to `Tested`
-   - Plan stays in `verify/` (no folder move — only wf-release moves to complete/)
-   - Commit the status update:
+   - Update `.plan/plan.md`: set Status to `Tested`
+   - Commit the status update on the feature branch:
      ```bash
+     git add .plan/
      git commit -m "test(PLN-NNN-<plan-name>): human test passed"
      ```
    - Check current branch and handle PR creation:
      ```bash
      CURRENT_BRANCH=$(git branch --show-current)
-     PLAN_NAME=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
-     PLAN_GOAL=$(grep -A 1 "^## Goal" plans/verify/$PLAN_NAME/plan.md | tail -1)
+     PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
+     PLAN_GOAL=$(grep -A 1 "^## Goal" .plan/plan.md | tail -1)
      
      if [[ "$CURRENT_BRANCH" == "release" || "$CURRENT_BRANCH" == "main" ]]; then
        # Already on release/main, no PR needed
@@ -172,7 +188,7 @@ Only one feature branch should be actively testing simultaneously. Each worktree
      ## Test Results
      ✓ All acceptance criteria passed in human test
      
-     **Plan:** plans/verify/$PLAN_NAME/
+     **Plan:** .plan/
      
      Ready for staging validation."
        
@@ -187,9 +203,8 @@ Only one feature branch should be actively testing simultaneously. Each worktree
 
 11. **Destroy the container** (whether tests pass or fail):
    ```bash
-   # Re-derive project name — eval then inline so it survives the shell invocation
-   PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ 2>/dev/null || ls -d plans/replanning/PLN-*/ 2>/dev/null | head -1) | tr -d '/')
-   eval $(scripts/wf-plan-port.sh "$PLAN_FOLDER")
+   PLAN_ID=$(git branch --show-current | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
+   COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
    COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker/docker-compose.yml -p "$COMPOSE_PROJECT_NAME" down -v 2>/dev/null || true
    docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
    ```
@@ -197,10 +212,10 @@ Only one feature branch should be actively testing simultaneously. Each worktree
 
 ## Handling failures and bugs during testing
 
-**All findings are written to `findings.md` immediately.** Never break the testing context to file bugs — that happens after testing completes.
+**All findings are written to `.plan/findings.md` immediately.** Never break the testing context to file bugs — that happens after testing completes.
 
 **Feature failure** (criterion doesn't pass):
-- Write finding to `findings.md` with the user's description
+- Write finding to `.plan/findings.md` with the user's description
 - Let the user add more details if they want
 - Continue testing unless user says to stop
 
@@ -254,7 +269,7 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 - **Accept natural language** — don't force rigid [pass/fail/skip/bug] prompts. Interpret the user's description.
 - **Let users add details** — if a user provides additional context about a finding, append it to the existing finding's description
 - **Trust the plan's Goal section** — if a bug is mentioned there (e.g., `**Bug:** BUG-005`), it's the source of truth. Don't look for bugs/folder (it's not in feature branch).
-- **Bug filing happens after testing** — findings are written to `findings.md` during testing. Formal bug reports on develop (`/wf-bug`) are filed after testing completes, not during.
+- **Bug filing happens after testing** — findings are written to `.plan/findings.md` during testing. Formal bug reports on develop (`/wf-bug`) are filed after testing completes, not during.
 - Severity for human-test findings is either `Warning` (broken behavior) or `Escalated` (new/changed behavior) — never `Critical`
 - If a finding blocks later work, user can move it to Critical during `/wf-implement` fix cycle
 - **Container cleanup is automatic** — the Docker container and volumes are destroyed at the end of testing (step 11), so the worktree stays clean
@@ -265,7 +280,7 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 1. Check current branch — run `git branch --show-current`
 2. **If on `develop`:**
    - Run `scripts/wf-list-testable.sh` to find eligible plans. Each line is `<plan-name>\t<goal>`. Exit 1 = none found.
-     **Only** plans with Status: Verified AND zero `| Open |` rows in `findings.md` are eligible.
+     **Only** plans with Status: Verified (not `Verified-with-findings`) are eligible.
    - Show menu (only eligible plans):
      ```
      Available worktrees ready for testing:
@@ -282,24 +297,26 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 
 3. **If on a feature branch** (e.g., `feature/site-version-indicator`):
    - Confirm you are on one of: `feature/*`, `release`, or `main`
-   - Find the matching plan in `plans/verify/`
+   - Confirm `.plan/plan.md` exists
    - Continue to testing
 
 4. If no plans ready for testing anywhere, stop with message: "No worktrees ready for testing. Run /wf-status to see pipeline state."
 
 ## Committing work
 
-After all criteria pass:
+After all criteria pass (on feature branch):
 ```
-git add plans/verify/
+git add .plan/
 git commit -m "test(PLN-NNN-<plan-name>): human test passed"
 ```
 
-If findings are found:
+If findings are found (on feature branch):
 ```
-git add plans/verify/
+git add .plan/
 git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
 ```
+
+Pipeline stage changes (e.g., moving to replanning) happen on develop.
 
 ## Notes
 
