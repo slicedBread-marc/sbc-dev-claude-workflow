@@ -133,6 +133,16 @@ else
     echo -e "${YELLOW}  local_deploy_command not set — skipping local env install${NC}"
 fi
 
+# Install workflow scripts
+echo "Installing scripts..."
+mkdir -p "$TARGET_DIR/scripts"
+for script in "$SCRIPT_DIR/scripts"/wf-*.sh; do
+    DEST="$TARGET_DIR/scripts/$(basename "$script")"
+    cp "$script" "$DEST"
+    chmod +x "$DEST"
+    echo -e "${GREEN}  Installed scripts/$(basename "$script")${NC}"
+done
+
 # Stamp workflow version into the target project
 WORKFLOW_VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 echo "$WORKFLOW_VERSION" > "$TARGET_DIR/.claude/workflow-version"

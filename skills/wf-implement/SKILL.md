@@ -341,13 +341,9 @@ The workflow is:
 
 1. **Detect current branch** — run `git branch --show-current`
 2. **If on `develop`:**
-   - Run these two commands to find available work:
-     ```bash
-     ls plans/ready/ 2>/dev/null          # new plans to implement
-     ls feature-branches/*/plans/ready/ 2>/dev/null   # amended plans in existing worktrees
-     ```
-   - Combine results and show the user a numbered list. Label amended plans clearly: `(amendment — existing worktree)`
-   - If nothing in either location, stop with: "No plans ready to implement. Run /wf-status to see pipeline state."
+   - Run `scripts/wf-list-implementable.sh` to find available work. Each line is `<type>\t<plan-name>\t<goal>` where type is `new` or `amendment`. Exit 1 means nothing available.
+   - Show the user a numbered list. Label `amendment` entries clearly: `(amendment — existing worktree)`
+   - If the script exits 1, stop with: "No plans ready to implement. Run /wf-status to see pipeline state."
    - **Do NOT scan feature-branches for anything else** — only `plans/ready/` within a worktree counts. Do not produce a general worktree status table; that is /wf-status's job.
    - **If user picks a new plan** (from `plans/ready/`): Execute Phase 1 (lock plan, create worktree), then Phase 2, then Phase 3
    - **If user picks an amended plan** (from `feature-branches/PLN-NNN/plans/ready/`): follow the Amendment cycle section — lock plan on develop, cd to the existing worktree, merge develop, continue with Phase 2
