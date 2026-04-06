@@ -87,15 +87,16 @@ Only one feature branch should be actively testing simultaneously. Each worktree
    - **Let the user describe what they see** — don't force a rigid [pass/fail/skip/bug] prompt. Accept natural descriptions like "this works", "it's broken because...", "I also noticed...", etc.
    - Interpret their response and classify:
      - **Pass**: note it and continue to next criterion
-     - **Fail**: capture the user's description. Ask: "Is this a code fix or a design decision?" then classify:
-       - **Code fix** (implementer can resolve without design input): write to `findings.md`:
-         ```
-         | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
-         ```
-       - **Design decision** (requires UX, scope, or architectural input from T2): write to `findings.md`:
+     - **Fail**: capture the user's description. Classify using these rules — **do not ask the user**:
+       - **Escalated** (design decision — requires T2 input): the finding describes **new behavior not in the original plan**, a scope addition, a UX change, or anything requiring an Amendment. Examples: new game mechanic, different interaction model, added feature request, changed UX flow. Write to `findings.md`:
          ```
          | FND-NNN | human-test | Escalated | Design | <description> | — | Open |
          ```
+       - **Warning** (code fix — implementer can resolve): the finding describes a **bug in already-specified behavior** — something the plan describes that doesn't work correctly. Examples: visual glitch, off-by-one, broken edge case, regression. Write to `findings.md`:
+         ```
+         | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
+         ```
+       If unsure, ask: "Is this a new behavior you want added, or is this something that was supposed to work but doesn't?" New behavior → Escalated. Broken behavior → Warning.
        **Do NOT stop testing.** Ask: "Want to add more details, continue to the next criterion, or stop testing?"
      - **Additional observation**: the user may add context to the current finding. Append to the existing finding's description.
      - **Skip**: note it and continue (user may skip non-critical items)
@@ -132,7 +133,7 @@ Only one feature branch should be actively testing simultaneously. Each worktree
      - FND-001: <description>
      - FND-002: <description>
      
-     Next: Run /wf-implement to fix findings. Then re-run /wf-test.
+     Next: Return to develop (`cd /path/to/project`), then run /wf-implement — it will find this plan's open findings and resume the feature worktree.
      To file formal bugs on develop: run /wf-bug after returning to develop.
      ```
      Then proceed to step 11 (destroy container).
@@ -182,6 +183,7 @@ Only one feature branch should be actively testing simultaneously. Each worktree
        echo "Then run /wf-release to promote to production."
      fi
      ```
+   Then proceed to step 11 (destroy container).
 
 11. **Destroy the container** (whether tests pass or fail):
    ```bash
@@ -253,7 +255,7 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 - **Let users add details** — if a user provides additional context about a finding, append it to the existing finding's description
 - **Trust the plan's Goal section** — if a bug is mentioned there (e.g., `**Bug:** BUG-005`), it's the source of truth. Don't look for bugs/folder (it's not in feature branch).
 - **Bug filing happens after testing** — findings are written to `findings.md` during testing. Formal bug reports on develop (`/wf-bug`) are filed after testing completes, not during.
-- Severity for human-test findings should be `Warning` (not Critical)
+- Severity for human-test findings is either `Warning` (broken behavior) or `Escalated` (new/changed behavior) — never `Critical`
 - If a finding blocks later work, user can move it to Critical during `/wf-implement` fix cycle
 - **Container cleanup is automatic** — the Docker container and volumes are destroyed at the end of testing (step 11), so the worktree stays clean
 - **One testing worktree at a time** — only one feature branch should test simultaneously (each uses unique port from step 4)

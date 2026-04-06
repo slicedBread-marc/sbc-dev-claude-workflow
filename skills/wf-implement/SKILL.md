@@ -342,19 +342,20 @@ The workflow is:
 1. **Detect current branch** — run `git branch --show-current`
 2. **If on `develop`:**
    - Run `scripts/wf-list-implementable.sh` to find available work. Each line is `<type>\t<plan-name>\t<goal>` where type is `new` or `amendment`. Exit 1 means nothing available.
-   - Show the user a numbered list. Label `amendment` entries clearly: `(amendment — existing worktree)`
+   - Show the user a numbered list. Label entries by type:
+     - `new` → `(new plan)`
+     - `amendment` → `(amendment — existing worktree)`
+     - `fix` → `(fix cycle — open findings in verify/)`
    - If the script exits 1, stop with: "No plans ready to implement. Run /wf-status to see pipeline state."
-   - **Do NOT scan feature-branches for anything else** — only `plans/ready/` within a worktree counts. Do not produce a general worktree status table; that is /wf-status's job.
-   - **If user picks a new plan** (from `plans/ready/`): Execute Phase 1 (lock plan, create worktree), then Phase 2, then Phase 3
-   - **If user picks an amended plan** (from `feature-branches/PLN-NNN/plans/ready/`): follow the Amendment cycle section — lock plan on develop, cd to the existing worktree, merge develop, continue with Phase 2
+   - Do not produce a general worktree status table; that is /wf-status's job.
+   - **If user picks a new plan** (`new`): Execute Phase 1 (lock plan, create worktree), then Phase 2, then Phase 3
+   - **If user picks an amended plan** (`amendment`): follow the Amendment cycle section — lock plan on develop, cd to the existing worktree, merge develop, continue with Phase 2
+   - **If user picks a fix-cycle plan** (`fix`): follow the Fix cycle section — cd to the feature worktree and fix open findings
    - Done — user is back on develop with worktree ready for T4
 3. **If on a feature branch** (e.g. `feature/site-version-indicator`):
    - Confirm the corresponding plan is in `plans/active/`
    - If plan is in `plans/replanning/` instead, this is an amendment cycle — merge develop first (see Amendment cycle section)
    - Execute Phase 2 (code the steps, move to verify/, destroy docker container)
-4. **If a plan in `verify/` has `Open` findings:**
-   - Ask if user wants to fix those findings (fix cycle)
-   - Move to active/, fix findings, then move back to verify/
 
 ## Docker port configuration
 
