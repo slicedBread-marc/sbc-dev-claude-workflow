@@ -171,17 +171,24 @@ Final response under 2000 characters.")
 
 ## Replanning (plan returned from verify with Escalated findings)
 
-When a plan folder is in `plans/replanning/`, it has findings the implementer cannot resolve — design decisions or scope changes are required.
+When a plan folder is in `plans/replanning/` (either on develop or inside a feature worktree), it has findings the implementer cannot resolve — design decisions or scope changes are required.
 
-1. **Read `plan.md` and `findings.md`** — understand the full plan and all `Escalated` findings
+**Determine the plan location** before starting:
+- `plans/replanning/PLN-NNN-<name>/` — plan is on develop (standard path)
+- `feature-branches/PLN-NNN-<name>/plans/replanning/PLN-NNN-<name>/` — plan is in a feature worktree (not yet merged to develop)
+
+Use whichever path contains the plan. Work on it in place — do not move files between branches.
+
+1. **Read `plan.md` and `findings.md`** from the plan's actual location — understand the full plan and all `Escalated` findings
 2. **Discuss with the user** — present the escalated findings and ask how to resolve them. Do not make design decisions unilaterally.
 3. **Write an Amendment** — append to `plan.md`'s **Amendments** section. Never rewrite Steps, Tests, or Design Decisions already there.
 4. **Update Design Decisions** — add any new decisions to `plan.md`
 5. **Update `findings.md`** — for each `Escalated` finding now addressed by the amendment, set status to `Open` (the implementer will fix the code). If fully resolved by the design change alone, set to `Fixed`.
 6. **Run the review gate** — spawn the sonnet review agent on the amended `plan.md` before moving it
-7. **Move the plan folder** from `plans/replanning/PLN-NNN-<name>/` → `plans/ready/PLN-NNN-<name>/` and commit:
+7. **Move the plan folder** from `replanning/` → `ready/` within the same worktree and commit:
+   - If plan is on develop: `git mv plans/replanning/PLN-NNN-<name> plans/ready/PLN-NNN-<name>`
+   - If plan is in a feature worktree: `git mv feature-branches/PLN-NNN-<name>/plans/replanning/PLN-NNN-<name> feature-branches/PLN-NNN-<name>/plans/ready/PLN-NNN-<name>`
    ```
-   git mv plans/replanning/PLN-NNN-<name> plans/ready/PLN-NNN-<name>
    git commit -m "spec: <feature-name> — amendment, back to ready"
    ```
 
@@ -197,7 +204,11 @@ When the plan being created is a fix for a tracked bug (either from "Plan from b
 
 ## On startup
 
-Check `plans/replanning/` first — escalated findings have higher priority than new briefs. If any plans are there, present them to the user. Otherwise, read `plans/briefs/INDEX.md` to see what briefs are at `Decided` status.
+Check for escalated plans first — they have higher priority than new briefs. Scan both locations:
+1. `plans/replanning/` — plans moved to replanning on the current (develop) branch
+2. `feature-branches/*/plans/replanning/` — plans escalated while still in a feature worktree (feature branch not yet merged to develop)
+
+If any plans are found in either location, present them to the user. Work on them in place (you do not need to move files between branches — just read from where they are and write the amendment). Otherwise, read `plans/briefs/INDEX.md` to see what briefs are at `Decided` status.
 
 ## Committing work
 
