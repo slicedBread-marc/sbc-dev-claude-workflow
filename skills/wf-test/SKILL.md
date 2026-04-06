@@ -88,15 +88,39 @@ Only one feature branch should be actively testing simultaneously. Each worktree
    - **Let the user describe what they see** — don't force a rigid [pass/fail/skip/bug] prompt. Accept natural descriptions like "this works", "it's broken because...", "I also noticed...", etc.
    - Interpret their response and classify:
      - **Pass**: note it and continue to next criterion
-     - **Fail**: capture the user's description, write finding to `findings.md`:
-       ```
-       | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
-       ```
+     - **Fail**: capture the user's description. Ask: "Is this a code fix or a design decision?" then classify:
+       - **Code fix** (implementer can resolve without design input): write to `findings.md`:
+         ```
+         | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
+         ```
+       - **Design decision** (requires UX, scope, or architectural input from T2): write to `findings.md`:
+         ```
+         | FND-NNN | human-test | Escalated | Design | <description> | — | Open |
+         ```
        **Do NOT stop testing.** Ask: "Want to add more details, continue to the next criterion, or stop testing?"
-     - **Additional observation**: the user may add context to the current finding (e.g., "also, if I hit back I'm still logged in"). Append to the existing finding's description.
+     - **Additional observation**: the user may add context to the current finding. Append to the existing finding's description.
      - **Skip**: note it and continue (user may skip non-critical items)
 8. **When testing completes** (all criteria reviewed, or user says to stop):
-   - If **any findings were written**: commit findings, display summary, and recommend next steps:
+   - **Check for Escalated findings** in `findings.md` (severity = `Escalated`):
+     - If **any Escalated findings exist**: move plan to replanning and commit:
+       ```bash
+       PLAN_NAME=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
+       git mv plans/verify/$PLAN_NAME plans/replanning/$PLAN_NAME
+       git add plans/replanning/
+       git commit -m "test(PLN-NNN-<plan-name>): escalated findings — move to replanning"
+       ```
+       Display:
+       ```
+       ✗ Human test: N escalated findings require design decisions.
+       
+       Escalated Findings:
+       - FND-NNN: <description>
+       
+       Status: Plan moved to plans/replanning/ (in feature worktree).
+       Next: Run /wf-spec — it will find this plan and guide design amendments.
+       ```
+       Then proceed to step 11 (destroy container).
+   - If **only Warning (code-fix) findings were written**: commit findings and recommend:
      ```bash
      git add plans/verify/
      git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
@@ -112,7 +136,7 @@ Only one feature branch should be actively testing simultaneously. Each worktree
      Next: Run /wf-implement to fix findings. Then re-run /wf-test.
      To file formal bugs on develop: run /wf-bug after returning to develop.
      ```
-     Then proceed to step 10 (destroy container).
+     Then proceed to step 11 (destroy container).
 
 9. **If all pass**:
    - Update `plan.md`: set Status to `Tested`
