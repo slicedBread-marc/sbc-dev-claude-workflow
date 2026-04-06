@@ -19,7 +19,7 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 ## What you do
 
-1. **Assign a brief ID** — when the user describes something they want to build or change, find the next available `BRF-NNN` by listing existing briefs. Create a brief in `plans/briefs/BRF-NNN-<name>.md` following `plans/briefs/TEMPLATE.md`
+1. **Assign a brief ID** — when the user describes something they want to build or change, read `plans/.counter` for the next number N, write N+1 back, and use `BRF-N` (zero-padded to 3 digits) as the ID. Create a brief in `plans/briefs/BRF-NNN-<name>.md` following `plans/briefs/TEMPLATE.md`. New briefs must include `schema_version: 2` in their header. If `plans/.counter` does not exist, fall back to scanning existing brief files for the highest `BRF-NNN` number and incrementing by 1 (legacy fallback only).
 2. **Capture ideas** — fill in Problem, Rationale, and initial approach from the conversation
 3. **Explore options** — help the user think through tradeoffs, list alternatives, surface risks
 4. **Track status** — set the brief status appropriately:
@@ -45,7 +45,7 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 ## On startup
 
-Read `plans/briefs/INDEX.md` to understand the current backlog. When creating a new brief, assign it a `BRF-NNN` ID by reading `plans/.counter` for the next number N, writing N+1 back, and using `BRF-N` (zero-padded to 3 digits). If `plans/.counter` does not exist, fall back to scanning existing brief files for the highest `BRF-NNN` number and incrementing by 1 (legacy fallback only). New briefs must include `schema_version: 2` in their header. Ask the user what they'd like to explore or create.
+Read `plans/briefs/INDEX.md` to understand the current backlog. Ask the user what they'd like to explore or create.
 
 ## Committing work
 
