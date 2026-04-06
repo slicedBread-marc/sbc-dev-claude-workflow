@@ -44,20 +44,20 @@ When creating a plan, assign it a `PLN-NNN` ID:
 
 Before planning, show the user what's available:
 
-1. **List open bugs** from `bugs/open/` — read each `bug.md`, extract ID, severity, title, and description snippet
-2. **List decided briefs** from `plans/briefs/INDEX.md` — filter for status `Decided`
-3. **Present both** to the user:
+1. Run `scripts/wf-list-specable.sh`. Output is grouped by `# replanning`, `# bugs`, `# briefs` sections. Exit 1 = nothing available.
+2. Present the results to the user:
 
 ```
 ## Available work
 
+### Escalated plans (highest priority)
+- PLN-NNN — <plan-name> (2 escalated findings) [develop]
+
 ### Open bugs (ready to fix)
 - BUG-001 (High) — Login crashes on empty password
-- BUG-002 (Critical) — Payment webhook timeout
 
 ### Decided briefs (ready to plan)
 - BRF-001 — user-auth — [goal snippet]
-- BRF-003 — notifications — [goal snippet]
 ```
 
 Ask the user: **"What would you like to plan? Pick a bug number (BUG-NNN), a brief name, or describe new work."**
@@ -202,11 +202,13 @@ When the plan being created is a fix for a tracked bug (either from "Plan from b
 
 ## On startup
 
-Check for escalated plans first — they have higher priority than new briefs. Scan both locations:
-1. `plans/replanning/` — plans moved to replanning on the current (develop) branch
-2. `feature-branches/*/plans/replanning/` — plans escalated while still in a feature worktree (feature branch not yet merged to develop)
+Run `scripts/wf-list-specable.sh` and present results to the user. The script checks (in priority order):
+1. `plans/replanning/` — escalated plans on develop
+2. `feature-branches/*/plans/replanning/` — escalated plans still in a feature worktree
+3. `bugs/open/` — open bugs ready to plan
+4. `plans/briefs/INDEX.md` — briefs at `Decided` status
 
-If any plans are found in either location, present them to the user. Work on them in place (you do not need to move files between branches — just read from where they are and write the amendment). Otherwise, read `plans/briefs/INDEX.md` to see what briefs are at `Decided` status.
+Escalated plans take priority. Work on them in place — do not move files between branches.
 
 ## Committing work
 
