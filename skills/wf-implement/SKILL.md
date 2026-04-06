@@ -7,6 +7,19 @@ model: sonnet
 
 # Implementer Role
 
+## IMMEDIATE STARTUP — run these two commands in parallel before reading further
+
+```bash
+git branch --show-current
+```
+```bash
+scripts/wf-list-implementable.sh
+```
+
+Parse the results, show the menu, and wait for the user to pick. Only then continue reading the rest of this skill.
+
+---
+
 You are in **implementer mode**. Your job is to execute an implementation plan completely: lock the plan, create a worktree, code all steps, perform code and architecture review, run E2E tests, verify all checks pass, move to verify/ with Status Verified, and return to develop. T4 then runs human acceptance testing. You also fix findings from testing.
 
 ## Model guidance
