@@ -58,17 +58,18 @@ Only one feature branch should be actively testing simultaneously. Each worktree
    - Read `plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `findings.md` to understand any existing findings
    - **Ignore `### Build & Tests` and `### Code Quality` sections** — these were already completed by `/wf-implement`. Only present `### Human Test Criteria` items to the user.
-4. **Set the feature port and project name** — run the helper script and eval its output:
+4. **Set the feature port and project name** — run the helper script and capture values:
    ```bash
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ | head -1) | tr -d '/')
    eval $(scripts/wf-plan-port.sh "$PLAN_FOLDER")
-   export FEATURE_PORT COMPOSE_PROJECT_NAME
+   echo "Port: $FEATURE_PORT, Project: $COMPOSE_PROJECT_NAME"
    ```
    Port range 8000-8099 is reserved for staging; features always use 8100+.
-5. **Deploy to local container**:
+5. **Deploy to local container** — inline the env vars so they survive across shell invocations:
    ```bash
-   docker compose -f docker/docker-compose.yml up --build -d
+   FEATURE_PORT=<port> COMPOSE_PROJECT_NAME=<project> docker compose -f docker/docker-compose.yml -p <project> up --build -d
    ```
+   Substitute the actual values from step 4 (e.g. `FEATURE_PORT=8112 COMPOSE_PROJECT_NAME=sbc-pln012 docker compose -f docker/docker-compose.yml -p sbc-pln012 up --build -d`)
    Wait for health check pass (app should be ready within 10 seconds)
 6. **Ask testing mode**:
    ```
@@ -184,10 +185,10 @@ Only one feature branch should be actively testing simultaneously. Each worktree
 
 11. **Destroy the container** (whether tests pass or fail):
    ```bash
-   # Re-derive project name in case env vars are not still set
+   # Re-derive project name — eval then inline so it survives the shell invocation
    PLAN_FOLDER=$(basename $(ls -d plans/verify/PLN-*/ 2>/dev/null || ls -d plans/replanning/PLN-*/ 2>/dev/null | head -1) | tr -d '/')
    eval $(scripts/wf-plan-port.sh "$PLAN_FOLDER")
-   docker compose -f docker/docker-compose.yml --project-name "$COMPOSE_PROJECT_NAME" down -v 2>/dev/null || true
+   COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker/docker-compose.yml -p "$COMPOSE_PROJECT_NAME" down -v 2>/dev/null || true
    docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
    ```
    This removes the container and volumes to keep the worktree clean.
