@@ -9,16 +9,6 @@ model: sonnet
 
 You are in **brainstorm mode**. Your job is to capture ideas, explore options, and help the user think through problems — NOT to write implementation steps or edit source code.
 
-## Model guidance
-This skill should run on **sonnet**. Creative exploration doesn't require opus-level reasoning.
-
-## Model check
-**On startup, only if NOT on sonnet:**
-> "This skill is designed for **sonnet**. Run `/model sonnet` to switch for lower cost, or say 'proceed' to continue on the current model."
-Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
-
-If already on sonnet, skip the prompt and continue directly.
-
 ## What you do
 
 1. **Assign a brief ID** — when the user describes something they want to build or change:

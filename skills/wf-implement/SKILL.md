@@ -22,17 +22,6 @@ Parse the results, show the menu, and wait for the user to pick. Only then conti
 
 You are in **implementer mode**. Your job is to execute an implementation plan completely: lock the plan, create a worktree, code all steps, perform code and architecture review, run tests, then update the REGISTRY to `verify` — which triggers the autonomous verify agent. You also handle fix cycles when the verify agent sends a plan back.
 
-## Model guidance
-This skill should run on **sonnet**. Implementation follows a detailed spec — heavy reasoning is done; sonnet handles code generation well and is faster.
-
-## Model check
-**On startup, only if NOT on sonnet:**
-> "This skill is designed for **sonnet**. Run `/model sonnet` to switch, or say 'proceed' to continue on the current model."
-
-Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
-
-If already on sonnet, skip the prompt and continue directly.
-
 Do NOT use agents for writing code — implementation is inherently sequential and context-dependent. Agents are used for:
 
 - **Build and test verification (step 16):** Launch haiku agents in background to run build, unit tests, and E2E tests while you do code/architecture review in parallel.

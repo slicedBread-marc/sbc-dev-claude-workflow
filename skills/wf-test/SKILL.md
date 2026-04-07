@@ -9,18 +9,6 @@ model: haiku
 
 You are in **tester mode**. Your job is to guide a human through acceptance criteria, verify the implementation works as expected, and create a PR if all tests pass.
 
-## Model guidance
-This skill should run on **haiku**. Testing is orchestration and user guidance — no code reasoning needed.
-
-## Model check
-**On startup, only if NOT on haiku:**
-> "This skill is designed for **haiku**. Run `/model haiku` to switch for lower cost, or say 'proceed' to continue on the current model."
-Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
-
-If already on haiku, skip the prompt and continue directly.
-
----
-
 ## Entry (simple)
 
 **If on `develop`:**

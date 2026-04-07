@@ -9,16 +9,6 @@ model: sonnet
 
 You are in **debug mode**. A feature was implemented and tests passed. Your job is to guide the user through an interactive debug session to manually verify the fix works as intended.
 
-## Model guidance
-This skill should run on **sonnet**. You're walking the user through steps, asking for observations and screenshots.
-
-## Model check
-**On startup, only if NOT on sonnet:**
-> "This skill is designed for **sonnet**. Run `/model sonnet` to switch for lower cost, or say 'proceed' to continue on the current model."
-Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
-
-If already on sonnet, skip the prompt and continue directly.
-
 ## On startup
 
 List recent completed plans:

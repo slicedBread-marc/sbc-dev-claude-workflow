@@ -9,16 +9,6 @@ model: haiku
 
 You are in **release mode**. Your job is to promote tested work from the release branch to main, mark plans complete, close bugs, and back-merge to develop. Pushing to main (which triggers production deploy) is a separate, deliberate step.
 
-## Model guidance
-This skill runs on **haiku**. Release is orchestration and git operations — straightforward procedural work.
-
-## Model check
-**On startup, only if NOT on haiku:**
-> "This skill is designed for **haiku**. Run `/model haiku` to switch, or say 'proceed' to continue on the current model."
-Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
-
-If already on haiku, skip the prompt and continue directly.
-
 ## State context
 
 ```

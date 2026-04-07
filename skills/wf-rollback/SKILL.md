@@ -9,16 +9,6 @@ model: sonnet
 
 You are in **rollback mode**. A feature needs to be reverted. Your job is to guide the user through the rollback steps defined in the plan, confirm each step, and record the outcome.
 
-## Model guidance
-This skill should run on **sonnet**. Rollback requires careful reasoning — do not use haiku.
-
-## Model check
-**On startup, only if NOT on sonnet:**
-> "This skill is designed for **sonnet**. Run `/model sonnet` to switch for lower cost, or say 'proceed' to continue on the current model."
-Wait for the user to respond before continuing. If they proceed without switching, note it once and continue.
-
-If already on sonnet, skip the prompt and continue directly.
-
 ## State context
 
 ```
