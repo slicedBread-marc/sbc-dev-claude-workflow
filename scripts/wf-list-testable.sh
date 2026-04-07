@@ -13,6 +13,7 @@ set -euo pipefail
 REGISTRY="plans/REGISTRY.md"
 testable=0
 total=0
+claimed_plans=()
 
 while IFS='|' read -r _ id slug state branch _rest; do
   id=$(echo "$id" | xargs)
@@ -33,7 +34,7 @@ while IFS='|' read -r _ id slug state branch _rest; do
     now=$(date +%s)
     age=$(( now - claim_ts ))
     if [ "$age" -lt 7200 ]; then
-      total=$((total + 1))
+      claimed_plans+=("${id}-${slug}:${age}")
       continue
     fi
   fi
@@ -52,5 +53,16 @@ cat >&2 <<EOF
 TESTABLE: $testable
 TOTAL: $total
 EOF
+
+if [ "$testable" -eq 0 ] && [ "${#claimed_plans[@]}" -gt 0 ]; then
+  echo "CLAIMED:" >&2
+  for entry in "${claimed_plans[@]}"; do
+    plan="${entry%%:*}"
+    age="${entry##*:}"
+    mins=$(( age / 60 ))
+    echo "  $plan (claimed ${mins}m ago)" >&2
+  done
+  echo "Run: scripts/wf-unclaim.sh <plan-name> to release stale claims" >&2
+fi
 
 exit $((testable > 0 ? 0 : 1))

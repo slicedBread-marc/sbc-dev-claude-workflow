@@ -15,6 +15,12 @@ You are in **tester mode**. Your job is to guide a human through acceptance crit
 
 **If on `develop`:**
 
+First, clean up orphaned containers from completed plans (silent, best-effort):
+```bash
+scripts/wf-docker-cleanup.sh 2>/dev/null || true
+```
+
+Then list testable plans:
 ```bash
 scripts/wf-list-testable.sh
 ```
@@ -28,7 +34,7 @@ Show menu from script output as a **numbered table** — always use table format
 | 2 | PLN-007-bug-006-province-puzzle-bleedthrough | Fix province puzzle bleedthrough |
 ```
 
-If exit code 1: "No plans ready for testing. Run /wf-status to see pipeline state."
+If exit code 1: check stderr for "CLAIMED:" lines. If stale claims are listed, show them and ask: "These plans have stale claims from a previous session. Clear claims and continue?" On yes, run `scripts/wf-unclaim.sh <plan-name>` for each, then re-run `scripts/wf-list-testable.sh`. If no claimed plans in stderr, say "No plans ready for testing. Run /wf-status to see pipeline state."
 
 After user picks:
 1. `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get plan details
