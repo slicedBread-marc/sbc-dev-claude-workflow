@@ -116,12 +116,15 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
    PLAN_GOAL=$(grep -A 1 "^## Goal" ../../plans/PLN-NNN-<slug>/plan.md | tail -1)
    git push -u origin "$CURRENT_BRANCH"
-   
-   gh pr create \
-     --base release \
-     --head "$CURRENT_BRANCH" \
-     --title "feat: $PLAN_NAME" \
-     --body "## Feature
+   ```
+   Then check if there's a diff from release before creating PR:
+   ```bash
+   if git log release.."$CURRENT_BRANCH" --oneline | head -1 | grep -q .; then
+     gh pr create \
+       --base release \
+       --head "$CURRENT_BRANCH" \
+       --title "feat: $PLAN_NAME" \
+       --body "## Feature
    $PLAN_GOAL
    
    ## Test Results
@@ -131,7 +134,10 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    
    Ready for staging validation."
    
-   gh pr merge --merge --delete-branch
+     gh pr merge --merge --delete-branch
+   else
+     echo "No new commits vs release — skipping PR (branch already merged or fast-forward)"
+   fi
    ```
 2. Destroy container:
    ```bash
@@ -144,7 +150,9 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```bash
    cd /absolute/path/to/project
    git checkout develop
+   git stash --include-untracked -m "wf-test: stash before merge"
    git merge "$CURRENT_BRANCH" --no-edit
+   git stash pop 2>/dev/null || true
    ```
 4. Release claim and update REGISTRY:
    ```bash
@@ -168,11 +176,11 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 8. Display:
    ```
    Human test passed
-   PR created: [PR URL]
+   PR created: [PR URL]  (or "No PR needed — already on release")
    Feature merged to develop
    Plan moved to complete
    
-   Next: Merge PR to release branch, then run /wf-release to promote to production.
+   Next: Run /wf-release to promote to production.
    ```
 
 ### If findings (failures)
@@ -232,6 +240,7 @@ Always destroy the container at the end (pass or fail). From the worktree:
 
 ## Rules
 
+- **Do NOT** use `git add -A` or `git add .` — only stage specific files by name
 - **Do NOT** edit source code — only read the plan and write findings
 - **Do NOT** skip user input — let the user describe what they see
 - **Do NOT** break testing context — write findings immediately, never tell user to switch branches mid-test
