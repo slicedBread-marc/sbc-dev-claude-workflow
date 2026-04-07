@@ -390,14 +390,12 @@ The workflow is:
      - `amendment` → `(amendment — plan ready in worktree)`
      - `resume` → `(resume — mid-implementation, plan in active/)`
      - `fix` → `(fix cycle — open findings in verify/)`
-     - `handoff` → `(Phase 3 pending — plan verified, needs T4 handoff)`
    - If the script exits 1, stop with: "No plans ready to implement. Run /wf-status to see pipeline state."
    - Do not produce a general worktree status table; that is /wf-status's job.
    - **If user picks `new`**: Execute Phase 1 (lock plan, create worktree), then Phase 2, then Phase 3
    - **If user picks `amendment`**: follow the Amendment cycle section — lock plan on develop, cd to the existing worktree, merge develop, continue with Phase 2
    - **If user picks `resume`**: cd to the feature worktree, confirm plan is in active/, continue with Phase 2 from the last completed step in progress.md
    - **If user picks `fix`**: follow the Fix cycle section — cd to the feature worktree and fix open findings
-   - **If user picks `handoff`**: cd to the feature worktree, run Phase 3 (return to develop, display T4 handoff message)
    - Done — user is back on develop with worktree ready for T4
 3. **If on a feature branch** (e.g. `feature/site-version-indicator`):
    - Confirm `.plan/plan.md` exists — this is the working plan

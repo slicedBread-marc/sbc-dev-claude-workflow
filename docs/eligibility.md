@@ -30,11 +30,10 @@ Sources checked in priority order:
 | `new` | `plans/ready/*/plan.md` | Plan exists and no matching worktree in `feature-branches/` (by PLN prefix). |
 | `amendment` | `plans/ready/*/plan.md` | Plan exists and a matching worktree already exists (re-spec'd plan). |
 | `resume` | `plans/active/*/plan.md` | Plan exists (mid-implementation, worktree should exist). |
-| `fix` | `plans/verify/*/plan.md` | Status line contains `with-findings` (case-insensitive). |
-| `handoff` | `plans/verify/*/plan.md` | Status line is `Verified` (no `with-findings` suffix) AND zero `\| Open \|` rows in `findings.md`. This is a clean plan ready for T4 handoff — Phase 3 only. |
+| `fix` | `plans/verify/*/plan.md` | Status line contains `with-findings` (case-insensitive) **OR** `findings.md` has `\| Open \|` rows. |
 
 **Not eligible:**
-- Plans in `plans/verify/` with Status `Verified` but open findings in `findings.md` — these need verification or a status correction, not implementation.
+- Plans in `plans/verify/` with Status `Verified` and no open findings — these belong to T4's testable list (`wf-test`), not T3.
 - Plans in `plans/complete/`, `plans/drafts/`, or `plans/replanning/`.
 
 ---
@@ -80,10 +79,10 @@ How a plan in `plans/verify/` is routed based on its status and findings state:
 
 | Status | Open findings? | Routed to |
 |-|-|-|
-| `Verified` | No | wf-test (human testing) or wf-implement as `handoff` |
+| `Verified` | No | wf-test (human testing) |
 | `Verified` | Yes | wf-implement as `fix` (status is stale — should be `Verified-with-findings`) |
 | `Verified-with-findings` | Yes | wf-implement as `fix` |
-| `Verified-with-findings` | No | wf-implement as `handoff` (findings resolved — status is stale) |
+| `Verified-with-findings` | No | wf-test (findings resolved — status is stale, should be `Verified`) |
 | `Verifying` | — | wf-verify (in progress) |
 | `Replanning` | — | Should be in `plans/replanning/`, not `verify/` |
 | `Complete` | — | Should be in `plans/complete/`, not `verify/` |

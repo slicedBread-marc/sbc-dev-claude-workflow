@@ -7,8 +7,7 @@
 #   type = "new"       — plan in plans/ready/, no existing worktree
 #   type = "amendment" — plan in plans/ready/, worktree exists (re-spec'd plan)
 #   type = "resume"    — plan in plans/active/, worktree exists (mid-implementation)
-#   type = "fix"       — plan in plans/verify/ with Status: Verified-with-findings
-#   type = "handoff"   — plan in plans/verify/ with Status: Verified (clean, Phase 3 pending)
+#   type = "fix"       — plan in plans/verify/ with open findings needing T3 attention
 #
 # Exit 0 if any found, exit 1 if none.
 
@@ -40,7 +39,7 @@ for plan in plans/active/*/plan.md; do
   found=1
 done
 
-# Plans in plans/verify/ (fix or handoff — check status hint)
+# Plans in plans/verify/ with open findings (fix cycle for T3)
 for plan in plans/verify/*/plan.md; do
   [ -f "$plan" ] || continue
   plan_name=$(basename "$(dirname "$plan")")
@@ -55,10 +54,9 @@ for plan in plans/verify/*/plan.md; do
 
   if grep -qiE "(^|\*\*)?Status:\*?\*?\s*.*with-findings" "$plan" 2>/dev/null || [ "$has_open_findings" -eq 1 ]; then
     printf "fix\t%s\t%s\n" "$plan_name" "$goal"
-  else
-    printf "handoff\t%s\t%s\n" "$plan_name" "$goal"
+    found=1
   fi
-  found=1
+  # Clean Verified plans belong to T4 (testable list), not T3 — skip them
 done
 
 exit $((1 - found))

@@ -88,7 +88,8 @@ Finds work for `/wf-implement`. Each line: `<type>\t<plan-name>\t<goal>`
 | `amendment` | `plans/ready/` | Worktree already exists (re-spec'd plan) |
 | `resume` | `plans/active/` | Mid-implementation |
 | `fix` | `plans/verify/` | Status: Verified-with-findings **OR** any `\| Open \|` findings |
-| `handoff` | `plans/verify/` | Status: Verified, no open findings (Phase 3 pending) |
+
+Clean Verified plans in `plans/verify/` are **not** listed here — they belong to T4's testable list.
 
 ### `wf-list-testable.sh` (T4 — Validator)
 
