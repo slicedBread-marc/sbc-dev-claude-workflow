@@ -87,18 +87,21 @@ After user picks:
        If unsure: "Is this a new behavior you want added, or something that should work but doesn't?"
        **Do NOT stop testing.** Ask: "Want to add details, continue, or stop?"
      - **Skip**: note it and continue
+     - **Partial pass trigger**: If the user says things like "mark the rest as passed", "skip this and pass", "can't test beyond this", or otherwise asks to reduce scope — go to **Partial pass** below. Do NOT create findings.
 
 ### Partial pass (edge cases remain)
 
-If most criteria pass but one or two edge cases fail, and the core fix is working:
+**IMPORTANT: This is a pass, not a failure. Use the "If all pass" exit path.**
 
-1. Mark the failing criteria as **skip** (not fail)
-2. Pass the plan — proceed to the "If all pass" exit
-3. After the plan completes, tell the user to file the remaining issues with `/wf-bug`
+Trigger conditions (any one is sufficient):
+- The user explicitly asks to pass remaining criteria or reduce scope
+- Most criteria pass but one or two edge cases fail, and the core fix works
+- The same criterion has failed across multiple fix cycles
 
-This avoids infinite fix cycles when the remaining issue needs a different approach or has diminishing returns. The new bug gets its own plan, branch, and test cycle.
-
-**When to use:** The user suggests reducing scope, or you observe that the same criterion has failed across multiple fix cycles.
+When triggered:
+1. Mark the failing/untestable criteria as **skip** (not fail)
+2. **Use the "If all pass" exit** — create PR, merge to develop, mark complete
+3. After the plan completes, tell the user: "File the remaining edge case with `/wf-bug` so it gets its own plan."
 
 **When NOT to use:** The core behavior specified in the plan doesn't work — that's a real failure, not a partial pass.
 
