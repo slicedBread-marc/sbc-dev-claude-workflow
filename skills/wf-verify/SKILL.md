@@ -14,8 +14,9 @@ You are the **autonomous verify agent**. You are triggered automatically when a 
 You receive a plan ID (e.g. `PLN-003`) as context. From this:
 
 1. **Look up the plan** — `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` → sets PLAN_SLUG, PLAN_STATE, PLAN_BRANCH, PLAN_DIR, PLAN_NAME
-2. **Read the plan** — `$PLAN_DIR/plan.md` on develop
-3. **Read the code** — in the feature worktree at `feature-branches/$PLAN_NAME/`
+2. **Claim the plan** — `scripts/wf-claim.sh $PLAN_NAME`
+3. **Read the plan** — `$PLAN_DIR/plan.md` on develop
+4. **Read the code** — in the feature worktree at `feature-branches/$PLAN_NAME/`
 
 ## What you check
 
@@ -93,6 +94,7 @@ route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
 
 1. **`escalated`** → route to draft:
    ```bash
+   scripts/wf-unclaim.sh PLN-NNN-<slug>
    scripts/wf-registry-update.sh PLN-NNN verify draft
    git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md
    git commit -m "verify(PLN-NNN-<slug>): escalated findings — needs replanning"
@@ -100,6 +102,7 @@ route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
 
 2. **`active`** → route to active:
    ```bash
+   scripts/wf-unclaim.sh PLN-NNN-<slug>
    scripts/wf-registry-update.sh PLN-NNN verify active
    git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md
    git commit -m "verify(PLN-NNN-<slug>): N findings — back to active for fixes"
@@ -107,6 +110,7 @@ route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
 
 3. **`clean`** → route to testing:
    ```bash
+   scripts/wf-unclaim.sh PLN-NNN-<slug>
    scripts/wf-registry-update.sh PLN-NNN verify testing
    git add plans/REGISTRY.md
    git commit -m "verify(PLN-NNN-<slug>): clean — ready for human test"

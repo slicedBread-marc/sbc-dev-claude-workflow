@@ -3,9 +3,10 @@
 # Outputs plans available for /wf-implement by reading REGISTRY.md.
 #
 # Format per line: <type>\t<plan-name>\t<goal>
-#   type = "new"    — state: ready, no existing worktree
-#   type = "resume" — state: active, no unchecked findings
-#   type = "fix"    — state: active, has unchecked findings
+#   type = "new"        — state: ready, no existing worktree
+#   type = "resume"     — state: active, no unchecked findings
+#   type = "fix"        — state: active, has unchecked findings
+#   type = "processing" — state: active, claimed by another session (< 2h old)
 #
 # Exit 0 if any found, exit 1 if none.
 
@@ -31,6 +32,17 @@ while IFS='|' read -r _ id slug state branch _rest; do
     printf "new\t%s\t%s\n" "$plan_name" "$goal"
     found=1
   elif [ "$state" = "active" ]; then
+    claimfile="$plan_dir/.wf-claim"
+    if [ -f "$claimfile" ]; then
+      claim_ts=$(cat "$claimfile" 2>/dev/null)
+      now=$(date +%s)
+      age=$(( now - claim_ts ))
+      if [ "$age" -lt 7200 ]; then
+        printf "processing\t%s\t%s\n" "$plan_name" "$goal"
+        found=1
+        continue
+      fi
+    fi
     findings="$plan_dir/findings.md"
     if [ -f "$findings" ] && grep -q "^\- \[ \]" "$findings" 2>/dev/null; then
       printf "fix\t%s\t%s\n" "$plan_name" "$goal"

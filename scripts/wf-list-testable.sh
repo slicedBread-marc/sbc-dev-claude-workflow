@@ -26,6 +26,18 @@ while IFS='|' read -r _ id slug state branch _rest; do
   plan_dir="plans/${id}-${slug}"
   [ -d "$plan_dir" ] || continue
 
+  # Check for active claim (< 2 hours old)
+  claimfile="$plan_dir/.wf-claim"
+  if [ -f "$claimfile" ]; then
+    claim_ts=$(cat "$claimfile" 2>/dev/null)
+    now=$(date +%s)
+    age=$(( now - claim_ts ))
+    if [ "$age" -lt 7200 ]; then
+      total=$((total + 1))
+      continue
+    fi
+  fi
+
   plan_name="${id}-${slug}"
   goal=$(grep -A 1 "^## Goal" "$plan_dir/plan.md" 2>/dev/null | tail -1 | sed 's/^[[:space:]]*//' || true)
 

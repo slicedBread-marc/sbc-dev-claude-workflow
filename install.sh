@@ -152,6 +152,14 @@ for script in "$SCRIPT_DIR/scripts"/wf-*.sh; do
     echo -e "${GREEN}  Installed scripts/$(basename "$script")${NC}"
 done
 
+# Gitignore workflow runtime files
+GITIGNORE="$TARGET_DIR/.gitignore"
+for pattern in ".wf-claim"; do
+    if ! grep -qF "$pattern" "$GITIGNORE" 2>/dev/null; then
+        echo "$pattern" >> "$GITIGNORE"
+    fi
+done
+
 # Stamp workflow version into the target project
 WORKFLOW_VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 echo "$WORKFLOW_VERSION" > "$TARGET_DIR/.claude/workflow-version"

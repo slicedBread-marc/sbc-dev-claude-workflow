@@ -43,6 +43,7 @@ Run `scripts/wf-list-implementable.sh` — output is tab-separated: `<type>\t<pl
 | `new` | (new plan) | Phase 1 → Phase 2 → Phase 3 |
 | `resume` | (resume) | cd to worktree, continue Phase 2 |
 | `fix` | (fix cycle) | cd to worktree, fix findings |
+| `processing` | (in progress) | Show as non-selectable — another session is working on it |
 
 Show numbered list from script output. If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline state."
 
@@ -99,8 +100,9 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 
 ## Phase 2: Implementation (in the worktree)
 
-8. **Change to worktree directory:**
-   ```
+8. **Claim the plan and change to worktree:**
+   ```bash
+   scripts/wf-claim.sh PLN-NNN-<slug>
    cd feature-branches/PLN-NNN-<slug>
    ```
 9. **Confirm you are on the feature branch** — run `git branch --show-current`
@@ -173,9 +175,10 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 
 ## Phase 3: Exit (complex) — return to develop
 
-23. **Return to develop directory:**
+23. **Return to develop and release claim:**
     ```bash
     cd ../..
+    scripts/wf-unclaim.sh PLN-NNN-<slug>
     ```
 24. **Update REGISTRY.md** — change state from `active` to `verify`:
     ```bash
@@ -206,7 +209,11 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
 
 1. **Entry** — `grep "| active |" plans/REGISTRY.md` shows the plan
 2. **Read findings** — `plans/PLN-NNN-<slug>/findings.md` has unchecked items
-3. **cd to the feature worktree** — `cd feature-branches/PLN-NNN-<slug>`
+3. **Claim the plan and cd to the feature worktree:**
+   ```bash
+   scripts/wf-claim.sh PLN-NNN-<slug>
+   cd feature-branches/PLN-NNN-<slug>
+   ```
 4. **Merge develop** — `git merge develop --no-edit`
 5. **Fix each unchecked finding** — address the issue, then check it off in `findings.md`:
    ```markdown

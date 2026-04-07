@@ -18,6 +18,16 @@ while IFS='|' read -r _ id slug state _rest; do
   [ "$state" = "draft" ] || continue
   plan_dir="plans/${id}-${slug}"
   [ -d "$plan_dir" ] || continue
+
+  # Check for active claim (< 2 hours old)
+  claimfile="$plan_dir/.wf-claim"
+  if [ -f "$claimfile" ]; then
+    claim_ts=$(cat "$claimfile" 2>/dev/null)
+    now=$(date +%s)
+    age=$(( now - claim_ts ))
+    [ "$age" -lt 7200 ] && continue
+  fi
+
   findings="$plan_dir/findings.md"
   if [ -f "$findings" ] && grep -q "ESCALATED" "$findings" 2>/dev/null; then
     count=$(grep -c "ESCALATED" "$findings" 2>/dev/null || echo 0)

@@ -30,8 +30,9 @@ If exit code 1: "No plans ready for testing. Run /wf-status to see pipeline stat
 
 After user picks:
 1. `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get plan details
-2. `cd feature-branches/$PLAN_NAME/`
-3. Continue to testing
+2. `scripts/wf-claim.sh $PLAN_NAME`
+3. `cd feature-branches/$PLAN_NAME/`
+4. Continue to testing
 
 **If on a feature branch:**
 1. `eval "$(scripts/wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME
@@ -120,8 +121,9 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    cd /absolute/path/to/project
    git checkout develop
    ```
-4. Update REGISTRY:
+4. Release claim and update REGISTRY:
    ```bash
+   scripts/wf-unclaim.sh PLN-NNN-<slug>
    scripts/wf-registry-update.sh PLN-NNN testing complete -
    ```
 5. Close linked bugs (if plan Goal has `**Bug:** BUG-NNN`):
@@ -163,8 +165,9 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    cd /absolute/path/to/project
    git checkout develop
    ```
-4. Determine route:
+4. Release claim and determine route:
    ```bash
+   scripts/wf-unclaim.sh PLN-NNN-<slug>
    route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
    ```
    - **`escalated`** → route to draft:

@@ -39,7 +39,7 @@ Present the results from the script output:
 
 Ask the user: **"What would you like to plan? Pick a plan to amend, a bug number, a brief name, or describe new work."**
 
-- If they pick an escalated plan: go to [Replanning](#replanning)
+- If they pick an escalated plan: **claim it** (`scripts/wf-claim.sh PLN-NNN-<slug>`), then go to [Replanning](#replanning)
 - If they pick a bug: go to [Plan from bug](#plan-from-bug)
 - If they pick a brief: go to step 1 below (Read the brief)
 - If they describe new work: ask if it should become a brief first (route to `/wf-brainstorm`)
@@ -148,8 +148,9 @@ Final response under 2000 characters.")
    scripts/wf-registry-update.sh PLN-NNN draft ready
    ```
 
-5. **Commit:**
-   ```
+5. **Release claim and commit:**
+   ```bash
+   scripts/wf-unclaim.sh PLN-NNN-<slug>
    git add plans/PLN-NNN-<slug>/ plans/REGISTRY.md plans/briefs/ bugs/
    git commit -m "spec: PLN-NNN-<slug> — plan ready"
    ```
