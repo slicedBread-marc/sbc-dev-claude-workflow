@@ -21,19 +21,23 @@ If already on haiku, skip the prompt and continue directly.
 
 ## On startup
 
-Run these data-gathering commands in parallel:
+Run these data-gathering commands in parallel (each as a separate Bash call).
+Every script exits 1 when its list is empty — append `|| true` so empty results don't cancel sibling calls.
 ```bash
 git branch --show-current
-cat .claude/workflow-version 2>/dev/null
+cat .claude/workflow-version 2>/dev/null || true
 cat plans/REGISTRY.md
-scripts/wf-list-specable.sh 2>/dev/null
-scripts/wf-list-implementable.sh 2>/dev/null
-scripts/wf-list-testable.sh 2>/dev/null
-scripts/wf-list-findings.sh 2>/dev/null
-scripts/wf-list-briefs.sh 2>/dev/null
-scripts/wf-list-bugs.sh 2>/dev/null
+scripts/wf-list-replanning.sh 2>/dev/null || true
+scripts/wf-list-drafts.sh 2>/dev/null || true
+scripts/wf-list-ready.sh 2>/dev/null || true
+scripts/wf-list-active.sh 2>/dev/null || true
+scripts/wf-list-verify.sh 2>/dev/null || true
+scripts/wf-list-testable.sh 2>/dev/null || true
+scripts/wf-list-findings.sh 2>/dev/null || true
+scripts/wf-list-briefs.sh 2>/dev/null || true
+scripts/wf-list-bugs.sh 2>/dev/null || true
 ```
-Classify REGISTRY rows into output sections based on State column.
+Use list script output to populate each section. If a script produced no output, the section is empty — omit it.
 
 ## Output Format
 
