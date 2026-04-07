@@ -26,7 +26,7 @@ If already on haiku, skip the prompt and continue directly.
 3. Scan these locations in order and build a summary (branch-specific folders):
 
 ### 1. Findings needing fixes (`plans/verify/` or `plans/active/`)
-For each plan folder in `verify/` or `active/`, read `findings.md`. If any findings have status `Open`, this is the **highest priority** — unresolved findings block completion.
+Run `scripts/wf-list-findings.sh` to see open/active findings across active and verify plans. If any findings have status `Open`, this is the **highest priority** — unresolved findings block completion.
 
 ### 2. Plans needing replanning (`plans/replanning/`)
 For each plan folder in `replanning/`, read `findings.md` and list the `Escalated` findings. These require a planner session — they cannot be fixed by the implementer.

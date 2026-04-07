@@ -60,20 +60,20 @@ Only one feature branch should be actively testing simultaneously. Each worktree
    - Read `.plan/plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
    - Read `.plan/findings.md` to understand any existing findings
    - **Ignore `### Build & Tests` and `### Code Quality` sections** — these were already completed by `/wf-implement`. Only present `### Human Test Criteria` items to the user.
-4. **Set the feature port and project name** — derive from the branch name:
+4. **Set the feature port and project name** — derive from the branch name using `scripts/wf-plan-port.sh`:
    ```bash
-   PLAN_ID=$(git branch --show-current | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
-   FEATURE_PORT=$((8100 + PLAN_ID))
-   COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
+   eval "$(scripts/wf-plan-port.sh "$(git branch --show-current | sed 's|feature/||')")"
    echo "Port: $FEATURE_PORT, Project: $COMPOSE_PROJECT_NAME"
    ```
    Port range 8000-8099 is reserved for staging; features always use 8100+.
 5. **Deploy to local container** — inline the env vars so they survive across shell invocations:
    ```bash
-   FEATURE_PORT=<port> COMPOSE_PROJECT_NAME=<project> docker compose -f docker/docker-compose.yml -p <project> up --build -d
+   FEATURE_PORT=$FEATURE_PORT COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker/docker-compose.yml -p $COMPOSE_PROJECT_NAME up --build -d
    ```
-   Substitute the actual values from step 4 (e.g. `FEATURE_PORT=8112 COMPOSE_PROJECT_NAME=sbc-pln012 docker compose -f docker/docker-compose.yml -p sbc-pln012 up --build -d`)
-   Wait for health check pass (app should be ready within 10 seconds)
+   Then wait for health check:
+   ```bash
+   scripts/wf-wait-healthy.sh
+   ```
 6. **Ask testing mode**:
    ```
    ✓ App is running at http://localhost:$FEATURE_PORT (e.g., http://localhost:8104 for PLN-004)
@@ -203,8 +203,7 @@ Only one feature branch should be actively testing simultaneously. Each worktree
 
 11. **Destroy the container** (whether tests pass or fail):
    ```bash
-   PLAN_ID=$(git branch --show-current | grep -oE 'PLN-[0-9]+' | sed 's/PLN-//')
-   COMPOSE_PROJECT_NAME="sbc-pln$(printf '%03d' $PLAN_ID)"
+   eval "$(scripts/wf-plan-port.sh "$(git branch --show-current | sed 's|feature/||')")"
    COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker/docker-compose.yml -p "$COMPOSE_PROJECT_NAME" down -v 2>/dev/null || true
    docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
    ```
