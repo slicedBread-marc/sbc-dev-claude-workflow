@@ -52,7 +52,7 @@ After user picks:
    - **Only present `### Human Test Criteria` items** — Build & Tests and Code Quality were already handled by the verify agent
 2. **Deploy to local container:**
    ```bash
-   eval "$(scripts/wf-docker-up.sh)"
+   eval "$(../../scripts/wf-docker-up.sh)"
    ```
    This sets FEATURE_PORT and COMPOSE_PROJECT_NAME, builds, and waits for health.
 4. **Ask testing mode:**
@@ -109,13 +109,13 @@ After user picks:
    
    Ready for staging validation."
    ```
-3. Destroy container:
+3. Destroy container and return to develop:
    ```bash
-   scripts/wf-docker-down.sh
-   ```
-4. Return to develop and update REGISTRY:
-   ```bash
+   ../../scripts/wf-docker-down.sh
    cd ../..
+   ```
+4. Update REGISTRY:
+   ```bash
    scripts/wf-registry-update.sh PLN-NNN testing complete -
    ```
 5. Close linked bugs (if plan Goal has `**Bug:** BUG-NNN`):
@@ -145,13 +145,13 @@ After user picks:
    - [ ] **Behavior**: Button doesn't respond on mobile
    - [ ] **Design**: Users expect different flow ← ESCALATED
    ```
-2. Destroy container:
+2. Destroy container and return to develop:
    ```bash
-   scripts/wf-docker-down.sh
-   ```
-3. Return to develop and determine route:
-   ```bash
+   ../../scripts/wf-docker-down.sh
    cd ../..
+   ```
+3. Determine route:
+   ```bash
    route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
    ```
    - **`escalated`** → route to draft:
@@ -173,9 +173,9 @@ After user picks:
 
 ## Container cleanup
 
-Always destroy the container at the end (pass or fail):
+Always destroy the container at the end (pass or fail). From the worktree:
 ```bash
-scripts/wf-docker-down.sh
+../../scripts/wf-docker-down.sh
 ```
 
 ## Bug reference model
