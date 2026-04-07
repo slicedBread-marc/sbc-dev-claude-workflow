@@ -82,6 +82,20 @@ After user picks:
        **Do NOT stop testing.** Ask: "Want to add details, continue, or stop?"
      - **Skip**: note it and continue
 
+### Partial pass (edge cases remain)
+
+If most criteria pass but one or two edge cases fail, and the core fix is working:
+
+1. Mark the failing criteria as **skip** (not fail)
+2. Pass the plan — proceed to the "If all pass" exit
+3. After the plan completes, tell the user to file the remaining issues with `/wf-bug`
+
+This avoids infinite fix cycles when the remaining issue needs a different approach or has diminishing returns. The new bug gets its own plan, branch, and test cycle.
+
+**When to use:** The user suggests reducing scope, or you observe that the same criterion has failed across multiple fix cycles.
+
+**When NOT to use:** The core behavior specified in the plan doesn't work — that's a real failure, not a partial pass.
+
 ---
 
 ## Exit (complex)
