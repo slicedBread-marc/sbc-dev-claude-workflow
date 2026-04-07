@@ -59,14 +59,18 @@ Sources checked in priority order:
 
 | Source | Eligible when |
 |-|-|
-| `plans/verify/*/plan.md` | Status line matches `Verified` (case-insensitive, supports markdown formatting) AND does NOT contain `with-findings` AND `findings.md` has zero `\| Open \|` rows. |
+| `plans/verify/*/plan.md` | Status line matches `Verified` (case-insensitive, supports markdown formatting) AND does NOT contain `with-findings` AND `findings.md` has zero `\| Open \|` or `\| Escalated \|` rows. |
 
 **Not eligible:**
 - Plans with Status `Verified-with-findings` — need fix cycle via wf-implement first.
-- Plans with Status `Verified` but open findings in `findings.md` — same as above (status may be stale).
-- Plans in any other pipeline stage.
+- Plans with Status `Verified` but Open or Escalated findings in `findings.md`.
+- Plans in any other pipeline stage (Active, Tested, etc.).
 
-**Stderr output:** Script reports count of plans skipped due to open findings, enabling the skill to show: "N plan(s) have open findings that must be fixed first."
+**Note:** Plans with only `Fixed` findings ARE eligible — the fixes have been addressed.
+
+**Output format:**
+- **stdout:** `<plan-name>\t<worktree-path>\t<branch>\t<goal>` per eligible plan (worktree/branch may be empty)
+- **stderr:** structured summary: `TESTABLE: N`, `BLOCKED: N`, `NOT_VERIFIED: N`, `TOTAL_VERIFY: N`
 
 ---
 

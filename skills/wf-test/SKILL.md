@@ -279,20 +279,23 @@ The Verification Checklist in `plan.md` should be a table or bulleted list. Exam
 
 1. Check current branch — run `git branch --show-current`
 2. **If on `develop`:**
-   - Run `scripts/wf-list-testable.sh` to find eligible plans. Each line is `<plan-name>\t<goal>`. Exit 1 = none found.
-     **Only** plans with Status: Verified (not `Verified-with-findings`) are eligible.
-   - Show menu (only eligible plans):
+   - Run `scripts/wf-list-testable.sh` (stdout + stderr together). Format:
+     - **stdout** lines: `<plan-name>\t<worktree-path>\t<branch>\t<goal>` (worktree/branch may be empty)
+     - **stderr** summary: `TESTABLE: N`, `BLOCKED: N`, `NOT_VERIFIED: N`, `TOTAL_VERIFY: N`
+     - Exit 0 = testable plans found, exit 1 = none.
+   - Parse the output directly — do NOT read plan files or findings to determine eligibility.
+   - If TESTABLE > 0, show menu from stdout lines:
      ```
      Available worktrees ready for testing:
-     1) PLN-NNN — <plan goal>
-     2) PLN-NNN — <plan goal>
+     1) PLN-NNN — <goal>
+     2) PLN-NNN — <goal>
      
      Which worktree would you like to test? (enter number)
      ```
-   - If plans exist in verify/ but all have Open findings, stop with: "No worktrees ready for testing — N plan(s) have open findings that must be fixed first. Run /wf-implement to address them."
-   - If no plans in verify/ at all, stop with: "No worktrees ready for testing. Run /wf-status to see pipeline state."
+   - If TESTABLE = 0 and BLOCKED > 0: "No worktrees ready for testing — N plan(s) have open/escalated findings. Run /wf-implement to address them."
+   - If TOTAL_VERIFY = 0: "No worktrees ready for testing. Run /wf-status to see pipeline state."
    - User selects one
-   - `cd` into that worktree (e.g., `cd feature-branches/PLN-NNN-name`)
+   - If worktree path is non-empty, `cd` into it. If empty, tell user no worktree exists for that plan.
    - Continue to step 3
 
 3. **If on a feature branch** (e.g., `feature/site-version-indicator`):
