@@ -1,10 +1,10 @@
 # [Brief Title]
 
 > **ID:** BRF-NNN
-> **schema_version:** 2
+> **schema_version:** 4
 > **Status:** Idea | Exploring | Decided | Planned
 > **Created:** YYYY-MM-DD
-> **Plan:** (link to implementation plan once one exists, e.g., `../feature-name.md`)
+> **Plan:** (link to plan once one exists, e.g., PLN-NNN-slug)
 
 ## Problem
 What's wrong, missing, or desired? Who does it affect?

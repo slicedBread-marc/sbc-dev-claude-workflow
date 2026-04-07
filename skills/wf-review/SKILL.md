@@ -126,7 +126,11 @@ Append directly to `findings.md`:
 
 ## On startup (independent invocation)
 
-Ask the user whether this is a plan review or code review, and which plan folder to review. For code review, check `plans/active/` or `plans/verify/` for relevant plan folders.
+Ask the user whether this is a plan review or code review, and which plan to review. For code review:
+```bash
+scripts/wf-list-active.sh  # plans in active state
+scripts/wf-list-verify.sh  # plans in verify state
+```
 
 ## Committing work
 

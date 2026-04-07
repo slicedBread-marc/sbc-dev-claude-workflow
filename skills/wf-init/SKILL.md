@@ -13,26 +13,23 @@ You are in **init mode**. Your job is to set up a terminal for the workflow sess
 
 ### 1. Show the strategy (briefly)
 
-Display the 3-terminal pipeline:
+Display the pipeline:
 ```
-develop (T1, T2)                           feature/ (T3, T4)               release, main
-  - Plans only                             - Code + test                   - Ship it
-  
-  T1: Intake 🔵      T2: Planner 🟢             T3/T4: Worktree
-  (/wf-status,        (/wf-spec)                 (/wf-implement, /wf-test)
-  /wf-brainstorm,           │                            │
-  /wf-bug)                  └─→ [ready/] ←──────────────┤
-                                   │                      │
-                                   └──→ [active/] ←──────┘
-                                           │
-                                           └──→ [verify/] ──→ [human test] ──→ [release PR]
-                                           
-  T3: Builder 🟡     T4: Tester 🟣              Release
-  (/wf-implement)    (/wf-test)                (/wf-release)
-                                                    │
-                                           merge PR → release
-                                                    │
-                                           /wf-release: release → main → complete
+REGISTRY.md is the single source of truth for all plan state.
+
+  T1: Intake 🔵      T2: Planner 🟢      T3: Builder 🟡     T4: Tester 🟣
+  (/wf-status,        (/wf-spec)          (/wf-implement)    (/wf-test)
+  /wf-brainstorm,
+  /wf-bug)
+
+  State flow: draft → ready → active → verify ──[agent]──→ testing → complete
+                        ↑        |
+                        |        ├→ active  (fix cycle)
+                        |        └→ draft   (escalation)
+                        └→ draft  (implementer escalation)
+
+  Verify agent runs automatically when a plan reaches "verify" state.
+  T4 only does human acceptance testing on plans in "testing" state.
 ```
 
 Then say: "Run `/wf-help` anytime to see the full strategy."
@@ -99,31 +96,26 @@ Then show:
 
 ### 5. Check folder structure and branches
 
-Verify these folders exist (create if missing):
-```
-✓ plans/ready/
-✓ plans/active/
-✓ plans/verify/
-✓ plans/complete/
-✓ plans/rolled-back/
-✓ bugs/open/
-✓ bugs/triaged/
-✓ bugs/closed/
+Verify structure and branches:
+```bash
+scripts/wf-branch-check.sh develop true
 ```
 
-Verify these branches exist (warn if missing):
-```
-✓ develop (current)
-✓ release
-✓ main
+Then check these exist (create if missing):
+```bash
+mkdir -p plans/briefs bugs/open bugs/triaged bugs/closed feature-branches
+[ -f plans/REGISTRY.md ] || echo "⚠️  plans/REGISTRY.md missing"
 ```
 
-If `release` branch does not exist locally:
+Verify branches:
+```bash
+git branch --list develop release main
+```
+
+If `release` branch does not exist locally, warn:
 ```
 ⚠️  Release branch not found. Create it:
-  git checkout develop
-  git checkout -b release
-  git push origin release
+  git checkout develop && git checkout -b release && git push origin release
 ```
 
 Show:
@@ -181,12 +173,12 @@ Run /wf-help to understand the flow.
 NEXT STEPS:
 1. /color purple
 2. /model haiku
-3. After T3 finishes /wf-implement, switch to the worktree
-4. cd feature-branches/PLN-NNN-<plan-name>
-5. /wf-test walks through human acceptance criteria
-6. On pass, PR is created to release branch
-7. Merge PR, then /wf-release promotes release → main
+3. /wf-test — shows plans in "testing" state (passed automated verify agent)
+4. Walk through human acceptance criteria
+5. On pass, PR is created to release branch
+6. Merge PR, then /wf-release promotes release → main
 
+The verify agent handles automated checks — T4 only does human testing.
 Run /wf-help to understand the flow.
 ```
 

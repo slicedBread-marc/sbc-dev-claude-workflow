@@ -19,19 +19,25 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 If already on sonnet, skip the prompt and continue directly.
 
-## Folder structure
+## State context
 
 ```
-plans/complete/      → most rollbacks originate here (plan was deployed)
-plans/active/        → rollback may also be needed for an in-progress plan
-plans/rolled-back/   → where plan folders go after rollback
+plans/REGISTRY.md    → single source of truth for plan state
+plans/PLN-NNN-*/     → immovable plan folders (never move)
 ```
+
+Rollback candidates are plans in `complete` or `active` state in REGISTRY.md.
 
 ## What you do
 
 ### 1. Identify the plan
 
-Ask the user which feature to roll back. List candidates from `plans/complete/PLN-NNN-*/` and `plans/active/PLN-NNN-*/`. Read each `plan.md` Status and Goal to help the user identify the right one.
+Ask the user which feature to roll back. List candidates:
+```bash
+scripts/wf-list-rollbacks.sh  # existing rolled-back plans
+grep -E "\| (complete|active) \|" plans/REGISTRY.md  # rollback candidates
+```
+For each candidate, run `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get details.
 
 ### 2. Read the rollback section
 
@@ -81,13 +87,14 @@ Update `plan.md`:
   [date] — Rolled back. Reason: [user-provided reason]. Data migrations: [Reversible/Irreversible/N/A]. Verification: [passed/partial — notes].
   ```
 
-Move the plan folder from its current location → `plans/rolled-back/PLN-NNN-<name>/` and commit:
-```
-git mv plans/complete/PLN-NNN-<name> plans/rolled-back/PLN-NNN-<name>
-git commit -m "rollback(PLN-NNN-<name>): <reason>"
+Update REGISTRY.md — change the plan's state to `rolled-back` and commit:
+```bash
+scripts/wf-registry-update.sh PLN-NNN <current-state> rolled-back -
+git add plans/REGISTRY.md plans/PLN-NNN-<slug>/plan.md
+git commit -m "rollback(PLN-NNN-<slug>): <reason>"
 ```
 
-(If rolling back from `plans/active/`, use `git mv plans/active/PLN-NNN-<name> plans/rolled-back/PLN-NNN-<name>`)
+The plan folder stays in place — only the REGISTRY state changes.
 
 ### 6. File a bug (optional)
 
@@ -118,20 +125,19 @@ After the rollback is recorded:
 
 If the user stops partway through:
 1. Note which steps were completed in `plan.md` Amendments: `[date] — Partial rollback. Completed steps 1-N. Stopped at step N+1 due to: [reason].`
-2. Leave the plan folder in its current location (do NOT move to `rolled-back/`)
-3. Set Status to `Rollback Partial`
+2. Do NOT update REGISTRY state — plan stays in its current state
+3. Add `Rollback Partial` note to plan.md Amendments
 4. Commit the partial state:
    ```
-   git add plans/
-   git commit -m "rollback: <feature-name> — partial, stopped at step N"
+   git add plans/PLN-NNN-<slug>/plan.md
+   git commit -m "rollback: PLN-NNN-<slug> — partial, stopped at step N"
    ```
-   (The plan folder stays in its current location; do NOT use `git mv`)
 5. Recommend filing a bug and getting help before continuing
 
 ## Rolling back
 
 When a plan is rolled back:
-1. Assign it a `RBK-NNN` ID (next available in `plans/rolled-back/`)
+1. Assign it a `RBK-NNN` ID (next available — scan REGISTRY.md for existing rolled-back plans)
 2. Optionally record the rollback in the plan's Amendments with a note like:
    ```
    [date] — Rolled back as RBK-001. Reason: [reason]. Verified: [passed/partial — notes].

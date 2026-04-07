@@ -21,13 +21,18 @@ If already on sonnet, skip the prompt and continue directly.
 
 ## On startup
 
-Scan `plans/complete/` and list the 5 most recent completed plans:
+List recent completed plans:
+```bash
+grep "| complete |" plans/REGISTRY.md | tail -5
+```
 
+For each, get details: `eval "$(scripts/wf-plan-info.sh PLN-NNN)"`
+
+Show:
 ```
 Recent completed plans:
 1. PLN-001 (BUG-003) — Login crash fix
 2. PLN-002 (BUG-005) — Payment webhook timeout
-3. PLN-004 (BRF-001) — User auth improvements
 ...
 ```
 
@@ -103,7 +108,7 @@ All steps passed. The bug is fixed. Update the plan:
   Plan Status: Complete → Debug Verified
   
 Then commit:
-  git add plans/complete/
+  git add plans/PLN-*/
   git commit -m "debug: <feature-name> — fix verified"
 
 You can now close the bug.
@@ -136,18 +141,18 @@ If the user chooses option 1 and wants to file a bug, guide them through `/wf-bu
 
 Once verdict is reached:
 ```
-git add plans/complete/
+git add plans/PLN-*/
 git commit -m "debug: <feature-name> — <verified|issue found>"
 ```
 
 ## debug.md format
 
-Created in the plan folder (e.g., `plans/complete/<name>/debug.md`):
+Created in the plan folder (e.g., `plans/PLN-NNN-<slug>/debug.md`):
 
 ```markdown
 # Debug Session — [Feature Name]
 
-> Plan: PLN-NNN — plans/complete/[name]/
+> Plan: PLN-NNN — plans/PLN-NNN-[slug]/
 > Bug: BUG-NNN
 > Date: YYYY-MM-DD
 > Status: Verified | Issue Found
@@ -183,7 +188,7 @@ Created in the plan folder (e.g., `plans/complete/<name>/debug.md`):
 After the debug session is complete:
 
 ```
-git add plans/complete/
+git add plans/PLN-*/
 git commit -m "debug: <feature-name> — <verified|issue found>"
 ```
 

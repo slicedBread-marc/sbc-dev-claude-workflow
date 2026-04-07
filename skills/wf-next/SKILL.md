@@ -13,7 +13,7 @@ You are in **next mode**. Your job is to invoke the right skill for your termina
 - T1 (Intake) → `/wf-status`
 - T2 (Planner) → `/wf-spec` (no parameters)
 - T3 (Builder) → `/wf-implement`
-- T4 (Tester) → `/wf-test` (human acceptance testing)
+- T4 (Tester) → `/wf-test` (human acceptance testing — verify agent handles automated checks)
 
 ## What you do
 

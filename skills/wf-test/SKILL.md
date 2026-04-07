@@ -1,6 +1,6 @@
 ---
 name: wf-test
-description: Human acceptance testing for verified plans. From develop, T4 sees a menu of completed worktrees ready for testing, picks one, and runs acceptance criteria. Files bugs on develop, creates PR to release.
+description: Human acceptance testing for plans that passed automated verification. Guides the user through acceptance criteria, writes findings, creates PR on pass.
 user_invocable: true
 model: haiku
 ---
@@ -10,7 +10,7 @@ model: haiku
 You are in **tester mode**. Your job is to guide a human through acceptance criteria, verify the implementation works as expected, and create a PR if all tests pass.
 
 ## Model guidance
-This skill should run on **haiku**. Testing is orchestration and user guidance—no code reasoning needed.
+This skill should run on **haiku**. Testing is orchestration and user guidance — no code reasoning needed.
 
 ## Model check
 **On startup, only if NOT on haiku:**
@@ -19,313 +19,185 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 If already on haiku, skip the prompt and continue directly.
 
-## Folder structure
+---
 
+## Entry (simple)
+
+**If on `develop`:**
+
+```bash
+scripts/wf-list-testable.sh
 ```
-plans/verify/     → pipeline stage on develop (source of truth for what's ready to test)
-.plan/            → working copy on feature branch (plan.md, findings.md, progress.md)
-```
 
-**Key principle:** `plans/` is only modified on develop. Feature branches work exclusively with `.plan/`.
+Show menu from script output (tab-separated: `<plan-name>\t<worktree>\t<branch>\t<goal>`).
 
-## Important: One testing worktree at a time
+If exit code 1: "No plans ready for testing. Run /wf-status to see pipeline state."
 
-Only one feature branch should be actively testing simultaneously. Each worktree uses a unique port (8100 + plan ID), but parallel testing is still discouraged as it's confusing for the user. Test sequentially. After testing completes, the container is destroyed (see step 11 below).
+After user picks:
+1. `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get plan details
+2. `cd feature-branches/$PLAN_NAME/`
+3. Continue to testing
 
-## Bug reference model
+**If on a feature branch:**
+1. `eval "$(scripts/wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME
+2. Read the plan from `$PLAN_DIR/plan.md`
+3. Continue to testing
 
-**Pre-existing bugs** (referenced in plan Goal section) are the source of truth:
-- Plan's Goal may say: `Fix the [description]. (**Bug:** BUG-005-login-crash)`
-- Accept the BUG-NNN as truth — don't try to look it up (bugs live on develop, not in feature branch)
-- If testing reveals the bug still exists, reference it in findings: `FND-XXX | human-test | Note | External | <test result> (BUG-005)`
+---
 
-**New bugs discovered during testing**:
-- File them on develop via `/wf-bug` (which handles numbering globally)
-- Return to feature branch with the assigned BUG-NNN
-- Reference in findings: `FND-XXX | human-test | Warning | Behavior | <description> (BUG-NNN)`
+## Testing
 
-## What you do
-
-**If starting from develop:**
-1. **Scan for available worktrees** — run `scripts/wf-list-testable.sh`. Each output line is `<plan-name>\t<goal>`. Exit 1 means no eligible plans. Only plans with Status: Verified AND zero `| Open |` findings rows are eligible.
-2. **Show menu** — list only the eligible worktrees (show PLN-NNN and plan goal)
-3. **User picks a worktree** — they select which feature to test
-4. **Switch to worktree** — `cd feature-branches/PLN-NNN-<plan-name>/`
-5. **Continue with testing below**
-
-**Once in the feature branch worktree:**
-1. **Confirm you are on a feature branch** — run `git branch --show-current`. The branch should be `feature/PLN-NNN-*`
-2. **Find the plan** — read from `.plan/` directory
-3. **Read the plan**:
-   - Read `.plan/plan.md` Goal and Verification Checklist sections (note any pre-existing bugs in Goal)
-   - Read `.plan/findings.md` to understand any existing findings
-   - **Ignore `### Build & Tests` and `### Code Quality` sections** — these were already completed by `/wf-implement`. Only present `### Human Test Criteria` items to the user.
-4. **Set the feature port and project name** — derive from the branch name using `scripts/wf-plan-port.sh`:
+1. **Read the plan** — from develop worktree: `../../plans/PLN-NNN-<slug>/plan.md`
+   - Read Goal and Verification Checklist sections
+   - **Only present `### Human Test Criteria` items** — Build & Tests and Code Quality were already handled by the verify agent
+2. **Deploy to local container:**
    ```bash
-   eval "$(scripts/wf-plan-port.sh "$(git branch --show-current | sed 's|feature/||')")"
-   echo "Port: $FEATURE_PORT, Project: $COMPOSE_PROJECT_NAME"
+   eval "$(scripts/wf-docker-up.sh)"
    ```
-   Port range 8000-8099 is reserved for staging; features always use 8100+.
-5. **Deploy to local container** — inline the env vars so they survive across shell invocations:
-   ```bash
-   FEATURE_PORT=$FEATURE_PORT COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker/docker-compose.yml -p $COMPOSE_PROJECT_NAME up --build -d
+   This sets FEATURE_PORT and COMPOSE_PROJECT_NAME, builds, and waits for health.
+4. **Ask testing mode:**
    ```
-   Then wait for health check:
-   ```bash
-   scripts/wf-wait-healthy.sh
-   ```
-6. **Ask testing mode**:
-   ```
-   ✓ App is running at http://localhost:$FEATURE_PORT (e.g., http://localhost:8104 for PLN-004)
+   App is running at http://localhost:$FEATURE_PORT
    
    How would you like to test?
    [each] - Walk through each criterion individually
    [all]  - Pass all criteria (assume they all passed)
    ```
 
-6. **If mode = [all]**: Skip to step 8 below — mark all criteria as pass
+5. **If mode = [all]**: Skip to step 7 — mark all criteria as pass
 
-7. **If mode = [each]**: For each criterion in the `### Human Test Criteria` section only (skip all other sections):
+6. **If mode = [each]**: For each criterion in `### Human Test Criteria` only:
    - Display the criterion clearly
-   - **Let the user describe what they see** — don't force a rigid [pass/fail/skip/bug] prompt. Accept natural descriptions like "this works", "it's broken because...", "I also noticed...", etc.
-   - Interpret their response and classify:
-     - **Pass**: note it and continue to next criterion
-     - **Fail**: capture the user's description. Classify using these rules — **do not ask the user**:
-       - **Escalated** (design decision — requires T2 input): the finding describes **new behavior not in the original plan**, a scope addition, a UX change, or anything requiring an Amendment. Examples: new game mechanic, different interaction model, added feature request, changed UX flow. Write to `.plan/findings.md`:
-         ```
-         | FND-NNN | human-test | Escalated | Design | <description> | — | Open |
-         ```
-       - **Warning** (code fix — implementer can resolve): the finding describes a **bug in already-specified behavior** — something the plan describes that doesn't work correctly. Examples: visual glitch, off-by-one, broken edge case, regression. Write to `.plan/findings.md`:
-         ```
-         | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
-         ```
-       If unsure, ask: "Is this a new behavior you want added, or is this something that was supposed to work but doesn't?" New behavior → Escalated. Broken behavior → Warning.
-       **Do NOT stop testing.** Ask: "Want to add more details, continue to the next criterion, or stop testing?"
-     - **Additional observation**: the user may add context to the current finding. Append to the existing finding's description.
-     - **Skip**: note it and continue (user may skip non-critical items)
-8. **When testing completes** (all criteria reviewed, or user says to stop):
-   - **Check for Escalated findings** in `.plan/findings.md` (severity = `Escalated`):
-     - If **any Escalated findings exist**: commit on feature branch, then move plan on develop:
-       ```bash
-       # On feature branch:
-       git add .plan/
-       git commit -m "test(PLN-NNN-<plan-name>): escalated findings"
-       # Return to develop and move plan:
-       cd ../..
-       PLAN_NAME=PLN-NNN-<plan-name>
-       cp feature-branches/$PLAN_NAME/.plan/{plan.md,findings.md} plans/verify/$PLAN_NAME/
-       git mv plans/verify/$PLAN_NAME plans/replanning/$PLAN_NAME
-       git commit -m "test($PLAN_NAME): escalated findings — move to replanning"
-       ```
-       Display:
-       ```
-       ✗ Human test: N escalated findings require design decisions.
-       
-       Escalated Findings:
-       - FND-NNN: <description>
-       
-       Status: Plan moved to plans/replanning/ (in feature worktree).
-       Next: Run /wf-spec — it will find this plan and guide design amendments.
-       ```
-       Then proceed to step 11 (destroy container).
-   - If **only Warning (code-fix) findings were written**: commit on feature branch and update develop:
-     ```bash
-     # On feature branch:
-     git add .plan/
-     git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
-     # Return to develop and update status:
-     cd ../..
-     PLAN_NAME=PLN-NNN-<plan-name>
-     cp feature-branches/$PLAN_NAME/.plan/{plan.md,findings.md} plans/verify/$PLAN_NAME/
-     sed -i '' 's/^Status:.*/Status: Verified-with-findings/' plans/verify/$PLAN_NAME/plan.md
-     git add plans/verify/
-     git commit -m "test($PLAN_NAME): N findings from human test"
-     ```
-     Display:
-     ```
-     ✗ Human test: N findings written to findings.md
-     
-     Findings:
-     - FND-001: <description>
-     - FND-002: <description>
-     
-     Next: Return to develop (`cd /path/to/project`), then run /wf-implement — it will find this plan's open findings and resume the feature worktree.
-     To file formal bugs on develop: run /wf-bug after returning to develop.
-     ```
-     Then proceed to step 11 (destroy container).
+   - **Let the user describe what they see** — accept natural descriptions
+   - Classify their response:
+     - **Pass**: note it and continue
+     - **Fail**: capture description. Classify:
+       - **ESCALATED** (design — requires T2): new behavior not in plan, scope addition, UX change
+       - **Behavior** (code fix — T3 can resolve): bug in specified behavior
+       If unsure: "Is this a new behavior you want added, or something that should work but doesn't?"
+       **Do NOT stop testing.** Ask: "Want to add details, continue, or stop?"
+     - **Skip**: note it and continue
 
-9. **If all pass**:
-   - Update `.plan/plan.md`: set Status to `Tested`
-   - Commit the status update on the feature branch:
-     ```bash
-     git add .plan/
-     git commit -m "test(PLN-NNN-<plan-name>): human test passed"
-     ```
-   - Check current branch and handle PR creation:
-     ```bash
-     CURRENT_BRANCH=$(git branch --show-current)
-     PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
-     PLAN_GOAL=$(grep -A 1 "^## Goal" .plan/plan.md | tail -1)
-     
-     if [[ "$CURRENT_BRANCH" == "release" || "$CURRENT_BRANCH" == "main" ]]; then
-       # Already on release/main, no PR needed
-       echo "✓ Human test passed"
-       echo ""
-       if [ "$CURRENT_BRANCH" = "release" ]; then
-         echo "You're on release branch. Next: run /wf-release to promote to production."
-       else
-         echo "You're on main. Code is live! Verify at https://slicedbread.ca"
-       fi
-     else
-       # On feature branch, create PR to release
-       gh pr create \
-         --base release \
-         --head "$CURRENT_BRANCH" \
-         --title "feat: $PLAN_NAME" \
-         --body "## Feature
-     $PLAN_GOAL
-     
-     ## Test Results
-     ✓ All acceptance criteria passed in human test
-     
-     **Plan:** .plan/
-     
-     Ready for staging validation."
-       
-       echo "✓ Human test passed"
-       echo "✓ PR created: [check output above]"
-       echo ""
-       echo "Next: Merge PR to release branch and push to trigger staging deployment."
-       echo "Then run /wf-release to promote to production."
-     fi
-     ```
-   Then proceed to step 11 (destroy container).
+---
 
-11. **Destroy the container** (whether tests pass or fail):
+## Exit (complex)
+
+### If all pass
+
+1. Commit status on feature branch:
    ```bash
-   eval "$(scripts/wf-plan-port.sh "$(git branch --show-current | sed 's|feature/||')")"
-   COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker/docker-compose.yml -p "$COMPOSE_PROJECT_NAME" down -v 2>/dev/null || true
-   docker ps -a --filter "name=$COMPOSE_PROJECT_NAME" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
+   git add -A
+   git commit -m "test(PLN-NNN-<slug>): human test passed"
    ```
-   This removes the container and volumes to keep the worktree clean.
+2. Create PR to release:
+   ```bash
+   CURRENT_BRANCH=$(git branch --show-current)
+   PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
+   PLAN_GOAL=$(grep -A 1 "^## Goal" ../../plans/PLN-NNN-<slug>/plan.md | tail -1)
+   
+   gh pr create \
+     --base release \
+     --head "$CURRENT_BRANCH" \
+     --title "feat: $PLAN_NAME" \
+     --body "## Feature
+   $PLAN_GOAL
+   
+   ## Test Results
+   All acceptance criteria passed in human test
+   
+   **Plan:** plans/PLN-NNN-<slug>/
+   
+   Ready for staging validation."
+   ```
+3. Destroy container:
+   ```bash
+   scripts/wf-docker-down.sh
+   ```
+4. Return to develop and update REGISTRY:
+   ```bash
+   cd ../..
+   scripts/wf-registry-update.sh PLN-NNN testing complete -
+   ```
+5. Close linked bugs (if plan Goal has `**Bug:** BUG-NNN`):
+   ```bash
+   scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
+   ```
+6. Commit:
+   ```bash
+   git add plans/REGISTRY.md bugs/
+   git commit -m "test(PLN-NNN-<slug>): complete"
+   ```
+7. Display:
+   ```
+   Human test passed
+   PR created: [PR URL]
+   Plan moved to complete
+   
+   Next: Merge PR to release branch, then run /wf-release to promote to production.
+   ```
 
-## Handling failures and bugs during testing
+### If findings (failures)
 
-**All findings are written to `.plan/findings.md` immediately.** Never break the testing context to file bugs — that happens after testing completes.
+1. Write findings to `plans/PLN-NNN-<slug>/findings.md` on develop:
+   ```markdown
+   ## Human Test — YYYY-MM-DD
+   
+   - [ ] **Behavior**: Button doesn't respond on mobile
+   - [ ] **Design**: Users expect different flow ← ESCALATED
+   ```
+2. Destroy container:
+   ```bash
+   scripts/wf-docker-down.sh
+   ```
+3. Return to develop and determine route:
+   ```bash
+   cd ../..
+   route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
+   ```
+   - **`escalated`** → route to draft:
+     ```bash
+     scripts/wf-registry-update.sh PLN-NNN testing draft
+     git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md
+     git commit -m "test(PLN-NNN-<slug>): escalated findings — needs replanning"
+     ```
+     Display: "N escalated findings require design decisions. Run /wf-spec."
+   - **`active`** → route to active:
+     ```bash
+     scripts/wf-registry-update.sh PLN-NNN testing active
+     git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md
+     git commit -m "test(PLN-NNN-<slug>): N findings from human test"
+     ```
+     Display: "N findings written. Run /wf-implement to fix them."
 
-**Feature failure** (criterion doesn't pass):
-- Write finding to `.plan/findings.md` with the user's description
-- Let the user add more details if they want
-- Continue testing unless user says to stop
+---
 
-**Pre-existing bug referenced in plan Goal:**
-- Add a finding noting the pre-existing bug:
-  ```
-  | FND-NNN | human-test | Note | External | <test result> (BUG-005) | — | Open |
-  ```
-- Continue testing
+## Container cleanup
 
-**New bug discovered during testing:**
-- Write finding immediately — don't defer to `/wf-bug`:
-  ```
-  | FND-NNN | human-test | Warning | Behavior | <description> | — | Open |
-  ```
-- Continue testing
-- After testing completes (step 10), display any findings that need bug filing:
-  ```
-  Findings written. To file formal bugs on develop, run /wf-bug after testing.
-  ```
-
-## Testing modes and prompts
-
-**Initial mode choice** (step 6):
-- `[each]` — walk through each criterion individually, one by one
-- `[all]` — pass all criteria at once (assume they all passed, skip to completion)
-
-**Per-criterion interaction** (if mode = [each], step 7):
-- Accept natural descriptions from the user — don't force rigid prompts
-- Classify responses as pass/fail/skip and write findings for failures
-- Let user add details to findings before moving on
-- Never stop testing unless the user explicitly asks to stop
-
-## Acceptance criteria format
-
-The Verification Checklist in `plan.md` should be a table or bulleted list. Example:
-
+Always destroy the container at the end (pass or fail):
+```bash
+scripts/wf-docker-down.sh
 ```
-## Verification Checklist
-- [ ] User can log in with valid credentials
-- [ ] Invalid password shows error message
-- [ ] Session persists across page reload
-- [ ] Logout clears session and redirects to login
-```
+
+## Bug reference model
+
+**Pre-existing bugs** (in plan Goal): accept BUG-NNN as truth — don't look it up.
+**New bugs during testing**: write as findings immediately, file formally with `/wf-bug` after testing.
 
 ## Rules
 
-- **Do NOT** edit source code — only read plan.md and update plan status/findings
-- **Do NOT** skip user input — let the user describe what they see for each criterion
+- **Do NOT** edit source code — only read the plan and write findings
+- **Do NOT** skip user input — let the user describe what they see
 - **Do NOT** break testing context — write findings immediately, never tell user to switch branches mid-test
-- **Accept natural language** — don't force rigid [pass/fail/skip/bug] prompts. Interpret the user's description.
-- **Let users add details** — if a user provides additional context about a finding, append it to the existing finding's description
-- **Trust the plan's Goal section** — if a bug is mentioned there (e.g., `**Bug:** BUG-005`), it's the source of truth. Don't look for bugs/folder (it's not in feature branch).
-- **Bug filing happens after testing** — findings are written to `.plan/findings.md` during testing. Formal bug reports on develop (`/wf-bug`) are filed after testing completes, not during.
-- Severity for human-test findings is either `Warning` (broken behavior) or `Escalated` (new/changed behavior) — never `Critical`
-- If a finding blocks later work, user can move it to Critical during `/wf-implement` fix cycle
-- **Container cleanup is automatic** — the Docker container and volumes are destroyed at the end of testing (step 11), so the worktree stays clean
-- **One testing worktree at a time** — only one feature branch should test simultaneously (each uses unique port from step 4)
-
-## On startup
-
-1. Check current branch — run `git branch --show-current`
-2. **If on `develop`:**
-   - Run `scripts/wf-list-testable.sh` (stdout + stderr together). Format:
-     - **stdout** lines: `<plan-name>\t<worktree-path>\t<branch>\t<goal>` (worktree/branch may be empty)
-     - **stderr** summary: `TESTABLE: N`, `BLOCKED: N`, `NOT_VERIFIED: N`, `TOTAL_VERIFY: N`
-     - Exit 0 = testable plans found, exit 1 = none.
-   - Parse the output directly — do NOT read plan files or findings to determine eligibility.
-   - If TESTABLE > 0, show menu from stdout lines:
-     ```
-     Available worktrees ready for testing:
-     1) PLN-NNN — <goal>
-     2) PLN-NNN — <goal>
-     
-     Which worktree would you like to test? (enter number)
-     ```
-   - If TESTABLE = 0 and BLOCKED > 0: "No worktrees ready for testing — N plan(s) have open/escalated findings. Run /wf-implement to address them."
-   - If TOTAL_VERIFY = 0: "No worktrees ready for testing. Run /wf-status to see pipeline state."
-   - User selects one
-   - If worktree path is non-empty, `cd` into it. If empty, tell user no worktree exists for that plan.
-   - Continue to step 3
-
-3. **If on a feature branch** (e.g., `feature/site-version-indicator`):
-   - Confirm you are on one of: `feature/*`, `release`, or `main`
-   - Confirm `.plan/plan.md` exists
-   - Continue to testing
-
-4. If no plans ready for testing anywhere, stop with message: "No worktrees ready for testing. Run /wf-status to see pipeline state."
-
-## Committing work
-
-After all criteria pass (on feature branch):
-```
-git add .plan/
-git commit -m "test(PLN-NNN-<plan-name>): human test passed"
-```
-
-If findings are found (on feature branch):
-```
-git add .plan/
-git commit -m "test(PLN-NNN-<plan-name>): N findings from human test"
-```
-
-Pipeline stage changes (e.g., moving to replanning) happen on develop.
+- **Accept natural language** — interpret user descriptions, don't force rigid prompts
+- Severity for human-test findings is either `Behavior` (code fix) or `ESCALATED` (design) — never Critical
+- Only one testing worktree at a time
 
 ## Notes
 
-- **Port ranges:**
-  - **Static site:** 8000-8099 (reserved for staging at 8081 and other static/non-feature uses)
-  - **Feature branches:** 8100+ (calculated as 8100 + plan ID, e.g., PLN-004 → 8104, PLN-012 → 8112)
-- **Health check endpoint:** `http://localhost:$FEATURE_PORT/health`
-- **Project name:** `sbc-pln<id>` (e.g., `sbc-pln004`, set in step 4)
-- **Environment:** Development (localhost testing)
-- **Collision prevention:** Feature range (8100+) is completely separate from static range (8000-8099)
+| Range | Use |
+|-|-|
+| 8000-8099 | Static site, staging (8081) |
+| 8100+ | Feature branches (8100 + plan ID) |
+| 8080 | Default local dev |
+
+Project name: `sbc-pln<id>` (e.g., `sbc-pln004`)

@@ -19,20 +19,20 @@ Wait for the user to respond before continuing. If they proceed without switchin
 
 If already on haiku, skip the prompt and continue directly.
 
-## Folder structure
+## State context
 
 ```
-release/          → staging integration (merge PRs here, then promote to main)
-main/             → ready for production (git push origin main triggers deploy in GitHub Actions)
-plans/verify/     → plans with Status Tested (PR created, awaiting merge in wf-release)
-plans/complete/   → plans promoted to main (ready or live)
-bugs/triaged/     → bugs linked to verified plans (move to closed when plan completes)
+plans/REGISTRY.md → single source of truth (plans in "complete" state after this skill runs)
+bugs/triaged/     → bugs linked to plans (move to closed/ when plan completes)
 bugs/closed/      → closed bugs
 ```
 
 ## What you do
 
-1. **Confirm you are on the `release` branch** — run `git branch --show-current`. Must be `release`.
+1. **Confirm you are on the `release` branch:**
+   ```bash
+   scripts/wf-branch-check.sh release
+   ```
 2. **List open PRs targeting `release`**:
    ```bash
    gh pr list --base release --state open --json number,title,headRefName
@@ -58,28 +58,17 @@ bugs/closed/      → closed bugs
    git merge -X theirs --no-ff release -m "release: promote to main"
    ```
    The `-X theirs` option automatically accepts release's version of any conflicting files in `plans/`.
-10. **Move plans from `verify/` → `complete/`** (on the main branch):
-    For each merged PR's plan name (e.g., `PLN-004-deployment-date-footer`):
+10. **Update REGISTRY.md** — for each merged PR's plan, verify state is `complete`. If not:
     ```bash
-    git mv plans/verify/PLN-NNN-<plan-name> plans/complete/PLN-NNN-<plan-name>
+    scripts/wf-registry-update.sh PLN-NNN testing complete -
     ```
-    Update `plan.md`: set Status to `Complete` and add a note:
-    ```
-    Completed: YYYY-MM-DD — deployed to production
-    ```
-11. **Close linked bugs**:
-    - For each plan in `plans/complete/`, read `plan.md` Goal to find the `**Bug:**` line (if present)
-    - Extract BUG-NNN identifier
-    - Move `bugs/triaged/BUG-NNN-<slug>/` → `bugs/closed/BUG-NNN-<slug>/`
-    - Update `bug.md` in that folder:
-      ```
-      Status: Closed
-      Closed: YYYY-MM-DD
-      Notes: Fixed by plan: plans/complete/<plan-folder>/
-      ```
-12. **Commit all plan moves and bug closures**:
+11. **Close linked bugs** — for each completed plan, check `plan.md` Goal for `**Bug:**` line:
     ```bash
-    git add plans/complete/ bugs/closed/
+    scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
+    ```
+12. **Commit plan and bug updates**:
+    ```bash
+    git add plans/REGISTRY.md plans/PLN-*/plan.md bugs/closed/
     git commit -m "release: complete [plan-names], close bugs"
     ```
 13. **Back-merge `main` → `develop`** (auto-resolve in favor of main):
@@ -115,14 +104,14 @@ bugs/closed/      → closed bugs
     This will trigger the production deploy to https://slicedbread.ca
     ```
 
-## Plan conflict resolution
+## Conflict resolution
 
-Merge strategy `-X theirs` (step 9) and `-X ours` (step 13) automatically resolve all plan conflicts:
+Merge strategy `-X theirs` (step 9) and `-X ours` (step 13) automatically resolve conflicts:
 
-- **release → main:** Accept release's version (has tested plans)
-- **main → develop:** Accept main's version (has complete/ plans)
+- **release → main:** Accept release's version
+- **main → develop:** Accept main's version (has REGISTRY.md updates)
 
-If a merge fails despite the `-X` flag, a complex conflict exists. Abort and notify the user for manual resolution.
+Plans never move folders, so the only potential conflict is REGISTRY.md — which is row-based and auto-merges in most cases. If a merge fails, abort and notify the user.
 
 ## Rules
 
@@ -134,23 +123,10 @@ If a merge fails despite the `-X` flag, a complex conflict exists. Abort and not
 
 ## Bug closing
 
-When a plan reaches `Complete`, check if `plan.md` contains a `**Bug:**` line in the Goal section.
-
-Format:
+When a plan reaches `complete` state in REGISTRY.md, check if `plan.md` contains a `**Bug:**` line in the Goal section. Extract BUG-NNN, then:
+```bash
+scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
 ```
-## Goal
-Fix the [description]. (**Bug:** BUG-NNN-<slug>)
-```
-
-Extract BUG-NNN and slug, then:
-1. Read `bugs/triaged/BUG-NNN-<slug>/bug.md`
-2. Update `bug.md`:
-   ```
-   Status: Closed
-   Closed: YYYY-MM-DD
-   Notes: Fixed by plan: plans/complete/<plan-folder>/
-   ```
-3. Move folder: `git mv bugs/triaged/BUG-NNN-<slug> bugs/closed/BUG-NNN-<slug>`
 
 ## On startup
 

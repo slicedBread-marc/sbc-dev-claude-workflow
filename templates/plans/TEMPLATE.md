@@ -1,16 +1,17 @@
 # Plan Folder Structure
 
-Each implementation plan lives in its own folder named after the feature:
+Each implementation plan lives in its own immovable folder:
 
 ```
-plans/<stage>/<feature-name>/
+plans/PLN-NNN-<slug>/
   plan.md        — static spec: goal, steps, tests, design decisions
-  findings.md    — shared queue: /review and /verify append; /implement updates status
+  findings.md    — append-only log from verify agent and human testing
   progress.md    — implementer log: step completions, notes
-  debug.md       — (optional) debug session log: reproduction steps, screenshots, observations
 ```
 
-The feature name should be a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `audit-log-export`).
+Plans are created once at `plans/PLN-NNN-<slug>/` and **never move**. State is tracked in `plans/REGISTRY.md`, not by folder location.
+
+Feature branches contain **no plan content** — only a `.plan-ref` file with the plan ID (e.g. `PLN-003`). Skills read plan content from the develop worktree.
 
 ---
 
@@ -20,11 +21,10 @@ The feature name should be a short kebab-case slug describing the work (e.g. `us
 # [Feature Name]
 
 > **ID:** PLN-NNN
-> **schema_version:** 2
-> **Status:** Draft | Ready | Active | Verifying | Replanning | Complete
+> **schema_version:** 4
 > **Created:** YYYY-MM-DD
 > **Bug:** BUG-NNN — <title> _(optional, only if fixing a bug)_
-> **Brief:** ../briefs/<brief-name>.md _(optional, only if from a brief)_
+> **Brief:** briefs/<brief-name>.md _(optional, only if from a brief)_
 
 ## Goal
 One paragraph: what this achieves and why it matters.
@@ -121,23 +121,30 @@ How to confirm the rollback succeeded.
 ```markdown
 # Findings — [Feature Name]
 
-> Written by `/wf-review` and `/wf-verify`. Status updated by `/wf-implement`.
-> `/wf-review` and `/wf-verify` append rows with status `Open` or `Escalated`.
-> `/wf-implement` sets `Open` → `Fixed`. `/wf-verify` sets `Fixed` → `Verified`.
-> Plan cannot reach Complete while any finding is Open, Fixed, or Escalated.
-
-| ID | Source | Severity | Category | Description | Files | Status |
-|-|-|-|-|-|-|-|
-<!-- FND-001 | review | Critical | Security | ... | path/file.cs:42 | Open -->
-<!-- FND-002 | verify | Warning  | Behavior | ... | path/file.cs:18 | Fixed -->
-<!-- FND-003 | verify | Critical | Design   | ... | path/file.cs:7  | Escalated -->
+> Appended by the verify agent and human testing (`/wf-test`).
+> T3 checks off items as they fix them. ESCALATED items route to T2.
 ```
 
-**Status values:**
-- `Open` — code-level issue, implementer can fix
-- `Fixed` — implementer addressed it, awaiting verification
-- `Verified` — verifier confirmed the fix
-- `Escalated` — design/scope issue, requires planner to amend the plan
+Each verify/test session appends a dated section with a flat checklist:
+
+```markdown
+## Verify — YYYY-MM-DD
+
+- [ ] **Code**: Description of issue (path/to/file.ext:42)
+- [ ] **Code**: Missing test for X
+- [ ] **Spec**: Rollback section has TBD placeholder
+- [ ] **Design**: Approach incompatible with constraint — needs plan change ← ESCALATED
+
+## Human Test — YYYY-MM-DD
+
+- [ ] **Behavior**: Button doesn't respond on mobile (observed by tester)
+- [ ] **Design**: Users expect different flow than specified ← ESCALATED
+```
+
+**Routing rules** (applied by verify agent / wf-test exit logic):
+- Any `ESCALATED` item → state goes to `draft` (T2 replans)
+- Any unchecked non-escalated items → state goes to `active` (T3 fix cycle)
+- All items checked → state advances (verify→testing, testing→complete)
 
 ---
 

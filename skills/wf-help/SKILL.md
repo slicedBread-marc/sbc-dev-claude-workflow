@@ -58,14 +58,14 @@ T1: Sonnet Intake
 
 T2: Opus Planner
   • /wf-spec: Convert briefs/bugs → implementation plans
-  • Keeps ready/ queue filled (2–3 plans ahead)
+  • Keeps ready queue filled (2–3 plans ahead)
   • Manual (not looped)
   • BOTTLENECK: If idle, means T1 is starving (no briefs)
 
 T3: Sonnet Builder
   • /wf-implement: Execute plans step-by-step
   • Runs in loop: /loop 2m /wf-implement
-  • Auto-picks plans from ready/ when available
+  • Auto-picks plans from ready state when available
   • BOTTLENECK: If idle, means T2 is too slow
 
 T4: Haiku Tester
@@ -77,18 +77,21 @@ T4: Haiku Tester
 
 Release (any terminal on release/main branch):
   • /wf-release: Promote release → main, mark plans complete, close bugs
-  • Merges release to main, moves plans to complete/, back-merges to develop
+  • Merges release to main, updates REGISTRY to complete, back-merges to develop
   • Run after PRs are merged to release and staging is validated
 
 ═══════════════════════════════════════════════════════════════════════════
 
 QUEUE STATES:
 
-plans/ready/     → Plans waiting for T3 to implement
-plans/active/    → Plan being worked on by T3
-plans/verify/    → Plan waiting for T4 to test (human acceptance)
-plans/complete/  → Plan finished and verified
-plans/rolled-back/ → Plan reverted due to issues
+State is tracked in plans/REGISTRY.md (not by folder):
+  draft       → Being written or needs replanning (T2)
+  ready       → Spec approved, waiting for T3
+  active      → Being implemented or in fix cycle (T3)
+  verify      → Verify agent running automated checks (auto)
+  testing     → Passed auto checks, needs human test (T4)
+  complete    → Done
+  rolled-back → Reverted
 
 bugs/open/       → Bugs waiting for T2 to plan fixes (fed by T1)
 bugs/triaged/    → Bugs linked to plans in progress

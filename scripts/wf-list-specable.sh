@@ -1,25 +1,30 @@
 #!/usr/bin/env bash
 # wf-list-specable.sh
 # Outputs work available for /wf-spec, in priority order.
-# Sections are separated by header lines starting with '#'.
-# Exit 0 if any work found, exit 1 if nothing at all.
+# Reads REGISTRY.md for plans in draft state, plus bugs/open and briefs.
+# Exit 0 if any work found, exit 1 if nothing.
 
 set -euo pipefail
 
+REGISTRY="plans/REGISTRY.md"
 found=0
 
-# --- Escalated plans (highest priority) ---
-# Only scan develop's plans/replanning/ — it is the source of truth.
+# --- Escalated plans in draft state (highest priority) ---
 escalated=()
-
-for plan in plans/replanning/*/plan.md; do
-  [ -f "$plan" ] || continue
-  plan_name=$(basename "$(dirname "$plan")")
-  findings="$(dirname "$plan")/findings.md"
-  count=$(grep -c "| Escalated |" "$findings" 2>/dev/null || true)
-  escalated+=("$plan_name	$count escalated finding(s)")
-  found=1
-done
+while IFS='|' read -r _ id slug state _rest; do
+  id=$(echo "$id" | xargs)
+  slug=$(echo "$slug" | xargs)
+  state=$(echo "$state" | xargs)
+  [ "$state" = "draft" ] || continue
+  plan_dir="plans/${id}-${slug}"
+  [ -d "$plan_dir" ] || continue
+  findings="$plan_dir/findings.md"
+  if [ -f "$findings" ] && grep -q "ESCALATED" "$findings" 2>/dev/null; then
+    count=$(grep -c "ESCALATED" "$findings" 2>/dev/null || echo 0)
+    escalated+=("${id}-${slug}	$count escalated finding(s)")
+    found=1
+  fi
+done < <(grep "^|" "$REGISTRY" | tail -n +3)
 
 if [ ${#escalated[@]} -gt 0 ]; then
   echo "# replanning"
@@ -32,8 +37,8 @@ fi
 bugs_found=0
 for bug_md in bugs/open/*/bug.md; do
   [ -f "$bug_md" ] || continue
-  bug_id=$(grep "^\*\*ID:\*\*\|^> \*\*ID:\*\*" "$bug_md" 2>/dev/null | head -1 | grep -o 'BUG-[0-9]*')
-  severity=$(grep "^\*\*Severity:\*\*\|^> \*\*Severity:\*\*" "$bug_md" 2>/dev/null | head -1 | sed 's/.*Severity:\*\*[[:space:]]*//' | sed 's/^> //')
+  bug_id=$(grep -oE 'BUG-[0-9]+' "$bug_md" 2>/dev/null | head -1)
+  severity=$(grep -E "Severity:" "$bug_md" 2>/dev/null | head -1 | sed 's/.*Severity:\*\*[[:space:]]*//' | sed 's/^> //')
   title=$(head -1 "$bug_md" | sed 's/^# //')
   [ -n "$bug_id" ] || continue
   if [ $bugs_found -eq 0 ]; then echo "# bugs"; fi
@@ -48,12 +53,10 @@ if [ -f "plans/briefs/INDEX.md" ]; then
   in_decided=0
   while IFS= read -r line; do
     if echo "$line" | grep -q "^## Decided"; then
-      in_decided=1
-      continue
+      in_decided=1; continue
     fi
     if echo "$line" | grep -q "^## "; then
-      in_decided=0
-      continue
+      in_decided=0; continue
     fi
     if [ $in_decided -eq 1 ] && echo "$line" | grep -q "^\- \["; then
       name=$(echo "$line" | sed 's/^\- \[//' | sed 's/\].*//')

@@ -21,7 +21,11 @@ If already on sonnet, skip the prompt and continue directly.
 
 ## What you do
 
-1. **Assign a brief ID** — when the user describes something they want to build or change, read `plans/.counter` for the next number N, write N+1 back, and use `BRF-N` (zero-padded to 3 digits) as the ID. Create a brief in `plans/briefs/BRF-NNN-<name>.md` following `plans/briefs/TEMPLATE.md`. New briefs must include `schema_version: 2` in their header. If `plans/.counter` does not exist, fall back to scanning existing brief files for the highest `BRF-NNN` number and incrementing by 1 (legacy fallback only).
+1. **Assign a brief ID** — when the user describes something they want to build or change:
+   ```bash
+   new_id=$(scripts/wf-counter-next.sh BRF)
+   ```
+   This reads the counter, prints the prefixed ID (e.g., `BRF-021`), and increments. Create a brief in `plans/briefs/$new_id-<name>.md` following `plans/briefs/TEMPLATE.md`. New briefs must include `schema_version: 4` in their header.
 2. **Capture ideas** — fill in Problem, Rationale, and initial approach from the conversation
 3. **Explore options** — help the user think through tradeoffs, list alternatives, surface risks
 4. **Track status** — set the brief status appropriately:
@@ -47,9 +51,11 @@ If already on sonnet, skip the prompt and continue directly.
 
 ## On startup
 
-**Branch check** — run `git branch --show-current`. If not on `develop`, stop and tell the user:
-> "This skill must run on `develop`. Run `git checkout develop` first."
-Do not proceed until the branch is `develop`.
+**Branch check:**
+```bash
+scripts/wf-branch-check.sh develop
+```
+If exit code 1, stop and tell the user: "This skill must run on `develop`. Run `git checkout develop` first."
 
 Read `plans/briefs/INDEX.md` to understand the current backlog. Ask the user what they'd like to explore or create.
 

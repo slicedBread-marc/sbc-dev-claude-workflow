@@ -1,7 +1,7 @@
 # Plan Eligibility Rules
 
 Canonical reference for what makes an artifact eligible at each workflow stage.
-Scripts in `scripts/wf-list-*.sh` implement these rules. Skills reference this document.
+All eligibility is determined by `plans/REGISTRY.md` state. Scripts in `scripts/wf-list-*.sh` implement these rules.
 
 ---
 
@@ -9,15 +9,13 @@ Scripts in `scripts/wf-list-*.sh` implement these rules. Skills reference this d
 
 **Script:** `scripts/wf-list-specable.sh`
 
-Sources checked in priority order:
-
 | Priority | Source | Eligible when |
 |-|-|-|
-| 1 | `plans/replanning/*/plan.md` | Folder exists. Count of `\| Escalated \|` rows in `findings.md` shown for context. |
-| 2 | `bugs/open/*/bug.md` | Folder exists, `bug.md` has a `**ID:**` field with a `BUG-NNN` value. |
-| 3 | `plans/briefs/INDEX.md` | Line is under the `## Decided` heading and matches `- [name]` (unchecked item). |
+| 1 | REGISTRY.md `draft` state | Plan has `ESCALATED` items in `findings.md` (returned from verify/test) |
+| 2 | `bugs/open/*/bug.md` | Bug exists with `BUG-NNN` ID |
+| 3 | `plans/briefs/INDEX.md` | Entry under `## Decided` heading |
 
-**Not eligible:** Briefs under other headings (Parked, Ideas). Bugs in `triaged/` or `closed/`.
+**Not eligible:** Briefs under other headings. Bugs in `triaged/` or `closed/`. Draft plans without ESCALATED findings (new plans being written — T2 is already on them).
 
 ---
 
@@ -25,30 +23,30 @@ Sources checked in priority order:
 
 **Script:** `scripts/wf-list-implementable.sh`
 
-| Type | Source | Eligible when |
+| Type | REGISTRY State | Eligible when |
 |-|-|-|
-| `new` | `plans/ready/*/plan.md` | Plan exists and no matching worktree in `feature-branches/` (by PLN prefix). |
-| `amendment` | `plans/ready/*/plan.md` | Plan exists and a matching worktree already exists (re-spec'd plan). |
-| `resume` | `plans/active/*/plan.md` | Plan exists (mid-implementation, worktree should exist). |
-| `fix` | `plans/verify/*/plan.md` | Status line contains `with-findings` (case-insensitive) **OR** `findings.md` has `\| Open \|` rows. |
+| `new` | `ready` | Plan exists, no existing worktree |
+| `resume` | `active` | No unchecked findings in `findings.md` |
+| `fix` | `active` | Has unchecked (non-ESCALATED) findings in `findings.md` |
 
 **Not eligible:**
-- Plans in `plans/verify/` with Status `Verified` and no open findings — these belong to T4's testable list (`wf-test`), not T3.
-- Plans in `plans/complete/`, `plans/drafts/`, or `plans/replanning/`.
+- Plans in `draft`, `verify`, `testing`, or `complete` state.
+- Plans in `active` with only ESCALATED findings — these need T2 (wf-spec).
 
 ---
 
-## wf-verify (T4 — Verifier)
+## Verify Agent (automatic)
 
-**Script:** none (skill scans `plans/verify/` directly)
+**Trigger:** REGISTRY.md state change to `verify`
 
 | Source | Eligible when |
 |-|-|
-| `plans/verify/*/plan.md` | Folder exists on develop. Skill asks the user which plan if multiple exist. |
+| REGISTRY.md `verify` state | Automatic — triggered by hook |
 
-**Not eligible:** Plans in other pipeline stages. Plans already at Status `Complete`.
-
-**Note:** wf-verify does not currently distinguish between plans needing first verification and plans with existing findings. The verifier reads `.plan/findings.md` in the worktree to understand state.
+The verify agent runs autonomously and auto-routes:
+- Clean → `testing`
+- Code/spec findings → `active` (back to T3)
+- ESCALATED findings → `draft` (back to T2)
 
 ---
 
@@ -58,31 +56,28 @@ Sources checked in priority order:
 
 | Source | Eligible when |
 |-|-|
-| `plans/verify/*/plan.md` | Status line matches `Verified` (case-insensitive, supports markdown formatting) AND does NOT contain `with-findings` AND `findings.md` has zero `\| Open \|` or `\| Escalated \|` rows. |
+| REGISTRY.md `testing` state | Plan has passed automated verification |
 
 **Not eligible:**
-- Plans with Status `Verified-with-findings` — need fix cycle via wf-implement first.
-- Plans with Status `Verified` but Open or Escalated findings in `findings.md`.
-- Plans in any other pipeline stage (Active, Tested, etc.).
-
-**Note:** Plans with only `Fixed` findings ARE eligible — the fixes have been addressed.
+- Plans in any other state.
+- Plans that haven't been through the verify agent yet.
 
 **Output format:**
-- **stdout:** `<plan-name>\t<worktree-path>\t<branch>\t<goal>` per eligible plan (worktree/branch may be empty)
-- **stderr:** structured summary: `TESTABLE: N`, `BLOCKED: N`, `NOT_VERIFIED: N`, `TOTAL_VERIFY: N`
+- **stdout:** `<plan-name>\t<worktree-path>\t<branch>\t<goal>` per eligible plan
+- **stderr:** `TESTABLE: N`, `TOTAL: N`
 
 ---
 
-## Summary: Status + Findings Matrix
+## Summary: State Routing
 
-How a plan in `plans/verify/` is routed based on its status and findings state:
-
-| Status | Open findings? | Routed to |
+| REGISTRY State | Who acts | Skill/Agent |
 |-|-|-|
-| `Verified` | No | wf-test (human testing) |
-| `Verified` | Yes | wf-implement as `fix` (status is stale — should be `Verified-with-findings`) |
-| `Verified-with-findings` | Yes | wf-implement as `fix` |
-| `Verified-with-findings` | No | wf-test (findings resolved — status is stale, should be `Verified`) |
-| `Verifying` | — | wf-verify (in progress) |
-| `Replanning` | — | Should be in `plans/replanning/`, not `verify/` |
-| `Complete` | — | Should be in `plans/complete/`, not `verify/` |
+| `draft` (no findings) | T2 | wf-spec (new plan) |
+| `draft` (ESCALATED findings) | T2 | wf-spec (replanning) |
+| `ready` | T3 | wf-implement (new) |
+| `active` (no findings) | T3 | wf-implement (resume) |
+| `active` (unchecked findings) | T3 | wf-implement (fix cycle) |
+| `verify` | Agent | wf-verify (automatic) |
+| `testing` | T4 | wf-test (human acceptance) |
+| `complete` | — | Done |
+| `rolled-back` | — | Reverted |

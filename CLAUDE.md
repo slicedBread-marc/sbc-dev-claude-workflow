@@ -21,28 +21,42 @@ The workflow is designed to run across 4 terminal sessions, each with a dedicate
 | T1 | Intake | `/wf-status`, `/wf-brainstorm`, `/wf-bug` | Sonnet |
 | T2 | Planner | `/wf-spec` | Opus |
 | T3 | Builder | `/wf-implement` | Sonnet |
-| T4 | Validator | `/wf-verify`, `/wf-test` | Sonnet |
+| T4 | Tester | `/wf-test` | Haiku |
+| Agent | Verifier | `wf-verify` (auto-triggered) | Sonnet |
 
 Each terminal runs `/wf-init` once per session to establish its role. `/wf-next` auto-routes to the correct skill based on `TERMINAL_ROLE`.
 
 ---
 
-### Plan Pipeline (folder stages)
+### Design Principles
 
-Plans move through these folders on **develop** (the pipeline source of truth):
+1. **Immovable plans** — each plan lives at `plans/PLN-NNN-<slug>/` forever. No folder movement.
+2. **Registry as state machine** — `plans/REGISTRY.md` is the single source of truth for plan state.
+3. **Simple entry, complex exit** — every skill starts with one `grep` on REGISTRY.md. Exit logic handles state transitions, commits, and handoffs.
+4. **No plan content on feature branches** — only a `.plan-ref` file (one line: the plan ID). Skills read plan content from the develop worktree.
+
+---
+
+### Plan Pipeline
+
+State is tracked in `plans/REGISTRY.md`, not by folder location:
 
 ```
-plans/briefs/       → ideas and decided briefs (T1/T2 input)
-plans/drafts/       → plan being written by T2
-plans/ready/        → reviewed and approved, waiting for T3
-plans/active/       → claimed and in progress by T3
-plans/verify/       → implementation complete, waiting for T4
-plans/replanning/   → escalated findings requiring T2 design decisions
-plans/complete/     → accepted by T4, merged to release
-plans/rolled-back/  → reverted plans
+draft → ready → active → verify ──[agent]──→ testing → complete
+                  ↑          |
+                  |          ├→ active  (fix cycle)
+                  |          └→ draft   (escalation)
+                  └→ draft  (implementer escalation)
 ```
 
-On **feature branches**, the working plan lives in `.plan/` (plan.md, findings.md, progress.md). Feature branches never modify `plans/` — pipeline stage moves only happen on develop. This prevents cross-contamination between worktrees and eliminates merge conflicts on unrelated plans.
+| State | Meaning | Who acts next |
+|-|-|-|
+| `draft` | Being written or needs replanning | T2 (wf-spec) |
+| `ready` | Spec approved, waiting for builder | T3 (wf-implement) |
+| `active` | Being implemented or in fix cycle | T3 |
+| `verify` | Verify agent running automated checks | (automatic) |
+| `testing` | Passed automated checks, needs human test | T4 (wf-test) |
+| `complete` | Done | — |
 
 Bugs move through: `bugs/open/` → `bugs/triaged/` → `bugs/closed/`
 
@@ -50,17 +64,17 @@ Bugs move through: `bugs/open/` → `bugs/triaged/` → `bugs/closed/`
 
 ### Full Workflow
 
-1. **T1 (Intake)** runs `/wf-status` to see the pipeline. Files bugs with `/wf-bug`. Brainstorms and decides briefs with `/wf-brainstorm`.
+1. **T1 (Intake)** runs `/wf-status` to see the pipeline (reads REGISTRY.md). Files bugs with `/wf-bug`. Brainstorms and decides briefs with `/wf-brainstorm`.
 
-2. **T2 (Planner)** runs `/wf-spec` to convert a decided brief or open bug into a plan. Writes steps, tests, rollback, design decisions. A sonnet review agent gates the plan before it moves to `ready/`.
+2. **T2 (Planner)** runs `/wf-spec` — greps REGISTRY for `draft` state. Converts briefs/bugs into plans or amends escalated plans. Review gate promotes `draft→ready`.
 
-3. **T3 (Builder)** runs `/wf-implement` to claim a plan from `ready/`, create a feature branch worktree with `.plan/`, execute each step, and update develop's pipeline stage to `verify/`.
+3. **T3 (Builder)** runs `/wf-implement` — greps REGISTRY for `ready` or `active` state. Creates feature branch worktree with `.plan-ref`, codes all steps. Exit sets `active→verify`, triggering the verify agent.
 
-4. **T4 (Validator)** runs `/wf-verify` to check the implementation against `.plan/` in the worktree. Appends findings to `.plan/findings.md`. Open findings go back to T3 (fix cycle). Escalated findings go back to T2 (replanning). Clean plans move to `verify/` on develop.
+4. **Verify agent** (automatic) — triggered by REGISTRY state change to `verify`. Checks code, spec completeness, and design soundness. Auto-routes: clean→`testing`, findings→`active`, escalated→`draft`.
 
-5. **T4** runs `/wf-test` for human acceptance testing. On pass, merges the feature PR to release, merges feature branch back to develop (so subsequent plans see the work), and rebuilds the staging container on port 8081.
+5. **T4 (Tester)** runs `/wf-test` — greps REGISTRY for `testing` state. Guides human through acceptance criteria. On pass, creates PR to release and sets `testing→complete`.
 
-6. **Release** — `/wf-release` promotes the combined release branch to `main`. Plans move to `complete/`, bugs close, and main back-merges to develop. Staging container is stopped. Pushing main triggers production deploy.
+6. **Release** — `/wf-release` promotes the combined release branch to `main`. Bugs close, and main back-merges to develop.
 
 ---
 
@@ -79,19 +93,10 @@ T3 creates a `feature/<plan-name>` branch and worktree from `develop`. On comple
 
 ### Artifact ID System
 
-All artifacts (plans, bugs, briefs) use a **global shared counter** stored in `plans/.counter`.
+All artifacts (plans, bugs, briefs) use a **global shared counter** embedded in `plans/REGISTRY.md` as `<!-- Counter: N -->`.
 
-- The file contains a single integer — the next number to allocate.
-- When creating any artifact, read the counter, use it, write `N+1` back.
-- IDs are type-prefixed for readability: `PLN-NNN`, `BUG-NNN`, `BRF-NNN`.
-- Numbers are globally unique across all types — no two artifacts share a number.
+- When creating any artifact, read the counter, use it, write `N+1` back in the same commit.
+- IDs are type-prefixed: `PLN-NNN`, `BUG-NNN`, `BRF-NNN`.
+- Numbers are globally unique across all types.
 
-**Schema versions** (see `docs/schema.md`):
-
-| `schema_version` | Meaning |
-|-|-|
-| absent | Legacy (v1) — independent per-type counters, pre-global system |
-| `2` | Global counter, all new artifacts |
-| `3` | Current — `.plan/` on feature branches, `plans/` on develop only for pipeline stages |
-
-Skills check `schema_version` to handle legacy documents gracefully. New artifacts always write `schema_version: 3`. Plans in worktrees with `plans/verify/` (v2) are supported alongside `.plan/` (v3) during transition.
+**Schema version:** `4` (see `docs/schema.md`). Registry-based model — plans never move, state in REGISTRY.md, `.plan-ref` on feature branches.
