@@ -84,16 +84,14 @@ After user picks:
 
 ### If all pass
 
-1. Commit status on feature branch:
-   ```bash
-   git add -A
-   git commit -m "test(PLN-NNN-<slug>): human test passed"
-   ```
-2. Create PR to release:
+All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) unless noted.
+
+1. Push feature branch and create PR to release:
    ```bash
    CURRENT_BRANCH=$(git branch --show-current)
    PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
    PLAN_GOAL=$(grep -A 1 "^## Goal" ../../plans/PLN-NNN-<slug>/plan.md | tail -1)
+   git push -u origin "$CURRENT_BRANCH"
    
    gh pr create \
      --base release \
@@ -109,10 +107,17 @@ After user picks:
    
    Ready for staging validation."
    ```
-3. Destroy container and return to develop:
+2. Destroy container:
    ```bash
    ../../scripts/wf-docker-down.sh
-   cd ../..
+   ```
+
+Steps below run from **project root** — use absolute path `cd /absolute/path/to/project`:
+
+3. Switch to develop:
+   ```bash
+   cd /absolute/path/to/project
+   git checkout develop
    ```
 4. Update REGISTRY:
    ```bash
@@ -138,19 +143,26 @@ After user picks:
 
 ### If findings (failures)
 
-1. Write findings to `plans/PLN-NNN-<slug>/findings.md` on develop:
+1. Write findings to `plans/PLN-NNN-<slug>/findings.md` on develop (from worktree, path is `../../plans/PLN-NNN-<slug>/findings.md`):
    ```markdown
    ## Human Test — YYYY-MM-DD
    
    - [ ] **Behavior**: Button doesn't respond on mobile
    - [ ] **Design**: Users expect different flow ← ESCALATED
    ```
-2. Destroy container and return to develop:
+2. Destroy container (from worktree):
    ```bash
    ../../scripts/wf-docker-down.sh
-   cd ../..
    ```
-3. Determine route:
+
+Steps below run from **project root** — use absolute path `cd /absolute/path/to/project`:
+
+3. Switch to develop:
+   ```bash
+   cd /absolute/path/to/project
+   git checkout develop
+   ```
+4. Determine route:
    ```bash
    route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
    ```
