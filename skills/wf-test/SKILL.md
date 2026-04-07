@@ -29,7 +29,14 @@ If already on haiku, skip the prompt and continue directly.
 scripts/wf-list-testable.sh
 ```
 
-Show menu from script output (tab-separated: `<plan-name>\t<worktree>\t<branch>\t<goal>`).
+Show menu from script output as a **numbered table** — always use table format, never paragraphs:
+
+```
+| # | Plan | Goal |
+|-|-|-|
+| 1 | PLN-006-bug-008-responsive-notice-dismiss | Fix responsive notice dismiss |
+| 2 | PLN-007-bug-006-province-puzzle-bleedthrough | Fix province puzzle bleedthrough |
+```
 
 If exit code 1: "No plans ready for testing. Run /wf-status to see pipeline state."
 
