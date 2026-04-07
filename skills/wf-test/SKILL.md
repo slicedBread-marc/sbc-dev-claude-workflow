@@ -124,6 +124,8 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    **Plan:** plans/PLN-NNN-<slug>/
    
    Ready for staging validation."
+   
+   gh pr merge --merge --delete-branch
    ```
 2. Destroy container:
    ```bash
