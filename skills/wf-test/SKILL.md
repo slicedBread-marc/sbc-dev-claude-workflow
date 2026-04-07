@@ -62,14 +62,20 @@ After user picks:
    eval "$(../../scripts/wf-docker-up.sh)"
    ```
    This sets FEATURE_PORT and COMPOSE_PROJECT_NAME, builds, and waits for health.
-4. **Ask testing mode:**
+3. **List all criteria, then ask testing mode:**
    ```
    App is running at http://localhost:$FEATURE_PORT
+   
+   ## Acceptance Criteria
+   1. criterion one
+   2. criterion two
+   ...
    
    How would you like to test?
    [each] - Walk through each criterion individually
    [all]  - Pass all criteria (assume they all passed)
    ```
+   Always list all Human Test Criteria **before** the mode prompt so the user can see what they're about to test.
 
 5. **If mode = [all]**: Skip to step 7 — mark all criteria as pass
 
