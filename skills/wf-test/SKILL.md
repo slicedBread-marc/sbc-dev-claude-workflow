@@ -85,11 +85,11 @@ After user picks:
        - **ESCALATED** (design — requires T2): new behavior not in plan, scope addition, UX change
        - **Behavior** (code fix — T3 can resolve): bug in specified behavior
        If unsure: "Is this a new behavior you want added, or something that should work but doesn't?"
-       **Do NOT stop testing.** Ask: "Want to add details, continue, or stop?"
+       **Do NOT stop testing.** Ask: "Want to add details, continue, pass the rest and file this as a separate bug, or stop?"
      - **Skip**: note it and continue
-     - **Partial pass trigger**: If the user says things like "mark the rest as passed", "skip this and pass", "can't test beyond this", or otherwise asks to reduce scope — go to **Partial pass** below. Do NOT create findings.
+     - **Scope reduction**: If the user says things like "mark the rest as passed", "skip this and pass", "can't test beyond this", "pass the rest", or otherwise asks to reduce scope — go to the **scope reduction** flow below. Do NOT create findings.
 
-### Partial pass (edge cases remain)
+### Scope reduction (edge cases filed separately)
 
 **IMPORTANT: This is a pass, not a failure. Use the "If all pass" exit path.**
 
@@ -103,7 +103,7 @@ When triggered:
 2. **Use the "If all pass" exit** — create PR, merge to develop, mark complete
 3. After the plan completes, tell the user: "File the remaining edge case with `/wf-bug` so it gets its own plan."
 
-**When NOT to use:** The core behavior specified in the plan doesn't work — that's a real failure, not a partial pass.
+**When NOT to use:** The core behavior specified in the plan doesn't work — that's a real failure.
 
 ---
 
