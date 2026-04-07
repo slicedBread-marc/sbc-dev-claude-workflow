@@ -80,6 +80,15 @@ for f in "$SCRIPT_DIR/templates/plans/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/
     fi
 done
 
+# Guard: warn if ~/.claude/skills is a symlink to source repo (causes duplicate skills)
+if [ -L "$HOME/.claude/skills" ]; then
+    link_target=$(readlink "$HOME/.claude/skills")
+    if [ "$link_target" = "$SCRIPT_DIR/skills" ]; then
+        echo -e "${RED}Warning: ~/.claude/skills is symlinked to $SCRIPT_DIR/skills${NC}"
+        echo -e "${RED}This causes duplicate skills in client sessions. Remove it with: rm ~/.claude/skills${NC}"
+    fi
+fi
+
 # Copy and templatize skills
 echo "Installing skills..."
 mkdir -p "$TARGET_DIR/.claude/skills"
