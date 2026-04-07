@@ -22,11 +22,11 @@ eval "$("$SCRIPT_DIR/wf-plan-port.sh" "$plan_folder")"
 echo "FEATURE_PORT=$FEATURE_PORT"
 echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME"
 
-# Start the container
+# Start the container (stderr so eval callers only get KEY=VALUE on stdout)
 FEATURE_PORT=$FEATURE_PORT docker compose \
   -f docker/docker-compose.yml \
   -p "$COMPOSE_PROJECT_NAME" \
-  up --build -d
+  up --build -d >&2
 
 # Wait for health
-"$SCRIPT_DIR/wf-wait-healthy.sh"
+"$SCRIPT_DIR/wf-wait-healthy.sh" >&2
