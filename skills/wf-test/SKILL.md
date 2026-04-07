@@ -117,27 +117,59 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    ```bash
    CURRENT_BRANCH=$(git branch --show-current)
    PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
-   PLAN_GOAL=$(grep -A 1 "^## Goal" ../../plans/PLN-NNN-<slug>/plan.md | tail -1)
+   PLAN_GOAL=$(grep -A 1 "^## Goal" ../../plans/$PLAN_NAME/plan.md | tail -1)
+   ```
+   Push to remote. If push fails, display the error and **stop** — ask the user to resolve manually.
+   ```bash
    git push -u origin "$CURRENT_BRANCH"
    ```
    Then check if there's a diff from release before creating PR:
    ```bash
    if git log release.."$CURRENT_BRANCH" --oneline | head -1 | grep -q .; then
-     gh pr create \
-       --base release \
-       --head "$CURRENT_BRANCH" \
-       --title "feat: $PLAN_NAME" \
-       --body "## Feature
+   ```
+   Create PR (skip if one already exists for this branch):
+   ```bash
+     EXISTING_PR=$(gh pr view "$CURRENT_BRANCH" --json url -q .url 2>/dev/null || echo "")
+     if [ -z "$EXISTING_PR" ]; then
+       gh pr create \
+         --base release \
+         --head "$CURRENT_BRANCH" \
+         --title "feat: $PLAN_NAME" \
+         --body "## Feature
    $PLAN_GOAL
    
    ## Test Results
    All acceptance criteria passed in human test
    
-   **Plan:** plans/PLN-NNN-<slug>/
+   **Plan:** plans/$PLAN_NAME/
    
    Ready for staging validation."
-   
-     gh pr merge --merge --delete-branch
+     fi
+   ```
+   **Merge the PR.** If merge fails (conflicts, branch protection, required checks), **stop and route to builder:**
+   ```bash
+     if ! gh pr merge --merge --delete-branch 2>/tmp/wf-pr-merge-err; then
+       PR_URL=$(gh pr view --json url -q .url)
+       echo "MERGE FAILED: PR $PR_URL — see error above."
+       echo "Routing back to builder."
+   ```
+   - Destroy container: `../../scripts/wf-docker-down.sh`
+   - Switch to project root
+   - Write findings to `plans/$PLAN_NAME/findings.md`:
+     ```markdown
+     ## Merge Blocked — YYYY-MM-DD
+     
+     - [ ] **Merge blocked**: PR cannot merge into release. Likely cause: merge conflicts. Rebase feature branch onto release, resolve conflicts, then re-trigger verify.
+     ```
+   - Route back to active:
+     ```bash
+     scripts/wf-registry-update.sh $PLAN_NAME testing active --commit "test($PLAN_NAME): merge blocked — back to builder" --add plans/$PLAN_NAME/findings.md
+     ```
+   - Display: "PR merge failed. Routed back to builder (testing → active). Findings written."
+   - **Stop here — do not continue with remaining steps.**
+
+   ```bash
+     fi
    else
      echo "No new commits vs release — skipping PR (branch already merged or fast-forward)"
    fi
@@ -154,7 +186,21 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    cd /absolute/path/to/project
    git checkout develop
    git stash --include-untracked -m "wf-test: stash before merge"
-   git merge "$CURRENT_BRANCH" --no-edit
+   ```
+   ```bash
+   if ! git merge "$CURRENT_BRANCH" --no-edit; then
+     git merge --abort
+     git stash pop 2>/dev/null || true
+     echo "ERROR: Feature branch has conflicts with develop. Routing back to builder."
+   ```
+   - Write findings to `plans/$PLAN_NAME/findings.md` about the develop merge conflict
+   - Route back: `scripts/wf-registry-update.sh $PLAN_NAME testing active --commit "test($PLAN_NAME): develop merge conflict — back to builder" --add plans/$PLAN_NAME/findings.md`
+   - Display: "Develop merge conflict. PR was merged to release but develop merge failed. Routed back to builder."
+   - **Stop here.**
+
+   On success:
+   ```bash
+   fi
    git stash pop 2>/dev/null || true
    ```
 4. Release claim and update REGISTRY:
@@ -168,8 +214,8 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```
 6. Clean up feature branch and worktree:
    ```bash
-   git worktree remove feature-branches/PLN-NNN-<slug> --force
-   git branch -d "$CURRENT_BRANCH"
+   git worktree remove feature-branches/PLN-NNN-<slug> --force 2>/dev/null || true
+   git branch -d "$CURRENT_BRANCH" 2>/dev/null || true
    ```
 7. Commit REGISTRY and bug changes:
    ```bash
@@ -205,7 +251,9 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 3. Switch to develop:
    ```bash
    cd /absolute/path/to/project
+   git stash --include-untracked -m "wf-test: stash before checkout" 2>/dev/null || true
    git checkout develop
+   git stash pop 2>/dev/null || true
    ```
 4. Release claim and determine route:
    ```bash
@@ -231,10 +279,11 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 
 ## Container cleanup
 
-Always destroy the container at the end (pass or fail). From the worktree:
+Always destroy the container before leaving the worktree — on pass, fail, or early abort. From the worktree:
 ```bash
 ../../scripts/wf-docker-down.sh
 ```
+If you hit an error and need to stop early, **destroy the container first** before routing back or displaying the error.
 
 ## Bug reference model
 

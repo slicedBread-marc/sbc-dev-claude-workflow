@@ -29,7 +29,7 @@ nohup bash -c "
     cd \"$ROOT\"
     claude -p \
         --model sonnet \
-        --permission-mode auto \
+        --permission-mode bypassPermissions \
         \"You are the autonomous verify agent. Read .claude/skills/wf-verify/SKILL.md for your full instructions, then execute them for plan $PLAN_ID (full name: $PLAN_NAME).\"
     rm -f \"$PIDFILE\"
 " > "$LOG" 2>&1 &

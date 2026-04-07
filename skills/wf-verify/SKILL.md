@@ -95,25 +95,24 @@ route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
 1. **`escalated`** → route to draft:
    ```bash
    scripts/wf-unclaim.sh PLN-NNN-<slug>
-   scripts/wf-registry-update.sh PLN-NNN verify draft
-   git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md
-   git commit -m "verify(PLN-NNN-<slug>): escalated findings — needs replanning"
+   scripts/wf-registry-update.sh PLN-NNN verify draft \
+     --commit "verify(PLN-NNN-<slug>): escalated findings — needs replanning" \
+     --add plans/PLN-NNN-<slug>/findings.md
    ```
 
 2. **`active`** → route to active:
    ```bash
    scripts/wf-unclaim.sh PLN-NNN-<slug>
-   scripts/wf-registry-update.sh PLN-NNN verify active
-   git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md
-   git commit -m "verify(PLN-NNN-<slug>): N findings — back to active for fixes"
+   scripts/wf-registry-update.sh PLN-NNN verify active \
+     --commit "verify(PLN-NNN-<slug>): N findings — back to active for fixes" \
+     --add plans/PLN-NNN-<slug>/findings.md
    ```
 
 3. **`clean`** → route to testing:
    ```bash
    scripts/wf-unclaim.sh PLN-NNN-<slug>
-   scripts/wf-registry-update.sh PLN-NNN verify testing
-   git add plans/REGISTRY.md
-   git commit -m "verify(PLN-NNN-<slug>): clean — ready for human test"
+   scripts/wf-registry-update.sh PLN-NNN verify testing \
+     --commit "verify(PLN-NNN-<slug>): clean — ready for human test"
    ```
 
 ## Rules
