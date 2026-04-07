@@ -108,7 +108,7 @@ for skill_dir in "$SCRIPT_DIR/skills"/*/; do
     echo -e "${GREEN}  Installed /$(basename "$skill_dir")${NC}"
 done
 
-# Install local env script and post-commit hook (only if local_deploy_command is set)
+# Install local env script (only if local_deploy_command is set)
 if [ -n "$LOCAL_DEPLOY" ]; then
     sed -e "s|{{local_start_command}}|$LOCAL_START|g" \
         -e "s|{{local_deploy_command}}|$LOCAL_DEPLOY|g" \
@@ -117,20 +117,7 @@ if [ -n "$LOCAL_DEPLOY" ]; then
     chmod +x "$TARGET_DIR/.claude/on-implement-commit.sh"
     echo -e "${GREEN}  Installed .claude/on-implement-commit.sh${NC}"
 
-    HOOK="$TARGET_DIR/.git/hooks/post-commit"
-    if [ ! -f "$HOOK" ]; then
-        cp "$SCRIPT_DIR/templates/hooks/post-commit" "$HOOK"
-        chmod +x "$HOOK"
-        echo -e "${GREEN}  Installed .git/hooks/post-commit${NC}"
-    elif ! grep -q "claude-workflow: local-env trigger" "$HOOK"; then
-        echo "" >> "$HOOK"
-        cat "$SCRIPT_DIR/templates/hooks/post-commit" >> "$HOOK"
-        echo -e "${GREEN}  Appended local-env trigger to .git/hooks/post-commit${NC}"
-    else
-        echo -e "${YELLOW}  post-commit hook already installed — skipping${NC}"
-    fi
-
-    # Gitignore runtime files in target project
+    # Gitignore local-env runtime files
     GITIGNORE="$TARGET_DIR/.gitignore"
     for pattern in ".claude/local-env.timestamp" ".claude/local-env.pid" ".claude/local-env.log"; do
         if ! grep -qF "$pattern" "$GITIGNORE" 2>/dev/null; then
@@ -140,6 +127,34 @@ if [ -n "$LOCAL_DEPLOY" ]; then
     echo -e "${GREEN}  Updated .gitignore with local-env runtime files${NC}"
 else
     echo -e "${YELLOW}  local_deploy_command not set — skipping local env install${NC}"
+fi
+
+# Install verify trigger script (always — verify agent is core to the pipeline)
+cp "$SCRIPT_DIR/templates/on-verify-trigger.sh" "$TARGET_DIR/.claude/on-verify-trigger.sh"
+chmod +x "$TARGET_DIR/.claude/on-verify-trigger.sh"
+echo -e "${GREEN}  Installed .claude/on-verify-trigger.sh${NC}"
+
+# Gitignore verify runtime files
+GITIGNORE="$TARGET_DIR/.gitignore"
+for pattern in ".claude/verify-*.log" ".claude/verify-*.pid"; do
+    if ! grep -qF "$pattern" "$GITIGNORE" 2>/dev/null; then
+        echo "$pattern" >> "$GITIGNORE"
+    fi
+done
+
+# Install post-commit hook
+HOOK="$TARGET_DIR/.git/hooks/post-commit"
+if [ ! -f "$HOOK" ]; then
+    cp "$SCRIPT_DIR/templates/hooks/post-commit" "$HOOK"
+    chmod +x "$HOOK"
+    echo -e "${GREEN}  Installed .git/hooks/post-commit${NC}"
+elif ! grep -q "claude-workflow: verify agent trigger" "$HOOK"; then
+    # Overwrite with latest hook (includes both local-env and verify triggers)
+    cp "$SCRIPT_DIR/templates/hooks/post-commit" "$HOOK"
+    chmod +x "$HOOK"
+    echo -e "${GREEN}  Updated .git/hooks/post-commit (added verify trigger)${NC}"
+else
+    echo -e "${YELLOW}  post-commit hook already up to date — skipping${NC}"
 fi
 
 # Install workflow scripts

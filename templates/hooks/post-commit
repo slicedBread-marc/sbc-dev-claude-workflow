@@ -1,10 +1,22 @@
 #!/bin/bash
-# claude-workflow: local-env trigger
+# claude-workflow: post-commit hooks
+
 MSG=$(git log -1 --pretty=%s)
+ROOT=$(git rev-parse --show-toplevel)
+
+# claude-workflow: local-env trigger
 if [[ "$MSG" == implement\(* ]]; then
-    ROOT=$(git rev-parse --show-toplevel)
     SCRIPT="$ROOT/.claude/on-implement-commit.sh"
     if [ -x "$SCRIPT" ]; then
         "$SCRIPT" deploy
+    fi
+fi
+
+# claude-workflow: verify agent trigger
+if [[ "$MSG" == *"moved to verify"* ]]; then
+    PLAN_NAME=$(echo "$MSG" | sed 's/^implement(\(.*\)):.*/\1/')
+    SCRIPT="$ROOT/.claude/on-verify-trigger.sh"
+    if [ -x "$SCRIPT" ] && [ -n "$PLAN_NAME" ]; then
+        "$SCRIPT" "$PLAN_NAME"
     fi
 fi
