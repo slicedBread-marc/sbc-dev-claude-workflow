@@ -19,14 +19,16 @@ init_session() {
   echo "SESSION_ID: $SESSION_ID"
 }
 
-# Get current queue state
+# Get current queue state from REGISTRY.md
 queue_state() {
-  local ready=$(ls -1d plans/ready/* 2>/dev/null | wc -l)
-  local verify=$(ls -1d plans/verify/* 2>/dev/null | wc -l)
-  local active=$(ls -1d plans/active/* 2>/dev/null | wc -l)
+  local reg="plans/REGISTRY.md"
+  local ready=$(grep -c "| ready |" "$reg" 2>/dev/null || echo 0)
+  local active=$(grep -c "| active |" "$reg" 2>/dev/null || echo 0)
+  local verify=$(grep -c "| verify |" "$reg" 2>/dev/null || echo 0)
+  local testing=$(grep -c "| testing |" "$reg" 2>/dev/null || echo 0)
   local open=$(ls -1d bugs/open/* 2>/dev/null | wc -l)
   local triaged=$(ls -1d bugs/triaged/* 2>/dev/null | wc -l)
-  echo "ready=$ready verify=$verify active=$active open=$open triaged=$triaged"
+  echo "ready=$ready active=$active verify=$verify testing=$testing open=$open triaged=$triaged"
 }
 
 # Log a single line (with file locking)

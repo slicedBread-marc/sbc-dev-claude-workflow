@@ -1,6 +1,6 @@
 # claude-workflow
 
-A structured SDLC workflow for Claude Code. Provides six skills that guide work through a pipeline: brainstorm, plan, review, implement, verify — orchestrated by a status dashboard.
+A structured SDLC workflow for Claude Code. Provides skills that guide work through a multi-terminal pipeline: brainstorm, plan, implement, verify (auto), test — orchestrated by a status dashboard.
 
 ## Quick Start
 
@@ -26,62 +26,64 @@ vim claude-workflow.yml
 ```
 your-project/
   .claude/skills/
-    status/SKILL.md        # /status — pipeline dashboard
-    brainstorm/SKILL.md    # /brainstorm — capture ideas
-    spec/SKILL.md           # /spec — write implementation specs
-    review/SKILL.md        # /review — architecture & security review
-    implement/SKILL.md     # /implement — build from specs
-    verify/SKILL.md        # /verify — confirm implementation
+    wf-status/SKILL.md     # /wf-status — pipeline dashboard
+    wf-brainstorm/SKILL.md # /wf-brainstorm — capture ideas
+    wf-spec/SKILL.md       # /wf-spec — write implementation specs
+    wf-review/SKILL.md     # /wf-review — architecture & security review
+    wf-implement/SKILL.md  # /wf-implement — build from specs
+    wf-verify/SKILL.md     # wf-verify — autonomous verify agent (not user-invocable)
+    wf-test/SKILL.md       # /wf-test — human acceptance testing
   plans/
+    REGISTRY.md                  # SINGLE SOURCE OF TRUTH for plan state
+    PLN-001-feature-name/        # immovable plan folder (never moves)
+      plan.md                    #   spec: goal, steps, tests, design decisions
+      findings.md                #   append-only: verify agent + human test results
+      progress.md                #   implementer log
     briefs/                      # idea exploration documents
       INDEX.md                   # backlog tracker
       TEMPLATE.md
-    drafts/<feature-name>/       # plan being written (plan.md, findings.md, progress.md)
-    ready/<feature-name>/        # reviewed, ready to build
-    active/<feature-name>/       # currently being implemented
-    verify/<feature-name>/       # awaiting verification
-    replanning/<feature-name>/   # escalated findings — needs planner to amend
-    complete/<feature-name>/     # done — historical record
     TEMPLATE.md                  # implementation plan spec
-  CLAUDE.md                # workflow section appended
+  CLAUDE.md                      # workflow section appended
 ```
 
 ## The Pipeline
 
 ```
-/brainstorm → /spec → /review (gate) → /implement → /verify
-                ↑                           ↕              |
-                |                     Findings Queue       |
-                |                  Open → Fixed → Verified |
-                └──── /spec amends ←── Escalated ──────────┘
+draft → ready → active → verify ──[agent]──→ testing → complete
+                  ↑          |
+                  |          ├→ active  (fix cycle)
+                  |          └→ draft   (escalation)
+                  └→ draft  (implementer escalation)
 ```
 
-**The folder IS the status.** `ls plans/ready/` shows what's waiting to be built.
+**REGISTRY.md IS the status.** `grep "| ready |" plans/REGISTRY.md` shows what's waiting to be built. Plans never move — only the state column changes.
 
 ## Skills
 
 | Command | Model | Purpose |
 |-|-|-|
-| `/status` | haiku | Scan pipeline, recommend next action |
-| `/brainstorm` | sonnet | Capture and explore ideas |
-| `/spec` | opus | Convert decided brief → implementation spec |
-| `/review` | sonnet | Architecture & security review (auto-gate + manual) |
-| `/implement` | opus | Build from plan, fix findings |
-| `/verify` | sonnet | Check implementation, write findings |
+| `/wf-status` | haiku | Read REGISTRY.md, recommend next action |
+| `/wf-brainstorm` | sonnet | Capture and explore ideas |
+| `/wf-spec` | opus | Convert decided brief → implementation spec |
+| `/wf-review` | sonnet | Architecture & security review (auto-gate + manual) |
+| `/wf-implement` | sonnet | Build from plan, fix findings |
+| `wf-verify` | sonnet | Autonomous verify agent (triggered by state change) |
+| `/wf-test` | haiku | Human acceptance testing |
 
 ## Multi-Terminal Workflow
 
 ```
-Terminal 1 (thinking)              Terminal 2 (building)
-─────────────────────              ─────────────────────
+T1: Intake (sonnet)                T2: Planner (opus)
+───────────────────                ──────────────────
+/wf-status                         
+/wf-brainstorm → Decided brief     
+                                   /wf-spec → review gate → ready
 
-/status                            
-/brainstorm → idea → Decided       
-/spec → review gate → Ready
-                                   /implement → builds → Verifying
-/verify → findings → queue         
-                                   /implement → fixes → Verifying
-/verify → clean → Complete         
+T3: Builder (sonnet)               T4: Tester (haiku)
+────────────────────               ──────────────────
+/wf-implement → active → verify    
+  [verify agent auto-runs]         
+                                   /wf-test → pass → complete
 ```
 
 ## Configuration
@@ -106,9 +108,9 @@ Re-run the install script. It overwrites skills but skips existing templates and
 
 ## Token Strategy
 
-- **Opus** only where quality matters most: writing plans, writing code
-- **Sonnet** for structured evaluation: reviews, verification
-- **Haiku** for data gathering: status checks, agent tasks
+- **Opus** only where quality matters most: writing plans
+- **Sonnet** for structured work: implementation, reviews, verification agent
+- **Haiku** for lightweight tasks: status checks, testing, agent subtasks
 - Skills spawn haiku agents for parallel data collection, keeping the main context lean
 
 ## License
