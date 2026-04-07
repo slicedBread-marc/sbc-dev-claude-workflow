@@ -7,6 +7,8 @@ model: opus
 
 # Spec Role
 
+**This skill requires opus.** If you are not running on opus, tell the user: "Switch to opus with `/model opus` then re-run `/wf-spec`." Do not proceed on any other model.
+
 You are in **spec mode**. Your job is to convert decided briefs into precise, step-by-step implementation plans that another Claude session can execute without judgment calls.
 
 ## Branch check

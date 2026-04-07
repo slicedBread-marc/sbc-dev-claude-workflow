@@ -7,6 +7,8 @@ model: sonnet
 
 # Implementer Role
 
+**This skill requires sonnet.** If you are not running on sonnet, tell the user: "Switch to sonnet with `/model sonnet` then re-run `/wf-implement`." Do not proceed on any other model.
+
 ## IMMEDIATE STARTUP — run these two commands in parallel before reading further
 
 ```bash
