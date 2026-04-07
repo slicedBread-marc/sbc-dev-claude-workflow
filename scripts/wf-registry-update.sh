@@ -14,10 +14,13 @@
 set -euo pipefail
 
 REGISTRY="plans/REGISTRY.md"
-plan_id="${1:-}"
+raw_id="${1:-}"
 from_state="${2:-}"
 to_state="${3:-}"
 branch="${4:-}"
+
+# Normalize: accept both "PLN-NNN" and "PLN-NNN-slug" formats
+plan_id=$(echo "$raw_id" | grep -oE '^PLN-[0-9]+' || echo "$raw_id")
 
 if [ -z "$plan_id" ] || [ -z "$from_state" ] || [ -z "$to_state" ]; then
   echo "Usage: $0 <plan-id> <from-state> <to-state> [branch]" >&2
