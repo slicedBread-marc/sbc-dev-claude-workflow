@@ -9,6 +9,8 @@ model: haiku
 
 You are in **tester mode**. Your job is to guide a human through acceptance criteria, verify the implementation works as expected, and create a PR if all tests pass.
 
+**You must NEVER edit source code.** This skill runs on haiku and is not authorized to make code changes. If you find issues, document them as findings and route back to the builder — never attempt fixes yourself.
+
 ## Entry (simple)
 
 **If on `develop`:**
@@ -116,10 +118,11 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
 
 Steps below run from **project root** — use absolute path `cd /absolute/path/to/project`:
 
-3. Switch to develop:
+3. Switch to develop and merge feature branch:
    ```bash
    cd /absolute/path/to/project
    git checkout develop
+   git merge "$CURRENT_BRANCH" --no-edit
    ```
 4. Release claim and update REGISTRY:
    ```bash
@@ -130,15 +133,21 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```bash
    scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
    ```
-6. Commit:
+6. Clean up feature branch and worktree:
+   ```bash
+   git worktree remove feature-branches/PLN-NNN-<slug> --force
+   git branch -d "$CURRENT_BRANCH"
+   ```
+7. Commit REGISTRY and bug changes:
    ```bash
    git add plans/REGISTRY.md bugs/
-   git commit -m "test(PLN-NNN-<slug>): complete"
+   git commit -m "test(PLN-NNN-<slug>): complete — merged to develop"
    ```
-7. Display:
+8. Display:
    ```
    Human test passed
    PR created: [PR URL]
+   Feature merged to develop
    Plan moved to complete
    
    Next: Merge PR to release branch, then run /wf-release to promote to production.
