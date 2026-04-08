@@ -27,7 +27,7 @@ Spawn **haiku agents in parallel** for data gathering, then synthesize:
 Agent(model: haiku, prompt: "Run `{{build_command}}` in feature-branches/PLN-NNN-<slug>/. 
   Report: success/failure, any errors or warnings. Response under 1000 chars.")
 
-Agent(model: haiku, prompt: "Run `{{test_command}}` in feature-branches/PLN-NNN-<slug>/. 
+Agent(model: haiku, prompt: "Run `{{test_command}} {{test_exclude_e2e}}` in feature-branches/PLN-NNN-<slug>/. 
   Report: total tests, passed, failed, skipped. List failures. Response under 1500 chars.")
 
 Agent(model: haiku, prompt: "Read [file] in feature-branches/PLN-NNN-<slug>/. 

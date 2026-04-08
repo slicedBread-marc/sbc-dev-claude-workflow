@@ -17,6 +17,14 @@ test_command: ""
 # Common values: "--grep" (mocha/jest), "--filter" (dotnet), "-k" (pytest), "-run" (go)
 test_filter_flag: ""
 
+# Filter to exclude e2e tests (used by implement/verify — fast feedback without a running server).
+# e.g., '--filter "FullyQualifiedName!~E2E"' (dotnet), '--grep "^(?!.*E2E)"' (mocha)
+test_exclude_e2e: ""
+
+# Filter to run only e2e tests (used by wf-test — human tester has the app running).
+# e.g., '--filter "FullyQualifiedName~E2E"' (dotnet), '--grep E2E' (mocha)
+test_only_e2e: ""
+
 # Source directories — the implementer is allowed to edit files in these paths.
 # Detect from: project structure (src/, lib/, app/, tests/, spec/, etc.)
 source_dirs:

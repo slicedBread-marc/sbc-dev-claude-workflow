@@ -62,7 +62,16 @@ After user picks:
    BUILD=$(git log -1 --format='%ad (%h)' --date=format:'%b %d %H:%M')
    ```
    This sets FEATURE_PORT, COMPOSE_PROJECT_NAME, and BUILD.
-4. **Classify state and display criteria:**
+4. **Run e2e tests** (app is now running):
+   ```
+   Agent(model: haiku, run_in_background: true, prompt:
+     "Run `{{test_command}} {{test_only_e2e}}` in the current directory.
+      Report: total tests, passed, failed, skipped.
+      If any failed, list each failure with test name and error message.
+      Final response under 1500 characters.")
+   ```
+   Report results to user before or during human testing. If e2e tests fail, inform the user but continue — human testing may still proceed.
+5. **Classify state and display criteria:**
 
    Compare the current `$BUILD` against the build column in test-progress.md (if it exists) to determine which of three states applies:
 
@@ -128,7 +137,7 @@ After user picks:
    [each]  - Walk through all 9 criteria
    ```
 
-5. **Mode handling:**
+6. **Mode handling:**
 
    - **[each]** (fresh): Test all criteria from #1.
    - **[each]** (resume): Start at the resume point (the "Last failure" criterion). Proceed forward through remaining untested/failed criteria. After the last one, if stale-build passes exist → trigger the regression sweep prompt (State C).
@@ -136,7 +145,7 @@ After user picks:
    - **[all]**: Stamps the current build on all criteria. Works in all three states.
    - **[restart]**: Ignore prior progress, test all from #1, overwrite all rows with current build.
 
-6. **For each criterion being tested:**
+7. **For each criterion being tested:**
    - Display the criterion clearly
    - **Prefer deeplinks**: If the criterion mentions a route (e.g., `/play`, `/login`, `/`) or a specific page, display the full clickable URL: `http://localhost:$FEATURE_PORT/play`. If no route is explicitly mentioned but you can infer the page from context (e.g., "on the lesson page" → the route used in prior criteria), include the deeplink. Only fall back to the base URL when no route can be determined.
    - If the user seems unclear about context (asks "what should I be seeing?" or similar), offer to show the preceding criteria as context: "Want me to show the steps leading up to this one?" Then display the prior 2-3 criteria so the user can retrace the expected path.

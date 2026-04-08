@@ -48,40 +48,46 @@ bugs/closed/      → closed bugs
    git merge -X theirs --no-ff release -m "release: promote to main"
    ```
    The `-X theirs` option automatically accepts release's version of any conflicting files in `plans/`.
-10. **Update REGISTRY.md** — for each merged PR's plan, verify state is `complete`. If not:
+10. **Run full test suite** (final integration check — includes e2e):
+    ```bash
+    {{build_command}}
+    {{test_command}}
+    ```
+    If tests fail, abort the release — do NOT proceed to registry updates. Inform user of failures and suggest fixing on the release branch.
+11. **Update REGISTRY.md** — for each merged PR's plan, verify state is `complete`. If not:
     ```bash
     scripts/wf-registry-update.sh PLN-NNN testing complete -
     ```
-11. **Close linked bugs** — for each completed plan, check `plan.md` Goal for `**Bug:**` line:
+12. **Close linked bugs** — for each completed plan, check `plan.md` Goal for `**Bug:**` line:
     ```bash
     scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
     ```
-12. **Commit plan and bug updates**:
+13. **Commit plan and bug updates**:
     ```bash
     git add plans/REGISTRY.md plans/PLN-*/plan.md bugs/closed/
     git commit -m "release: complete [plan-names], close bugs"
     ```
-13. **Back-merge `main` → `develop`** (auto-resolve in favor of main):
+14. **Back-merge `main` → `develop`** (auto-resolve in favor of main):
     ```bash
     git checkout develop
     git pull origin develop
     git merge -X ours main -m "sync: bring completed plans back to develop"
     ```
     The `-X ours` option automatically accepts main's version of any conflicting files in `plans/` (main has complete/).
-14. **Push develop branch**:
+15. **Push develop branch**:
     ```bash
     git push origin develop
     ```
     (This syncs the completed plans back to develop)
 
-15. **Do NOT push main** — that's a separate step:
+16. **Do NOT push main** — that's a separate step:
     ```
     To deploy to production, run:
     git push origin main
     (This triggers the production deploy in GitHub Actions)
     ```
 
-16. **Display success**:
+17. **Display success**:
     ```
     ✓ [N] PRs merged to release
     ✓ Plans marked complete on main

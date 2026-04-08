@@ -34,6 +34,8 @@ get_config() {
 BUILD_CMD=$(get_config "build_command")
 TEST_CMD=$(get_config "test_command")
 TEST_FILTER=$(get_config "test_filter_flag")
+TEST_EXCLUDE_E2E=$(get_config "test_exclude_e2e")
+TEST_ONLY_E2E=$(get_config "test_only_e2e")
 NAMESPACE_CONV=$(get_config "namespace_convention")
 CONVENTIONS_NOTE=$(get_config "conventions_note")
 LOCAL_START=$(get_config "local_start_command")
@@ -72,6 +74,8 @@ for f in "$SCRIPT_DIR/templates/plans/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/
         sed -e "s|{{build_command}}|$BUILD_CMD|g" \
             -e "s|{{test_command}}|$TEST_CMD|g" \
             -e "s|{{test_filter_flag}}|$TEST_FILTER|g" \
+            -e "s|{{test_exclude_e2e}}|$TEST_EXCLUDE_E2E|g" \
+            -e "s|{{test_only_e2e}}|$TEST_ONLY_E2E|g" \
             -e "s|{{namespace_convention}}|$NAMESPACE_CONV|g" \
             -e "s|{{conventions_note}}|$CONVENTIONS_NOTE|g" \
             -e "s|{{source_dirs}}|$SOURCE_DIRS|g" \
@@ -91,6 +95,8 @@ for skill_dir in "$SCRIPT_DIR/skills"/*/; do
     sed -e "s|{{build_command}}|$BUILD_CMD|g" \
         -e "s|{{test_command}}|$TEST_CMD|g" \
         -e "s|{{test_filter_flag}}|$TEST_FILTER|g" \
+        -e "s|{{test_exclude_e2e}}|$TEST_EXCLUDE_E2E|g" \
+        -e "s|{{test_only_e2e}}|$TEST_ONLY_E2E|g" \
         -e "s|{{namespace_convention}}|$NAMESPACE_CONV|g" \
         -e "s|{{conventions_note}}|$CONVENTIONS_NOTE|g" \
         -e "s|{{source_dirs}}|$SOURCE_DIRS|g" \

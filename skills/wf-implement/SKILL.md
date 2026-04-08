@@ -132,12 +132,12 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 18. **Launch build and test agents in background:**
     ```
     Agent(model: haiku, run_in_background: true, prompt:
-      "Run `~/.dotnet/dotnet build SBC.slnx` in the current directory.
+      "Run `{{build_command}}` in the current directory.
        Report: success or failure. If failure, list all errors (not warnings).
        Final response under 1000 characters.")
 
     Agent(model: haiku, run_in_background: true, prompt:
-      "Run `~/.dotnet/dotnet test SBC.slnx --no-build` in the current directory.
+      "Run `{{test_command}} {{test_exclude_e2e}}` in the current directory.
        Report: total tests, passed, failed, skipped.
        If any failed, list each failure with test name and error message.
        Final response under 1500 characters.")
