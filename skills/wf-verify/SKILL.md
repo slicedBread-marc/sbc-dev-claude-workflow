@@ -32,9 +32,20 @@ Agent(model: haiku, prompt: "Run `{{test_command}}` in feature-branches/PLN-NNN-
 
 Agent(model: haiku, prompt: "Read [file] in feature-branches/PLN-NNN-<slug>/. 
   Check: project conventions, TODO/HACK markers, hardcoded values. Response under 1000 chars.")
+
+Agent(model: haiku, prompt: "Read all new/modified files in feature-branches/PLN-NNN-<slug>/. 
+  Check SOLID principles: single responsibility, open/closed, Liskov substitution, 
+  interface segregation, dependency inversion. Report violations with file:line. 
+  Response under 1500 chars.")
+
+Agent(model: haiku, prompt: "Read all new/modified files in feature-branches/PLN-NNN-<slug>/. 
+  Security review: SQL/command injection, missing auth checks, hardcoded secrets, 
+  data leaks in logs/errors, unvalidated input at boundaries, CSRF/CORS issues. 
+  Also run the project's package audit command if applicable. 
+  Report findings with file:line and severity. Response under 1500 chars.")
 ```
 
-### Three-layer check
+### Five-layer check
 
 **1. Code** (from haiku agents)
 - Build succeeds
@@ -55,6 +66,22 @@ Agent(model: haiku, prompt: "Read [file] in feature-branches/PLN-NNN-<slug>/.
 - No unintended cross-module dependencies
 - Implementation matches design decisions in `plan.md`
 
+**4. SOLID principles**
+- **Single Responsibility** — each new/modified class or module has one reason to change
+- **Open/Closed** — behaviour is extended through abstraction, not by modifying existing code where possible
+- **Liskov Substitution** — subtypes are substitutable for their base types without altering correctness
+- **Interface Segregation** — consumers are not forced to depend on methods they do not use
+- **Dependency Inversion** — high-level modules depend on abstractions, not concrete implementations
+
+**5. Security**
+- **Injection** — user-controlled input is parameterized or sanitized before reaching SQL, shell, template, or OS commands
+- **Authentication & authorization** — new endpoints or actions enforce auth checks; no privilege escalation paths
+- **Secrets** — no API keys, tokens, passwords, or connection strings committed in source; secrets come from environment or vault
+- **Data exposure** — logs, error messages, and API responses do not leak PII, stack traces, or internal paths to clients
+- **Dependencies** — new or updated packages have no known critical/high CVEs (check with `npm audit` / `dotnet list package --vulnerable` as applicable)
+- **Input validation** — untrusted input is validated at system boundaries (type, length, range, allowlist)
+- **CSRF/CORS** — state-changing endpoints are protected against cross-site request forgery; CORS policies are not overly permissive
+
 ## Writing findings
 
 Write findings to `plans/PLN-NNN-<slug>/findings.md` on develop as a flat checklist:
@@ -65,14 +92,34 @@ Write findings to `plans/PLN-NNN-<slug>/findings.md` on develop as a flat checkl
 - [ ] **Code**: Login endpoint returns 500 on empty password (src/auth.ts:42)
 - [ ] **Code**: Missing test for admin role check
 - [ ] **Spec**: Rollback section has TBD placeholder for DB migration reversal
+- [ ] **SOLID**: UserService handles both auth and email — violates SRP (src/services/user.ts)
+- [ ] **Security**: Raw SQL interpolation with user input (src/db/queries.ts:18)
 - [ ] **Design**: Auth model doesn't support multi-tenant — needs plan change ← ESCALATED
 ```
 
 Rules:
 - Use `**Code**:` for build/test/convention issues
 - Use `**Spec**:` for incomplete checklist items or rollback issues
+- Use `**SOLID**:` for violations of SOLID principles
+- Use `**Security**:` for vulnerabilities or insecure patterns — append a scope tag (see below)
 - Use `**Design**:` for fundamental approach problems — always append `← ESCALATED`
 - Include file path and line number when possible
+
+### Security finding scope tags
+
+Every `**Security**:` finding must end with exactly one scope tag:
+
+- `← PLAN-SCOPED` — the vulnerability is within this plan's scope (introduced by it or fixable within it). **Routes the plan back to draft for replanning.**
+- `← BROAD-SCOPE` — the vulnerability is outside this plan's scope or requires refactoring across multiple modules. **Creates a new urgent bug** so it can be planned and fixed independently.
+
+Security findings without a scope tag are treated as ordinary code-level findings (fixable by the implementer in the current active cycle).
+
+Example:
+```markdown
+- [ ] **Security**: User input interpolated into SQL query (src/db/queries.ts:18)
+- [ ] **Security**: Plan stores session token in localStorage — XSS exfiltration risk ← PLAN-SCOPED
+- [ ] **Security**: No CSRF protection on any POST endpoint ← BROAD-SCOPE
+```
 
 ### When to escalate
 
@@ -80,7 +127,6 @@ Use `← ESCALATED` when the finding **cannot be resolved by editing code alone*
 - Plan's approach is fundamentally incompatible with a constraint
 - Fixing requires changing the design of multiple components
 - Scope needs to expand or contract
-- Security or architectural issue stems from a plan decision
 
 Everything else is a code-level finding (no ESCALATED tag).
 
@@ -92,7 +138,7 @@ After writing findings, determine the route and update REGISTRY:
 route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
 ```
 
-1. **`escalated`** → route to draft:
+1. **`escalated`** → route to draft (includes `← PLAN-SCOPED` security findings):
    ```bash
    scripts/wf-unclaim.sh PLN-NNN-<slug>
    scripts/wf-registry-update.sh PLN-NNN verify draft \
@@ -115,10 +161,29 @@ route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
      --commit "verify(PLN-NNN-<slug>): clean — ready for human test"
    ```
 
+### Broad-scope security bugs
+
+After routing, if any `← BROAD-SCOPE` security findings exist, file an urgent bug for each one. These are independent of the plan's routing — a plan can go to `active` or `testing` while still spawning bugs for out-of-scope security issues.
+
+```bash
+# For each BROAD-SCOPE finding:
+eval "$(scripts/wf-branch-check.sh develop true)"
+new_id=$(scripts/wf-counter-next.sh BUG)
+# Create bugs/open/BUG-NNN-<slug>/bug.md with:
+#   Severity: Critical
+#   Description: the finding text from findings.md
+#   Links: "discovered during verify of PLN-NNN"
+# Then:
+git add bugs/open/BUG-NNN-<slug>/
+git commit -m "bug: $new_id — security: <short title> (from PLN-NNN verify)"
+git push origin develop
+[ -n "${SWITCHED_FROM:-}" ] && git checkout "$SWITCHED_FROM"
+```
+
 ## Rules
 
 - **Do NOT** edit source code files — only diagnose and write findings
 - **Do NOT** write implementation steps or solutions — describe what is wrong, not how to fix it
-- You may only write to `plans/PLN-NNN-<slug>/findings.md` and `plans/REGISTRY.md`
+- You may only write to `plans/PLN-NNN-<slug>/findings.md`, `plans/REGISTRY.md`, and `bugs/open/` (for broad-scope security bugs)
 - Always commit your changes before exiting
 - This agent runs autonomously — do not prompt for user input

@@ -24,8 +24,8 @@ if [ ! -f "$findings" ]; then
   exit 0
 fi
 
-# Check for ESCALATED items (unchecked)
-if grep -q '^\- \[ \].*ESCALATED' "$findings" 2>/dev/null; then
+# Check for ESCALATED items or PLAN-SCOPED security findings (unchecked)
+if grep -q '^\- \[ \].*ESCALATED\|^\- \[ \].*PLAN-SCOPED' "$findings" 2>/dev/null; then
   echo "escalated"
   exit 0
 fi
