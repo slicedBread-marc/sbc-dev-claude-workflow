@@ -24,22 +24,31 @@ Switches to develop automatically if needed. Do not prompt the user.
 
 Run `scripts/wf-list-specable.sh` to find all available work. Output is grouped by section headers (`# replanning`, `# bugs`, `# briefs`) with tab-separated entries.
 
-Present the results from the script output:
+Show menu from script output as **two numbered tables** — always use table format, never bullet lists. Split items into actionable vs already-planned:
+
+**Table 1 — Actionable items:** Replans (escalated plans), bugs, and briefs that do NOT already have a plan. These get sequential numbering.
+
+**Table 2 — "Already planned" items:** Briefs whose detail says "Already has plan PLN-NNN". Show these separately with no numbering — they are informational only and cannot be selected.
 
 ```
 ## Available work
 
-### Escalated plans (highest priority)
-- PLN-NNN — <slug> (N escalated findings)
+| # | Type | ID | Name | Detail |
+|-|-|-|-|-|
+| 1 | Replan | PLN-046 | platformer-ui | 3 escalated findings |
+| 2 | Bug | BUG-012 | login-crash | High — Login crashes on empty password |
+| 3 | Brief | — | user-auth | Short goal snippet |
 
-### Open bugs (ready to fix)
-- BUG-001 (High) — Login crashes on empty password
+## Already planned
 
-### Decided briefs (ready to plan)
-- BRF-001 — user-auth — [goal snippet]
+| Type | ID | Name | Plan |
+|-|-|-|-|
+| Brief | — | arcade-sorting-arena | PLN-012 |
 ```
 
-Ask the user: **"What would you like to plan? Pick a plan to amend, a bug number, a brief name, or describe new work."**
+If there are no actionable items, say so. If there are no already-planned items, omit the second table.
+
+Ask the user: **"What would you like to plan? Pick a number, or describe new work."**
 
 - If they pick an escalated plan: **claim it** (`scripts/wf-claim.sh PLN-NNN-<slug>`), then go to [Replanning](#replanning)
 - If they pick a bug: go to [Plan from bug](#plan-from-bug)
