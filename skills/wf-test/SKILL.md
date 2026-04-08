@@ -81,9 +81,16 @@ After user picks:
    ```
 
    **State B — Resume from failure** (test-progress.md exists, some criteria are `—` or `FAIL`):
+
+   Read `../../plans/PLN-NNN-<slug>/findings.md` to get the prior round's findings. Show checked-off items (builder fixed) and unchecked items (still open) as context before the criteria list:
+
    ```
    App is running at http://localhost:$FEATURE_PORT
    Current build: Apr 08 14:32 (f4e5d6c)
+
+   ## Prior Round Findings
+   - [x] **Behavior**: Auth not enforced on /play route (fixed by builder)
+   - [ ] **Behavior**: Loading spinner persists after timeout (still open)
 
    ## Acceptance Criteria
    1. criterion one — PASS (build Apr 07 09:15 (a1b2c3d))
