@@ -1,15 +1,17 @@
 ---
-name: wf-test
-description: Human acceptance testing for plans that passed automated verification. Guides the user through acceptance criteria, writes findings, creates PR on pass.
+name: wf-chrome-test
+description: Browser-assisted acceptance testing. Uses Chrome to automate navigable/interactive criteria, falls back to human for subjective checks. Creates PR on pass.
 user_invocable: true
-model: haiku
+model: sonnet
 ---
 
-# Tester Role
+# Chrome-Assisted Tester Role
 
-You are in **tester mode**. Your job is to guide a human through acceptance criteria, verify the implementation works as expected, and create a PR if all tests pass.
+You are in **tester mode with browser automation**. Your job is to drive Chrome through acceptance criteria, verify the implementation works, escalate subjective checks to the human, and create a PR if all tests pass.
 
-**You must NEVER edit source code.** This skill runs on haiku and is not authorized to make code changes. If you find issues, document them as findings and route back to the builder — never attempt fixes yourself.
+**You must NEVER edit source code.** If you find issues, document them as findings and route back to the builder.
+
+**Requires:** Claude in Chrome extension installed and connected. If Chrome is not available, tell the user: "Chrome not connected. Run `/chrome` to connect, or use `/wf-test` for manual testing." Then stop.
 
 ## Entry (simple)
 
@@ -54,7 +56,7 @@ After user picks:
 
 1. **Read the plan** — from develop worktree: `../../plans/PLN-NNN-<slug>/plan.md`
    - Read Goal and Verification Checklist sections
-   - **Only present `### Human Test Criteria` items** (combine `#### Chrome-Assisted` and `#### Manual` into a single flat list) — Build & Tests and Code Quality were already handled by the verify agent
+   - **Only present `### Human Test Criteria` items** — Build & Tests and Code Quality were already handled by the verify agent
 2. **Check for prior test progress** — look for `../../plans/PLN-NNN-<slug>/test-progress.md`. If it exists, read it to get per-criterion results and build identifiers.
 3. **Deploy to local container and capture build identifier:**
    ```bash
@@ -70,103 +72,152 @@ After user picks:
       If any failed, list each failure with test name and error message.
       Final response under 1500 characters.")
    ```
-   Report results to user before or during human testing. If e2e tests fail, inform the user but continue — human testing may still proceed.
-5. **Classify state and display criteria:**
+   Report results to user before or during human testing. If e2e tests fail, inform the user but continue.
 
-   Compare the current `$BUILD` against the build column in test-progress.md (if it exists) to determine which of three states applies:
+5. **Load criteria from the two subsections** under `### Human Test Criteria` in the plan:
+   - `#### Chrome-Assisted` — these are driven by Chrome automatically. Each has a route prefix and objectively verifiable behavior.
+   - `#### Manual` — these need human eyes. Chrome navigates and screenshots, but the human decides pass/fail.
+
+   If a plan uses the older flat format (no subsections), fall back to classifying by text — see the inference table below.
+
+   **Inference table** (fallback for plans without subsections):
+
+   | Type | Signal | Automation |
+   |-|-|-|
+   | `chrome` | "redirects to", "shows X", "click", "submit", "error shown when", "persists after", "should not" | Chrome drives |
+   | `manual` | "layout", "looks correct", "animation", "feels", "responsive", or no clear signal | Human confirms |
+
+6. **Display criteria with classifications and state:**
+
+   Determine state (A/B/C) using the same logic as wf-test, then display with type tags:
 
    **State A — Fresh start** (no test-progress.md):
    ```
    App is running at http://localhost:$FEATURE_PORT
-   Start here: http://localhost:$FEATURE_PORT/<first criterion's route>
    Current build: Apr 08 14:32 (a1b2c3d)
 
    ## Acceptance Criteria
-   1. criterion one
-   2. criterion two
-   ...
+   | # | Criterion | Type |
+   |-|-|-|
+   | 1 | `/login` — redirects to /dashboard | chrome |
+   | 2 | `/form` — submit button saves form data | chrome |
+   | 3 | `/form` — error shown for invalid email | chrome |
+   | 4 | `/settings` — layout correct on mobile viewport | manual |
+   | 5 | `/onboarding` — multi-step flow feels natural | manual |
 
    How would you like to test?
-   [each] - Walk through each criterion individually
-   [all]  - Pass all criteria (assume they all passed)
+   [auto]    - Automate what I can, pause for visual/human checks
+   [each]    - Walk through each criterion manually (like wf-test)
+   [all]     - Pass all criteria (assume they all passed)
    ```
 
-   **State B — Resume from failure** (test-progress.md exists, some criteria are `—` or `FAIL`):
+   **State B — Resume from failure** and **State C — Regression sweep**: Same as wf-test but with type column added and `[auto]` option included.
 
-   Read `../../plans/PLN-NNN-<slug>/findings.md` to get the prior round's findings. Show checked-off items (builder fixed) and unchecked items (still open) as context before the criteria list:
+7. **Mode handling:**
 
+   - **[auto]**: The primary mode. See "Automated testing flow" below.
+   - **[each]**: Manual walk-through identical to wf-test behavior — display criterion, let user describe, classify response.
+   - **[sweep]**: Walk through only stale-build criteria. Use `[auto]` logic for automatable ones.
+   - **[all]**: Stamps the current build on all criteria.
+   - **[restart]**: Ignore prior progress, test all from #1.
+
+---
+
+## Automated testing flow (`[auto]` mode)
+
+Process criteria in order. For each criterion:
+
+### Chrome-assisted criteria (`chrome` type)
+
+1. **Announce** what you're about to do:
    ```
-   App is running at http://localhost:$FEATURE_PORT
-   Start here: http://localhost:$FEATURE_PORT/<resume criterion's route>
-   Current build: Apr 08 14:32 (f4e5d6c)
-
-   ## Prior Round Findings
-   - [x] **Behavior**: Auth not enforced on /play route (fixed by builder)
-   - [ ] **Behavior**: Loading spinner persists after timeout (still open)
-
-   ## Acceptance Criteria
-   1. criterion one — PASS (build Apr 07 09:15 (a1b2c3d))
-   2. criterion two — PASS (build Apr 07 09:15 (a1b2c3d))
-   3. criterion three — FAILED last session
-   4. criterion four — untested
-   ...
-
-   Resuming from #3 (failed on build Apr 07 09:15 (a1b2c3d)).
-   [each]    - Walk through criteria starting from #3
-   [all]     - Pass all remaining criteria
-   [restart] - Start over from #1
+   #3 [navigate] Checking: "Login page redirects to /dashboard"
+   → Navigating to http://localhost:$FEATURE_PORT/login ...
    ```
 
-   **State C — Regression sweep** (all criteria show PASS, but some on an older build):
+2. **Drive Chrome:**
+   - Navigate to the relevant URL
+   - Perform any required interactions (click, type, submit)
+   - Take a screenshot after the action completes
+   - Read relevant DOM state if needed (check for elements, text content, URL)
+
+3. **Evaluate the result** against the criterion. Be strict — the criterion must clearly pass:
+   - **PASS**: briefly state what you observed that confirms it. Mark and continue.
+     ```
+     #3 PASS — navigated to /login, page redirected to /dashboard (URL confirmed)
+     ```
+   - **UNCERTAIN**: if the result is ambiguous, show the screenshot to the user and ask for confirmation. Treat as `visual` (human confirms).
+     ```
+     #3 UNCERTAIN — page loaded but URL shows /dashboard?redirect=true.
+     Does this meet the criterion? [pass/fail]
+     ```
+   - **FAIL**: screenshot + describe what you observed vs expected. Continue testing (don't stop).
+     ```
+     #3 FAIL — navigated to /login, stayed on /login (no redirect).
+     Expected: redirect to /dashboard
+     ```
+
+4. **For interactions** (click, submit, type): after performing the action, wait briefly for the page to update (take a second screenshot if needed to capture the result state).
+
+5. **For state persistence** (persists after refresh, session survives): perform the action, then verify persistence (refresh the page, navigate away and back, etc.) before evaluating.
+
+6. **For negative checks** (should not, blocked from, error shown when): attempt the forbidden action and verify the app correctly blocks it (error message shown, redirect to login, form validation, etc.).
+
+### Manual criteria (`manual` type)
+
+1. **Announce** and navigate to the relevant page:
    ```
-   App is running at http://localhost:$FEATURE_PORT
-   Start here: http://localhost:$FEATURE_PORT/<first stale criterion's route>
-   Current build: Apr 08 16:45 (g7h8i9j)
-
-   ## Acceptance Criteria
-   1. criterion one — PASS (build Apr 07 09:15 (a1b2c3d)) ← older build
-   2. criterion two — PASS (build Apr 07 09:15 (a1b2c3d)) ← older build
-   ...
-   8. criterion eight — PASS (build Apr 08 16:45 (g7h8i9j)) ✓ current
-   9. criterion nine — PASS (build Apr 08 16:45 (g7h8i9j)) ✓ current
-
-   All criteria have passed, but #1-7 passed on older builds.
-   Recommend a regression sweep to confirm on current build.
-   [sweep] - Retest #1-7 on current build
-   [all]   - Trust prior results, mark complete
-   [each]  - Walk through all 9 criteria
+   #5 [visual] Need your eyes: "Layout correct on mobile viewport"
+   → Opening http://localhost:$FEATURE_PORT/page ...
    ```
 
-6. **Mode handling:**
+2. **Take a screenshot** and present it to the user.
 
-   - **[each]** (fresh): Test all criteria from #1.
-   - **[each]** (resume): Start at the resume point (the "Last failure" criterion). Proceed forward through remaining untested/failed criteria. After the last one, if stale-build passes exist → trigger the regression sweep prompt (State C).
-   - **[sweep]**: Walk through only criteria whose last pass is on an older build. On pass → update build. On fail → real regression, capture as finding.
-   - **[all]**: Stamps the current build on all criteria. Works in all three states.
-   - **[restart]**: Ignore prior progress, test all from #1, overwrite all rows with current build.
+3. **Ask the user** to evaluate:
+   ```
+   Screenshot above shows the current state.
+   Does this meet the criterion? Describe what you see.
+   ```
 
-7. **For each criterion being tested:**
-   - Display the criterion clearly
-   - **Prefer deeplinks**: If the criterion mentions a route (e.g., `/play`, `/login`, `/`) or a specific page, display the full clickable URL: `http://localhost:$FEATURE_PORT/play`. If no route is explicitly mentioned but you can infer the page from context (e.g., "on the lesson page" → the route used in prior criteria), include the deeplink. Only fall back to the base URL when no route can be determined.
-   - If the user seems unclear about context (asks "what should I be seeing?" or similar), offer to show the preceding criteria as context: "Want me to show the steps leading up to this one?" Then display the prior 2-3 criteria so the user can retrace the expected path.
-   - **Let the user describe what they see** — accept natural descriptions
-   - Classify their response:
-     - **Pass**: note it and continue
-     - **Fail**: capture description. Classify:
-       - **ESCALATED** (design — requires T2): new behavior not in plan, scope addition, UX change
-       - **Behavior** (code fix — T3 can resolve): bug in specified behavior
-       If unsure: "Is this a new behavior you want added, or something that should work but doesn't?"
-       **Do NOT stop testing.** Ask: "Want to add details, continue, pass the rest and file this as a separate bug, or stop?"
-     - **Skip**: note it and continue
-     - **Scope reduction**: If the user says things like "mark the rest as passed", "skip this and pass", "can't test beyond this", "pass the rest", or otherwise asks to reduce scope — go to the **scope reduction** flow below. Do NOT create findings.
+4. Classify their response as pass/fail/skip using the same logic as `[each]` mode.
 
-### Completion gate
+### Between criteria
 
-**The skill only proceeds to the "all pass" exit path when every criterion shows PASS with the current build identifier.** This is the single rule that drives the system. If some criteria passed on older builds and the user hasn't retested them via [sweep], [each], or [all], the plan is not complete.
+- Show a running tally after each criterion:
+  ```
+  Progress: 3/8 — 2 PASS, 1 FAIL (#3)
+  ```
+- Continue automatically between automatable criteria — don't wait for user input.
+- Only pause when a criterion needs human input or when a failure needs acknowledgment on the first failure of the session. Subsequent auto-failures can be noted without pausing.
 
-### Completion confirmation
+### After all criteria
 
-When all criteria show PASS on the current build, **do not proceed to the exit path automatically**. First prompt the user:
+Show a summary:
+```
+## Test Summary
+| # | Criterion | Type | Result |
+|-|-|-|-|
+| 1 | `/login` — redirects to /dashboard | chrome | PASS |
+| 2 | `/form` — submit saves form data | chrome | PASS |
+| 3 | `/form` — error on invalid email | chrome | PASS |
+| 4 | `/settings` — layout on mobile | manual | PASS (confirmed) |
+| 5 | `/onboarding` — multi-step flow | manual | FAIL |
+
+Chrome-assisted: 3/3 passed
+Manual: 1/2 passed
+```
+
+Then proceed to the completion gate or findings flow as appropriate.
+
+---
+
+## Completion gate
+
+**The skill only proceeds to the "all pass" exit path when every criterion shows PASS with the current build identifier.** If some criteria passed on older builds and the user hasn't retested them, the plan is not complete.
+
+## Completion confirmation
+
+When all criteria show PASS on the current build, prompt the user:
 
 ```
 All criteria passed on current build.
@@ -182,8 +233,8 @@ Before completing:
 ```
 
 - **[complete]**: proceed to the "If all pass" exit path.
-- **[bug]**: let the user describe the issue, capture it as a note in the completion message, then proceed to the "If all pass" exit path. After completion, remind: "File the bug with `/wf-bug`."
-- **[escalate]**: treat as a finding with ESCALATED severity — proceed to the "If findings" exit path instead.
+- **[bug]**: let the user describe the issue, capture it as a note, then proceed. After completion, remind: "File the bug with `/wf-bug`."
+- **[escalate]**: treat as ESCALATED finding — proceed to the "If findings" exit path.
 
 ### Saving test progress
 
@@ -193,12 +244,12 @@ Test progress is saved once at exit, not during testing. The LLM holds in-memory
 ```markdown
 ## Test Progress — PLN-NNN-slug
 
-| # | Criterion | Build | Result |
-|-|-|-|-|
-| 1 | criterion one text | Apr 07 09:15 (a1b2c3d) | PASS |
-| 2 | criterion two text | Apr 07 09:15 (a1b2c3d) | PASS |
-| 3 | criterion three text | Apr 08 14:32 (f4e5d6c) | FAIL |
-| 4 | criterion four text | — | — |
+| # | Criterion | Type | Build | Result |
+|-|-|-|-|-|
+| 1 | criterion one text | navigate | Apr 07 09:15 (a1b2c3d) | PASS |
+| 2 | criterion two text | interact | Apr 07 09:15 (a1b2c3d) | PASS |
+| 3 | criterion three text | visual | Apr 08 14:32 (f4e5d6c) | FAIL |
+| 4 | criterion four text | human | — | — |
 
 Last failure: #3 on build Apr 08 14:32 (f4e5d6c)
 ```
@@ -217,7 +268,6 @@ git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
 rm -f plans/PLN-NNN-<slug>/test-progress.md
 git add plans/PLN-NNN-<slug>/test-progress.md
 ```
-(Include in the final completion commit.)
 
 **On early abort** (user quits mid-test): save progress like findings exit so the next session can resume. If no criteria were tested this session, do not overwrite the file.
 
@@ -251,7 +301,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
    PLAN_GOAL=$(grep -A 1 "^## Goal" ../../plans/$PLAN_NAME/plan.md | tail -1)
    ```
-   **Merge release into feature branch** to ensure it's up-to-date (auto-resolves `.plan-ref` and `plans/` conflicts):
+   **Merge release into feature branch** to ensure it's up-to-date:
    ```bash
    ../../scripts/wf-merge-release.sh
    ```
@@ -277,7 +327,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    $PLAN_GOAL
    
    ## Test Results
-   All acceptance criteria passed in human test
+   All acceptance criteria passed (browser-assisted + human verification)
    
    **Plan:** plans/$PLAN_NAME/
    
@@ -303,7 +353,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
      ```bash
      scripts/wf-registry-update.sh $PLAN_NAME testing active --commit "test($PLAN_NAME): merge blocked — back to builder" --add plans/$PLAN_NAME/findings.md
      ```
-   - Display: "PR merge failed. Routed back to builder (testing → active). Findings written."
+   - Display: "PR merge failed. Routed back to builder (testing -> active). Findings written."
    - **Stop here — do not continue with remaining steps.**
 
    ```bash
@@ -323,7 +373,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```bash
    cd /absolute/path/to/project
    git checkout develop
-   git stash --include-untracked -m "wf-test: stash before merge"
+   git stash --include-untracked -m "wf-chrome-test: stash before merge"
    ```
    ```bash
    if ! git merge "$CURRENT_BRANCH" --no-edit; then
@@ -375,10 +425,10 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 
 1. Write findings to `plans/PLN-NNN-<slug>/findings.md` on develop (from worktree, path is `../../plans/PLN-NNN-<slug>/findings.md`):
    ```markdown
-   ## Human Test — YYYY-MM-DD
+   ## Chrome-Assisted Test — YYYY-MM-DD
    
    - [ ] **Behavior**: Button doesn't respond on mobile
-   - [ ] **Design**: Users expect different flow ← ESCALATED
+   - [ ] **Design**: Users expect different flow <- ESCALATED
    ```
 2. Destroy container (from worktree):
    ```bash
@@ -390,7 +440,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 3. Switch to develop:
    ```bash
    cd /absolute/path/to/project
-   git stash --include-untracked -m "wf-test: stash before checkout" 2>/dev/null || true
+   git stash --include-untracked -m "wf-chrome-test: stash before checkout" 2>/dev/null || true
    git checkout develop
    git stash pop 2>/dev/null || true
    ```
@@ -399,18 +449,18 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    scripts/wf-unclaim.sh PLN-NNN-<slug>
    route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
    ```
-   - **`escalated`** → route to draft:
+   - **`escalated`** -> route to draft:
      ```bash
      scripts/wf-registry-update.sh PLN-NNN testing draft
      git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
      git commit -m "test(PLN-NNN-<slug>): escalated findings — needs replanning"
      ```
      Display: "N escalated findings require design decisions. Run /wf-spec."
-   - **`active`** → route to active:
+   - **`active`** -> route to active:
      ```bash
      scripts/wf-registry-update.sh PLN-NNN testing active
      git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
-     git commit -m "test(PLN-NNN-<slug>): N findings from human test"
+     git commit -m "test(PLN-NNN-<slug>): N findings from chrome-assisted test"
      ```
      Display: "N findings written. Run /wf-implement to fix them."
 
@@ -433,11 +483,12 @@ If you hit an error and need to stop early, **destroy the container first** befo
 
 - **Do NOT** use `git add -A` or `git add .` — only stage specific files by name
 - **Do NOT** edit source code — only read the plan and write findings
-- **Do NOT** skip user input — let the user describe what they see
+- **Do NOT** skip user input on `visual` or `human` criteria — the human must confirm
 - **Do NOT** break testing context — write findings immediately, never tell user to switch branches mid-test
 - **Accept natural language** — interpret user descriptions, don't force rigid prompts
-- Severity for human-test findings is either `Behavior` (code fix) or `ESCALATED` (design) — never Critical
+- Severity for findings is either `Behavior` (code fix) or `ESCALATED` (design) — never Critical
 - Only one testing worktree at a time
+- **Chrome failures are not test failures** — if Chrome can't navigate or click, fall back to manual for that criterion, don't mark it as FAIL
 
 ## Notes
 

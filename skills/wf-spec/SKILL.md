@@ -103,7 +103,10 @@ If the user picks a bug BUG-NNN:
    - Class/method/component names and signatures
    - Acceptance criteria (test command, observable behavior)
 7. **Define tests** — fill in the Tests table with specific test IDs, types, descriptions, and commands. **Maximize automation:** API responses, data correctness, markup structure, auth gates, redirects, and status codes are all automatable (unit tests, integration tests, curl commands, scripts). Only use `Manual` type for things that genuinely require human eyes — visual rendering, subjective UX, complex multi-step physical interactions.
-8. **Fill verification checklist** — the verify agent needs to know exactly what to check
+8. **Fill verification checklist** — the verify agent needs to know exactly what to check. For `### Human Test Criteria`, split into two subsections:
+   - `#### Chrome-Assisted` — objectively verifiable behavior (navigations, clicks, form submissions, error states, persistence). Each criterion starts with a route: `- [ ] /login — redirects to /dashboard after valid credentials`
+   - `#### Manual` — subjective or visual checks that need human eyes (layout, animation, UX feel). Each criterion starts with a route: `- [ ] /play — animation feels smooth and natural`
+   Only use `#### Manual` for things that genuinely require human judgment. If Chrome can navigate and check the result, it's Chrome-Assisted.
 9. **Make all design decisions** — the implementer should not need to make judgment calls
 10. **Write the rollback plan** — fill in `## Rollback` in `plan.md`:
     - List specific trigger conditions (don't leave as TBD)

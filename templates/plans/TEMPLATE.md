@@ -64,8 +64,13 @@ Structured checks for the **verifier** session to execute after implementation.
 - [ ] `{{test_command}}` — all tests pass, including new tests from this plan
 - [ ] No unrelated test regressions
 
-### Behavioral Checks
-- [ ] [Describe observable behavior and how to verify it — prefer automated check, use manual only when necessary]
+### Human Test Criteria
+
+#### Chrome-Assisted
+- [ ] `/route` — [objectively verifiable behavior: redirects, content appears, form submits, error shown, state persists]
+
+#### Manual
+- [ ] `/route` — [subjective or visual: layout, animation, UX feel, responsive rendering]
 
 ### Code Quality
 - [ ] New files follow project conventions (namespaces, folder structure)
