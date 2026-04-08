@@ -110,8 +110,9 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 9. **Confirm you are on the feature branch** — run `git branch --show-current`
 10. **Merge develop into feature branch:**
     ```bash
-    git merge develop --no-edit
+    scripts/wf-merge-develop.sh
     ```
+    This auto-resolves conflicts in `plans/` and `.plan-ref` by taking develop's version (those files belong to develop, not feature branches). If non-plan conflicts remain, resolve them manually.
 11. **Set the Docker project name and port:**
     ```bash
     eval "$(scripts/wf-plan-port.sh PLN-NNN-<slug>)"
@@ -216,7 +217,7 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd feature-branches/PLN-NNN-<slug>
    ```
-4. **Merge develop** — `git merge develop --no-edit`
+4. **Merge develop** — `scripts/wf-merge-develop.sh`
 5. **Fix each unchecked finding** — address the issue, then check it off in `findings.md`:
    ```markdown
    - [x] **Code**: Login endpoint returns 500 on empty password (src/auth.ts:42)
