@@ -27,7 +27,9 @@ Feature branches contain **no plan content** — only a `.plan-ref` file with th
 > **Brief:** briefs/<brief-name>.md _(optional, only if from a brief)_
 
 ## Goal
-One paragraph: what this achieves and why it matters.
+One-line summary of what this achieves.
+
+Why it matters and any additional context (optional paragraph).
 
 ## Prerequisites
 - What must be true before implementation starts (merged PRs, running services, etc.)

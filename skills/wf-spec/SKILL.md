@@ -85,6 +85,7 @@ If the user picks a bug BUG-NNN:
 5. **Create the plan folder** — `plans/PLN-NNN-<slug>/` with three files following `templates/plans/TEMPLATE.md`:
    - Folder is always `plans/PLN-NNN-<slug>/` (e.g. `plans/PLN-041-user-auth/`)
    - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 4`
+   - **Goal (required)** — under `## Goal`, the **first line** MUST be a concrete one-line summary of what this plan achieves (not template placeholder text). This line is extracted by `wf-plan-info.sh` and displayed by `wf-implement`, `wf-test`, and in PR descriptions. Follow the one-liner with an optional paragraph providing additional context or motivation.
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty (no table header needed — findings are appended as flat checklists)
    - `progress.md` — step list (copied from plan steps), empty log
@@ -129,7 +130,9 @@ Bad agent tasks (do these yourself):
 
 When the user approves the plan (says "looks good", "approved", "ready", etc.):
 
-1. **Spawn a sonnet agent** to run the architectural and security review:
+1. **Goal gate** — verify that the first line under `## Goal` in `plan.md` is a concrete one-line summary (not empty, not template placeholder text). If missing or placeholder, ask the user for a one-line goal, write it as the first line under `## Goal` (before any paragraph), and stage the file.
+
+2. **Spawn a sonnet agent** to run the architectural and security review:
 
 ```
 Agent(model: sonnet, prompt: "You are a code reviewer. Read plans/PLN-NNN-[name]/plan.md 
@@ -146,18 +149,18 @@ Severity: Critical (blocks), Warning (should fix), Note (informational).
 Final response under 2000 characters.")
 ```
 
-2. **Process the review result:**
+3. **Process the review result:**
    - **Critical findings:** do NOT move to `ready`. Present findings to the user, revise the plan, and re-review.
    - **Warnings only:** present to the user for acknowledgement.
    - **Clean or Notes only:** proceed to state transition.
-3. **Write the review result** to `plan.md`'s `## Review` section
+4. **Write the review result** to `plan.md`'s `## Review` section
 
-4. **State transition — update REGISTRY.md:**
+5. **State transition — update REGISTRY.md:**
    ```bash
    scripts/wf-registry-update.sh PLN-NNN draft ready
    ```
 
-5. **Release claim and commit:**
+6. **Release claim and commit:**
    ```bash
    scripts/wf-unclaim.sh PLN-NNN-<slug>
    git add plans/PLN-NNN-<slug>/ plans/REGISTRY.md plans/briefs/ bugs/
