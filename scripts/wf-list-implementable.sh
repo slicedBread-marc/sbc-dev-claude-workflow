@@ -33,15 +33,29 @@ while IFS='|' read -r _ id slug state branch _rest; do
     found=1
   elif [ "$state" = "active" ]; then
     claimfile="$plan_dir/.wf-claim"
+    claimed=0
+    now=$(date +%s)
     if [ -f "$claimfile" ]; then
       claim_ts=$(cat "$claimfile" 2>/dev/null)
-      now=$(date +%s)
       age=$(( now - claim_ts ))
       if [ "$age" -lt 7200 ]; then
-        printf "processing\t%s\t%s\n" "$plan_name" "$goal"
-        found=1
-        continue
+        claimed=1
       fi
+    fi
+    # Fallback: if no valid claim, check for recent commit activity in the worktree
+    if [ "$claimed" -eq 0 ] && [ -n "$branch" ]; then
+      wt_dir="feature-branches/$plan_name"
+      if [ -d "$wt_dir" ]; then
+        last_commit=$(git -C "$wt_dir" log -1 --format=%ct 2>/dev/null || echo 0)
+        if [ $(( now - last_commit )) -lt 7200 ]; then
+          claimed=1
+        fi
+      fi
+    fi
+    if [ "$claimed" -eq 1 ]; then
+      printf "processing\t%s\t%s\n" "$plan_name" "$goal"
+      found=1
+      continue
     fi
     findings="$plan_dir/findings.md"
     if [ -f "$findings" ] && grep -q "^\- \[ \]" "$findings" 2>/dev/null; then
