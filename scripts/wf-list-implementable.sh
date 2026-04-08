@@ -6,7 +6,7 @@
 #   type = "new"        — state: ready, no existing worktree
 #   type = "resume"     — state: active, no unchecked findings
 #   type = "fix"        — state: active, has unchecked findings
-#   type = "processing" — state: active, claimed by another session (< 2h old)
+#   type = "processing" — state: active, claimed by another session (< 2h old claim file)
 #
 # Exit 0 if any found, exit 1 if none.
 
@@ -20,6 +20,9 @@ while IFS='|' read -r _ id slug state branch _rest; do
   slug=$(echo "$slug" | xargs)
   state=$(echo "$state" | xargs)
   branch=$(echo "$branch" | xargs)
+
+  # Skip malformed or blank lines
+  [ -n "$id" ] && [ -n "$state" ] || continue
   plan_dir="plans/${id}-${slug}"
 
   [ "$state" = "ready" ] || [ "$state" = "active" ] || continue
@@ -40,16 +43,9 @@ while IFS='|' read -r _ id slug state branch _rest; do
       age=$(( now - claim_ts ))
       if [ "$age" -lt 7200 ]; then
         claimed=1
-      fi
-    fi
-    # Fallback: if no valid claim, check for recent commit activity in the worktree
-    if [ "$claimed" -eq 0 ] && [ -n "$branch" ]; then
-      wt_dir="feature-branches/$plan_name"
-      if [ -d "$wt_dir" ]; then
-        last_commit=$(git -C "$wt_dir" log -1 --format=%ct 2>/dev/null || echo 0)
-        if [ $(( now - last_commit )) -lt 7200 ]; then
-          claimed=1
-        fi
+      else
+        # Stale claim — clean it up
+        rm -f "$claimfile"
       fi
     fi
     if [ "$claimed" -eq 1 ]; then
