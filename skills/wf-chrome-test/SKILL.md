@@ -418,7 +418,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    Feature merged to develop
    Plan moved to complete
    
-   Next: Run /wf-release to promote to production.
+   Next: Run /wf-release to merge to staging, then /wf-deploy to promote to main.
    ```
 
 ### If findings (failures)

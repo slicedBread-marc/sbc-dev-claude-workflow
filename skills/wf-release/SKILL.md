@@ -1,20 +1,19 @@
 ---
 name: wf-release
-description: Promote release branch to main. Move tested plans to complete, close bugs, back-merge to develop. Separate skill pushes main to trigger production.
+description: Merge approved PRs into the release branch and run E2E tests to validate staging. Stops here — use /wf-deploy to promote to main.
 user_invocable: true
 model: haiku
 ---
 
 # Release Role
 
-You are in **release mode**. Your job is to promote tested work from the release branch to main, mark plans complete, close bugs, and back-merge to develop. Pushing to main (which triggers production deploy) is a separate, deliberate step.
+You are in **release mode**. Your job is to merge approved PRs into the `release` branch and validate staging with E2E tests. This skill does NOT promote to main — that's `/wf-deploy`.
 
 ## State context
 
 ```
-plans/REGISTRY.md → single source of truth (plans in "complete" state after this skill runs)
-bugs/triaged/     → bugs linked to plans (move to closed/ when plan completes)
-bugs/closed/      → closed bugs
+plans/REGISTRY.md → single source of truth (plans stay in "testing" state after this skill)
+release branch    → staging environment for E2E validation
 ```
 
 ## What you do
@@ -37,92 +36,43 @@ bugs/closed/      → closed bugs
    gh pr merge <PR-number> --merge --auto
    ```
    For each PR merged, extract the plan name from the PR title (format: `feat: <plan-name>`) and note it.
-7. **Verify all selected PRs merged** — check git log that release now includes those commits
-8. **Switch to `main` branch**:
+7. **Verify all selected PRs merged** — check git log that release now includes those commits.
+8. **Pull latest release:**
    ```bash
-   git checkout main
-   git pull origin main
+   git pull origin release
    ```
-9. **Merge `release` into `main`** (auto-resolve in favor of release):
+9. **Run E2E / integration tests** (staging validation):
    ```bash
-   git merge -X theirs --no-ff release -m "release: promote to main"
+   {{build_command}}
+   {{test_command}}
    ```
-   The `-X theirs` option automatically accepts release's version of any conflicting files in `plans/`.
-10. **Run full test suite** (final integration check — includes e2e):
-    ```bash
-    {{build_command}}
-    {{test_command}}
-    ```
-    If tests fail, abort the release — do NOT proceed to registry updates. Inform user of failures and suggest fixing on the release branch.
-11. **Update REGISTRY.md** — for each merged PR's plan, verify state is `complete`. If not:
-    ```bash
-    scripts/wf-registry-update.sh PLN-NNN testing complete -
-    ```
-12. **Close linked bugs** — for each completed plan, check `plan.md` Goal for `**Bug:**` line:
-    ```bash
-    scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
-    ```
-13. **Commit plan and bug updates**:
-    ```bash
-    git add plans/REGISTRY.md plans/PLN-*/plan.md bugs/closed/
-    git commit -m "release: complete [plan-names], close bugs"
-    ```
-14. **Back-merge `main` → `develop`** (auto-resolve in favor of main):
-    ```bash
-    git checkout develop
-    git pull origin develop
-    git merge -X ours main -m "sync: bring completed plans back to develop"
-    ```
-    The `-X ours` option automatically accepts main's version of any conflicting files in `plans/` (main has complete/).
-15. **Push develop branch**:
-    ```bash
-    git push origin develop
-    ```
-    (This syncs the completed plans back to develop)
+   If tests fail, inform the user of failures. The release branch stays as-is for fixes.
+10. **Display result**:
 
-16. **Do NOT push main** — that's a separate step:
-    ```
-    To deploy to production, run:
-    git push origin main
-    (This triggers the production deploy in GitHub Actions)
-    ```
-
-17. **Display success**:
+    **On success:**
     ```
     ✓ [N] PRs merged to release
-    ✓ Plans marked complete on main
-    ✓ Bugs closed
-    ✓ Back-merged to develop and pushed
-    
-    NEXT: When ready to go live, manually push main:
-      git push origin main
-    
-    This will trigger the production deploy to https://slicedbread.ca
+    ✓ E2E tests passed on release branch
+
+    NEXT: When ready to promote to production, run:
+      /wf-deploy
     ```
 
-## Conflict resolution
+    **On failure:**
+    ```
+    ✗ E2E tests failed on release branch
 
-Merge strategy `-X theirs` (step 9) and `-X ours` (step 13) automatically resolve conflicts:
-
-- **release → main:** Accept release's version
-- **main → develop:** Accept main's version (has REGISTRY.md updates)
-
-Plans never move folders, so the only potential conflict is REGISTRY.md — which is row-based and auto-merges in most cases. If a merge fails, abort and notify the user.
+    Fix the issues on the feature branch, create a new PR, and re-run /wf-release.
+    Do NOT proceed with /wf-deploy until E2E passes.
+    ```
 
 ## Rules
 
 - **Confirm branch** — always check you're on `release` before starting
-- **Verify staging** — confirm human testing before proceeding to main
-- **Do NOT** force push — this is a main branch, use regular merge
-- **Do NOT** skip back-merge — develop needs to stay in sync with main
+- **Do NOT merge to main** — that's `/wf-deploy`
+- **Do NOT update REGISTRY.md** — plans stay in `testing` state until `/wf-deploy` completes
+- **Do NOT** force push — use regular merge
 - **Complete all steps** — if the user interrupts, provide a clear resumption point
-
-## Bug closing
-
-When a plan reaches `complete` state in REGISTRY.md, check if `plan.md` contains a `**Bug:**` line in the Goal section. Extract BUG-NNN, then:
-```bash
-scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
-```
 
 ## On startup
 
@@ -133,24 +83,6 @@ scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
 
 ## Committing work
 
-Four commits are normal:
-1. Merge commits (PR merges to release): done by `gh pr merge` — one per PR
-2. Merge commit (release → main): `"release: promote to main"`
-3. Plans + bugs: `"release: complete [plan-names], close bugs"`
-4. Back-merge: `"sync: bring completed plans back to develop"`
+Merge commits (PR merges to release) are done by `gh pr merge` — one per PR. No other commits are created by this skill.
 
 If you need to resume after an interruption, tell the user which step to pick up at.
-
-## Production deploy (separate step)
-
-This skill does NOT push to main. After `/wf-release` completes:
-
-To deploy to production, manually push main:
-```bash
-git push origin main
-```
-
-Pushing `main` automatically triggers `.github/workflows/deploy.yml` on the GitHub Actions runner. Check deployment status at:
-- **Logs:** https://github.com/marcblais/sbc/actions
-- **Live site:** https://slicedbread.ca (update should be live in 2–5 minutes)
-- **Health:** Check `/health` endpoint for server status

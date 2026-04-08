@@ -30,7 +30,7 @@ If the user says "new bug" or provides no description, prompt for:
 ```
 bugs/open/    → new bugs land here (you create here)
 bugs/triaged/ → picked up by /wf-spec when a fix plan is created
-bugs/closed/  → resolved by /wf-release when a plan completes
+bugs/closed/  → resolved by /wf-deploy when a plan completes
 ```
 
 ## What you do
@@ -123,4 +123,4 @@ When an attachment is provided:
 - Bugs are always created on develop (the planning branch)
 - Attachments are co-located with `bug.md` in the bug folder
 - The bug can be moved to `triaged/` by `/wf-spec` when a fix plan is created
-- The bug moves to `closed/` by `/wf-release` when the fix plan completes
+- The bug moves to `closed/` by `/wf-deploy` when the fix plan completes

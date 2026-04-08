@@ -164,7 +164,7 @@ NEXT STEPS:
 6. Run /wf-implement again in the worktree to start coding
 7. When done: /wf-test → creates PR to release
 
-After: merge PR, then /wf-release promotes release → main → production.
+After: merge PR, then /wf-release validates staging, then /wf-deploy promotes to main.
 Run /wf-help to understand the flow.
 ```
 
@@ -176,7 +176,7 @@ NEXT STEPS:
 3. /wf-test — shows plans in "testing" state (passed automated verify agent)
 4. Walk through human acceptance criteria
 5. On pass, PR is created to release branch
-6. Merge PR, then /wf-release promotes release → main
+6. Merge PR, then /wf-release validates staging, then /wf-deploy promotes to main
 
 The verify agent handles automated checks — T4 only does human testing.
 Run /wf-help to understand the flow.

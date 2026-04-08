@@ -78,7 +78,8 @@ draft → ready → active → verify ──[agent]──→ testing → complet
 | `/wf-implement` | sonnet | T3 Builder | build/test verification (haiku) |
 | `wf-verify` | sonnet | Verify Agent (auto) | parallel checks (haiku) |
 | `/wf-test` | haiku | T4 Tester | none |
-| `/wf-release` | haiku | Release manager | none |
+| `/wf-release` | haiku | Release — merge PRs, E2E | none |
+| `/wf-deploy` | haiku | Deploy — promote to main | none |
 
 ### Orchestrator (`/wf-status`) — haiku
 Reads REGISTRY.md, reports pipeline state, recommends next action.
@@ -111,8 +112,12 @@ Reads REGISTRY.md, reports pipeline state, recommends next action.
 - **Exit (pass):** Creates PR to release, updates REGISTRY `testing→complete`
 - **Exit (fail):** Writes findings, routes to `active` or `draft`
 
-### Release Manager (`/wf-release`)
-- Merges PRs to release, promotes release → main
+### Release (`/wf-release`)
+- Merges approved PRs to release branch, runs E2E tests
+- Validates staging before anything touches main
+
+### Deploy (`/wf-deploy`)
+- Promotes validated release → main
 - Updates REGISTRY to `complete`, closes bugs, back-merges to develop
 
 ### Findings Format (flat checklist)

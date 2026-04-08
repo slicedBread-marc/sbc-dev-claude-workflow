@@ -42,9 +42,9 @@ THE FLOW:
 5. T3 executes steps, writes tests, runs code/architecture review, E2E tests, moves to verify/
 6. T4 runs /wf-test → human acceptance testing against plan criteria
 7. T4 creates PR to release on pass
-8. Merge PR to release, validate staging
-9. /wf-release: merge release → main, plans move to complete/, bugs closed, back-merge to develop
-10. Loop continues: intake → plan → build → test → release → production → back to intake
+8. /wf-release: merge PRs to release, run E2E tests to validate staging
+9. /wf-deploy: merge release → main, plans move to complete/, bugs closed, back-merge to develop
+10. Loop continues: intake → plan → build → test → release → deploy → production → back to intake
 
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -76,9 +76,14 @@ T4: Haiku Tester
   • Tests in parallel with T3's next build
 
 Release (any terminal on release/main branch):
-  • /wf-release: Promote release → main, mark plans complete, close bugs
-  • Merges release to main, updates REGISTRY to complete, back-merges to develop
-  • Run after PRs are merged to release and staging is validated
+  • /wf-release: Merge approved PRs to release, run E2E tests
+  • Validates staging before anything touches main
+  • Run when PRs targeting release are ready to merge
+
+Deploy (any terminal, after /wf-release passes):
+  • /wf-deploy: Promote release → main, mark plans complete, close bugs
+  • Back-merges main to develop, leaves main unpushed
+  • Run only after E2E tests pass on release branch
 
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -137,6 +142,10 @@ Then:
   T2: /wf-spec BRF-001 (convert briefs to plans)
   T3: /wf-implement (auto-picks ready plans, includes code/arch review + E2E tests)
   T4: /wf-test (human acceptance testing in worktree)
+
+After testing:
+  /wf-release (merge PRs to release, run E2E)
+  /wf-deploy  (promote release → main, complete plans)
 
 ═══════════════════════════════════════════════════════════════════════════
 ```

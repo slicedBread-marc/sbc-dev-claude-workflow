@@ -29,6 +29,7 @@ The workflow is designed to run across 4 terminal sessions, each with a dedicate
 | T3 | Builder | `/wf-implement` | Sonnet |
 | T4 | Tester | `/wf-test` | Haiku |
 | Agent | Verifier | `wf-verify` (auto-triggered) | Sonnet |
+| Any | Release | `/wf-release`, `/wf-deploy` | Haiku |
 
 Each terminal runs `/wf-init` once per session to establish its role. `/wf-next` auto-routes to the correct skill based on `TERMINAL_ROLE`.
 
@@ -78,9 +79,11 @@ Bugs move through: `bugs/open/` → `bugs/triaged/` → `bugs/closed/`
 
 4. **Verify agent** (automatic) — triggered by REGISTRY state change to `verify`. Checks code, spec completeness, and design soundness. Auto-routes: clean→`testing`, findings→`active`, escalated→`draft`.
 
-5. **T4 (Tester)** runs `/wf-test` — greps REGISTRY for `testing` state. Guides human through acceptance criteria. On pass, creates PR to release and sets `testing→complete`.
+5. **T4 (Tester)** runs `/wf-test` — greps REGISTRY for `testing` state. Guides human through acceptance criteria. On pass, creates PR to release.
 
-6. **Release** — `/wf-release` promotes the combined release branch to `main`. Bugs close, and main back-merges to develop.
+6. **Release** — `/wf-release` merges approved PRs into the release branch and runs E2E tests to validate staging.
+
+7. **Deploy** — `/wf-deploy` promotes the validated release branch to `main`. Marks plans complete, closes bugs, and back-merges to develop.
 
 ---
 
