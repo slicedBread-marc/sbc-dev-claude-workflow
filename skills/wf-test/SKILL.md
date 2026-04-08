@@ -54,30 +54,80 @@ After user picks:
 1. **Read the plan** — from develop worktree: `../../plans/PLN-NNN-<slug>/plan.md`
    - Read Goal and Verification Checklist sections
    - **Only present `### Human Test Criteria` items** — Build & Tests and Code Quality were already handled by the verify agent
-2. **Deploy to local container:**
+2. **Check for prior test progress** — look for `../../plans/PLN-NNN-<slug>/test-progress.md`. If it exists, read it to get per-criterion results and build identifiers.
+3. **Deploy to local container and capture build identifier:**
    ```bash
    eval "$(../../scripts/wf-docker-up.sh)"
+   BUILD=$(git log -1 --format='%ad (%h)' --date=format:'%b %d %H:%M')
    ```
-   This sets FEATURE_PORT and COMPOSE_PROJECT_NAME, builds, and waits for health.
-3. **List all criteria, then ask testing mode:**
+   This sets FEATURE_PORT, COMPOSE_PROJECT_NAME, and BUILD.
+4. **Classify state and display criteria:**
+
+   Compare the current `$BUILD` against the build column in test-progress.md (if it exists) to determine which of three states applies:
+
+   **State A — Fresh start** (no test-progress.md):
    ```
    App is running at http://localhost:$FEATURE_PORT
-   
+   Current build: Apr 08 14:32 (a1b2c3d)
+
    ## Acceptance Criteria
    1. criterion one
    2. criterion two
    ...
-   
+
    How would you like to test?
    [each] - Walk through each criterion individually
    [all]  - Pass all criteria (assume they all passed)
    ```
-   Always list all Human Test Criteria **before** the mode prompt so the user can see what they're about to test.
 
-5. **If mode = [all]**: Skip to step 7 — mark all criteria as pass
+   **State B — Resume from failure** (test-progress.md exists, some criteria are `—` or `FAIL`):
+   ```
+   App is running at http://localhost:$FEATURE_PORT
+   Current build: Apr 08 14:32 (f4e5d6c)
 
-6. **If mode = [each]**: For each criterion in `### Human Test Criteria` only:
+   ## Acceptance Criteria
+   1. criterion one — PASS (build Apr 07 09:15 (a1b2c3d))
+   2. criterion two — PASS (build Apr 07 09:15 (a1b2c3d))
+   3. criterion three — FAILED last session
+   4. criterion four — untested
+   ...
+
+   Resuming from #3 (failed on build Apr 07 09:15 (a1b2c3d)).
+   [each]    - Walk through criteria starting from #3
+   [all]     - Pass all remaining criteria
+   [restart] - Start over from #1
+   ```
+
+   **State C — Regression sweep** (all criteria show PASS, but some on an older build):
+   ```
+   App is running at http://localhost:$FEATURE_PORT
+   Current build: Apr 08 16:45 (g7h8i9j)
+
+   ## Acceptance Criteria
+   1. criterion one — PASS (build Apr 07 09:15 (a1b2c3d)) ← older build
+   2. criterion two — PASS (build Apr 07 09:15 (a1b2c3d)) ← older build
+   ...
+   8. criterion eight — PASS (build Apr 08 16:45 (g7h8i9j)) ✓ current
+   9. criterion nine — PASS (build Apr 08 16:45 (g7h8i9j)) ✓ current
+
+   All criteria have passed, but #1-7 passed on older builds.
+   Recommend a regression sweep to confirm on current build.
+   [sweep] - Retest #1-7 on current build
+   [all]   - Trust prior results, mark complete
+   [each]  - Walk through all 9 criteria
+   ```
+
+5. **Mode handling:**
+
+   - **[each]** (fresh): Test all criteria from #1.
+   - **[each]** (resume): Start at the resume point (the "Last failure" criterion). Proceed forward through remaining untested/failed criteria. After the last one, if stale-build passes exist → trigger the regression sweep prompt (State C).
+   - **[sweep]**: Walk through only criteria whose last pass is on an older build. On pass → update build. On fail → real regression, capture as finding.
+   - **[all]**: Stamps the current build on all criteria. Works in all three states.
+   - **[restart]**: Ignore prior progress, test all from #1, overwrite all rows with current build.
+
+6. **For each criterion being tested:**
    - Display the criterion clearly
+   - If the user seems unclear about context (asks "what should I be seeing?" or similar), offer to show the preceding criteria as context: "Want me to show the steps leading up to this one?" Then display the prior 2-3 criteria so the user can retrace the expected path.
    - **Let the user describe what they see** — accept natural descriptions
    - Classify their response:
      - **Pass**: note it and continue
@@ -88,6 +138,46 @@ After user picks:
        **Do NOT stop testing.** Ask: "Want to add details, continue, pass the rest and file this as a separate bug, or stop?"
      - **Skip**: note it and continue
      - **Scope reduction**: If the user says things like "mark the rest as passed", "skip this and pass", "can't test beyond this", "pass the rest", or otherwise asks to reduce scope — go to the **scope reduction** flow below. Do NOT create findings.
+
+### Completion gate
+
+**The skill only proceeds to the "all pass" exit path when every criterion shows PASS with the current build identifier.** This is the single rule that drives the system. If some criteria passed on older builds and the user hasn't retested them via [sweep], [each], or [all], the plan is not complete.
+
+### Saving test progress
+
+Test progress is saved once at exit, not during testing. The LLM holds in-memory state during the session and writes it all at the end.
+
+**Format** — `../../plans/PLN-NNN-<slug>/test-progress.md`:
+```markdown
+## Test Progress — PLN-NNN-slug
+
+| # | Criterion | Build | Result |
+|-|-|-|-|
+| 1 | criterion one text | Apr 07 09:15 (a1b2c3d) | PASS |
+| 2 | criterion two text | Apr 07 09:15 (a1b2c3d) | PASS |
+| 3 | criterion three text | Apr 08 14:32 (f4e5d6c) | FAIL |
+| 4 | criterion four text | — | — |
+
+Last failure: #3 on build Apr 08 14:32 (f4e5d6c)
+```
+
+- One row per criterion, always present. Result: `PASS`, `FAIL`, `SKIP`, or `—` (untested).
+- Only the most recent result per criterion is stored — overwrite on retest.
+- "Last failure" line records the resume point for the next session.
+
+**On findings (failure exit):** write test-progress.md with current state. Include in the findings commit:
+```bash
+git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
+```
+
+**On complete (all pass on current build):** delete the progress file as part of cleanup:
+```bash
+rm -f plans/PLN-NNN-<slug>/test-progress.md
+git add plans/PLN-NNN-<slug>/test-progress.md
+```
+(Include in the final completion commit.)
+
+**On early abort** (user quits mid-test): save progress like findings exit so the next session can resume. If no criteria were tested this session, do not overwrite the file.
 
 ### Scope reduction (edge cases filed separately)
 
@@ -217,9 +307,10 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    git worktree remove feature-branches/PLN-NNN-<slug> --force 2>/dev/null || true
    git branch -d "$CURRENT_BRANCH" 2>/dev/null || true
    ```
-7. Commit REGISTRY and bug changes:
+7. Clean up test progress and commit REGISTRY/bug changes:
    ```bash
-   git add plans/REGISTRY.md bugs/
+   rm -f plans/PLN-NNN-<slug>/test-progress.md
+   git add plans/REGISTRY.md plans/PLN-NNN-<slug>/test-progress.md bugs/
    git commit -m "test(PLN-NNN-<slug>): complete — merged to develop"
    ```
 8. Display:
@@ -263,14 +354,14 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    - **`escalated`** → route to draft:
      ```bash
      scripts/wf-registry-update.sh PLN-NNN testing draft
-     git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md
+     git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
      git commit -m "test(PLN-NNN-<slug>): escalated findings — needs replanning"
      ```
      Display: "N escalated findings require design decisions. Run /wf-spec."
    - **`active`** → route to active:
      ```bash
      scripts/wf-registry-update.sh PLN-NNN testing active
-     git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md
+     git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
      git commit -m "test(PLN-NNN-<slug>): N findings from human test"
      ```
      Display: "N findings written. Run /wf-implement to fix them."
