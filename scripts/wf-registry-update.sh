@@ -131,6 +131,15 @@ else
   exit 1
 fi
 
+# Auto-claim when entering active state
+if [ "$to_state" = "active" ]; then
+  slug=$(grep "| $plan_id |" "$REGISTRY" | head -1 | awk -F'|' '{print $3}' | xargs)
+  claim_dir="plans/${plan_id}-${slug}"
+  if [ -d "$claim_dir" ]; then
+    date +%s > "$claim_dir/.wf-claim"
+  fi
+fi
+
 # --- Atomic commit (under lock) ---
 if [ -n "$commit_msg" ]; then
   git add "$REGISTRY"

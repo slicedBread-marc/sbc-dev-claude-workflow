@@ -14,6 +14,14 @@ set -euo pipefail
 branch=$(git branch --show-current)
 [[ "$branch" == feature/* ]] || { echo "Error: not on a feature branch (on $branch)" >&2; exit 1; }
 
+# Auto-claim: mark this plan as actively being worked on
+develop_root=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')
+plan_name=$(echo "$branch" | sed 's#^feature/##')
+claim_dir="$develop_root/plans/$plan_name"
+if [ -d "$claim_dir" ]; then
+  date +%s > "$claim_dir/.wf-claim"
+fi
+
 # Attempt clean merge first
 if git merge develop --no-edit 2>/dev/null; then
   echo "Merged develop cleanly."
