@@ -46,9 +46,13 @@ Each step must be independently completable and verifiable.
 ## Tests
 Tests the **implementer** must write. The **verifier** will run and evaluate these independently.
 
+Maximize automated tests. Only mark a test as `Manual` when it genuinely cannot be machine-verified (visual rendering, subjective UX, complex physical interactions). API responses, data correctness, markup structure, auth gates, redirects — all automatable.
+
 | ID | Type | Description | Command |
 |-|-|-|-|
 | T1 | Unit | ... | `{{test_command}} {{test_filter_flag}} T1` |
+| T2 | API | ... | `curl ...` or inline script |
+| T3 | Manual | [only if not automatable] | Manual — [what to observe] |
 
 ## Verification Checklist
 Structured checks for the **verifier** session to execute after implementation.
@@ -59,7 +63,7 @@ Structured checks for the **verifier** session to execute after implementation.
 - [ ] No unrelated test regressions
 
 ### Behavioral Checks
-- [ ] [Describe observable behavior and how to trigger it]
+- [ ] [Describe observable behavior and how to verify it — prefer automated check, use manual only when necessary]
 
 ### Code Quality
 - [ ] New files follow project conventions (namespaces, folder structure)
