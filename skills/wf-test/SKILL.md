@@ -143,6 +143,27 @@ After user picks:
 
 **The skill only proceeds to the "all pass" exit path when every criterion shows PASS with the current build identifier.** This is the single rule that drives the system. If some criteria passed on older builds and the user hasn't retested them via [sweep], [each], or [all], the plan is not complete.
 
+### Completion confirmation
+
+When all criteria show PASS on the current build, **do not proceed to the exit path automatically**. First prompt the user:
+
+```
+All criteria passed on current build.
+
+Before completing:
+- Any notes or issues to add?
+- Spotted anything that should be filed as a separate bug?
+- Ready to create PR and close out this plan?
+
+[complete] - Proceed to PR and merge
+[bug]      - File a related bug first, then complete
+[escalate] - Flag a design concern (routes back to planner)
+```
+
+- **[complete]**: proceed to the "If all pass" exit path.
+- **[bug]**: let the user describe the issue, capture it as a note in the completion message, then proceed to the "If all pass" exit path. After completion, remind: "File the bug with `/wf-bug`."
+- **[escalate]**: treat as a finding with ESCALATED severity — proceed to the "If findings" exit path instead.
+
 ### Saving test progress
 
 Test progress is saved once at exit, not during testing. The LLM holds in-memory state during the session and writes it all at the end.
