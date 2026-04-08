@@ -60,21 +60,22 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 
 1. **Confirm you are on `develop`** — `scripts/wf-branch-check.sh develop true`
 2. **Read the plan** — `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` then read `$PLAN_DIR/plan.md`
-3. **Update REGISTRY.md** — lock the plan:
+3. **Goal check** — if `$PLAN_GOAL_MISSING` is `true`, ask the user: "This plan has no goal summary. Please provide a one-line goal describing what this achieves." Write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage the file, and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run `eval "$(scripts/wf-plan-info.sh $PLAN_NAME)"` to pick up the goal.
+4. **Update REGISTRY.md** — lock the plan:
    ```bash
    scripts/wf-registry-update.sh PLN-NNN ready active feature/PLN-NNN-<slug>
    ```
-4. **Commit on develop:**
+5. **Commit on develop:**
    ```
    git add plans/REGISTRY.md
    git commit -m "implement(PLN-NNN-<slug>): lock plan"
    ```
-5. **Create feature branch and worktree:**
+6. **Create feature branch and worktree:**
    ```bash
    mkdir -p feature-branches
    git worktree add -b feature/PLN-NNN-<slug> feature-branches/PLN-NNN-<slug> HEAD
    ```
-6. **Write `.plan-ref` in the worktree:**
+7. **Write `.plan-ref` in the worktree:**
    ```bash
    echo "PLN-NNN" > feature-branches/PLN-NNN-<slug>/.plan-ref
    cd feature-branches/PLN-NNN-<slug>
@@ -82,7 +83,7 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
    git commit -m "chore(PLN-NNN): add .plan-ref"
    cd ../..
    ```
-7. **Drop settings.local.json into worktree** for full write permissions:
+8. **Drop settings.local.json into worktree** for full write permissions:
    ```
    mkdir -p feature-branches/PLN-NNN-<slug>/.claude
    cat > feature-branches/PLN-NNN-<slug>/.claude/settings.local.json << 'EOF'
@@ -102,31 +103,33 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 
 ## Phase 2: Implementation (in the worktree)
 
-8. **Claim the plan and change to worktree:**
+9. **Set develop root, claim the plan, and change to worktree:**
    ```bash
+   DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd feature-branches/PLN-NNN-<slug>
    ```
-9. **Confirm you are on the feature branch** — run `git branch --show-current`
-10. **Merge develop into feature branch:**
+   Use `$DEVELOP_ROOT` for all paths to `plans/` throughout implementation.
+10. **Confirm you are on the feature branch** — run `git branch --show-current`
+11. **Merge develop into feature branch:**
     ```bash
     scripts/wf-merge-develop.sh
     ```
     This auto-resolves conflicts in `plans/` and `.plan-ref` by taking develop's version (those files belong to develop, not feature branches). If non-plan conflicts remain, resolve them manually.
-11. **Set the Docker project name and port:**
+12. **Set the Docker project name and port:**
     ```bash
     eval "$(scripts/wf-plan-port.sh PLN-NNN-<slug>)"
     ```
-12. **Read the plan** — from develop worktree: `../../plans/PLN-NNN-<slug>/plan.md`
-13. **Execute steps in order** — follow each step exactly as specified
+13. **Read the plan** — from develop worktree: `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/plan.md`
+14. **Execute steps in order** — follow each step exactly as specified
     - After each step, commit: `git add src/ tests/ && git commit -m "implement(PLN-NNN-<slug>): step N — <desc>"`
-14. **Write tests** — implement all tests listed in the Tests table
-15. **Log progress** — after each step, append to `../../plans/PLN-NNN-<slug>/progress.md`: `[date] Step N — done / blocked (reason)`
-16. **Deploy to local container for testing:**
+15. **Write tests** — implement all tests listed in the Tests table
+16. **Log progress** — after each step, append to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/progress.md`: `[date] Step N — done / blocked (reason)`. **Never use relative paths** — `plans/` only exists on the develop worktree.
+17. **Deploy to local container for testing:**
     ```bash
     scripts/wf-docker-up.sh PLN-NNN-<slug>
     ```
-17. **Launch build and test agents in background:**
+18. **Launch build and test agents in background:**
     ```
     Agent(model: haiku, run_in_background: true, prompt:
       "Run `~/.dotnet/dotnet build SBC.slnx` in the current directory.
@@ -139,37 +142,37 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
        If any failed, list each failure with test name and error message.
        Final response under 1500 characters.")
     ```
-18. **Code review** (while agents run):
+19. **Code review** (while agents run):
     - Read through all changed source files
     - Verify logic matches the plan's design decisions
     - Check for edge cases, error handling
     - Ensure no debugging code, console.logs, or temporary hacks remain
     - If issues found, fix before proceeding
-19. **Architecture review** (while agents run):
+20. **Architecture review** (while agents run):
     - Re-read the plan's "Design Decisions" section
     - Confirm the implementation follows those decisions
     - If scope changes are needed that **cannot be resolved by editing code alone**:
-      1. Write `ESCALATED` findings to `../../plans/PLN-NNN-<slug>/findings.md`:
+      1. Write `ESCALATED` findings to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/findings.md`:
          ```markdown
          ## Implement — YYYY-MM-DD
          
          - [ ] **Design**: <description of design issue> ← ESCALATED
          ```
-      2. Destroy the docker container (step 22)
+      2. Destroy the docker container (step 23)
       3. Return to develop (Phase 3) and update REGISTRY state to `draft`
       4. Display: "Design issue found. Run `/wf-spec` to amend the plan."
     - If issues are minor (code-level fixes), fix them and note in `progress.md`
-20. **Collect agent results** — check each result:
+21. **Collect agent results** — check each result:
     - **Build failed:** fix errors, re-verify via haiku agent
     - **Tests failed:** fix failures, re-verify via haiku agent
     - Log results in `progress.md`
     - **Tick off automated checklist sections** in `plan.md` — mark `### Build & Tests`, `### Code Quality`, `### Regression Scope` items as `[x]`
-21. **When all steps, reviews, and tests pass** — commit on feature branch:
+22. **When all steps, reviews, and tests pass** — commit on feature branch:
     ```
     git add -A
     git commit -m "implement(PLN-NNN-<slug>): all steps complete"
     ```
-22. **Destroy the docker container:**
+23. **Destroy the docker container:**
     ```bash
     scripts/wf-docker-down.sh PLN-NNN-<slug>
     ```
@@ -178,24 +181,28 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 
 ## Phase 3: Exit (complex) — return to develop
 
-23. **Return to develop and release claim:**
+**IMPORTANT:** All commands in this phase must run from the develop root (`DEVELOP_ROOT`). Set this once and use it for every command:
+```bash
+DEVELOP_ROOT=$(git worktree list | head -1 | awk '{print $1}')
+```
+
+24. **Return to develop and release claim:**
     ```bash
-    cd ../..
+    cd "$DEVELOP_ROOT"
     scripts/wf-unclaim.sh PLN-NNN-<slug>
     ```
-24. **Update REGISTRY.md** — change state from `active` to `verify`:
+25. **Update REGISTRY.md** — change state from `active` to `verify`:
     ```bash
-    scripts/wf-registry-update.sh PLN-NNN active verify
+    cd "$DEVELOP_ROOT" && scripts/wf-registry-update.sh PLN-NNN active verify
     ```
-25. **Commit on develop:**
+26. **Commit on develop:**
     ```bash
-    git add plans/REGISTRY.md plans/PLN-NNN-<slug>/progress.md
-    git commit -m "implement(PLN-NNN-<slug>): verified, moved to verify"
+    cd "$DEVELOP_ROOT" && git add plans/REGISTRY.md plans/PLN-NNN-<slug>/progress.md plans/PLN-NNN-<slug>/findings.md && git commit -m "implement(PLN-NNN-<slug>): verified, moved to verify"
     ```
 
     **This commit triggers the verify agent automatically** (via hook on REGISTRY state change to `verify`).
 
-26. **Post completion message:**
+27. **Post completion message:**
     ```
     Implementation complete — all steps, code review, architecture review, and tests passed.
     Plan moved to verify — the verify agent will run automated checks.
@@ -212,13 +219,14 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
 
 1. **Entry** — `grep "| active |" plans/REGISTRY.md` shows the plan
 2. **Read findings** — `plans/PLN-NNN-<slug>/findings.md` has unchecked items
-3. **Claim the plan and cd to the feature worktree:**
+3. **Set develop root, claim the plan, and cd to the feature worktree:**
    ```bash
+   DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd feature-branches/PLN-NNN-<slug>
    ```
 4. **Merge develop** — `scripts/wf-merge-develop.sh`
-5. **Fix each unchecked finding** — address the issue, then check it off in `findings.md`:
+5. **Fix each unchecked finding** — address the issue, then check it off in `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/findings.md`:
    ```markdown
    - [x] **Code**: Login endpoint returns 500 on empty password (src/auth.ts:42)
    ```
@@ -227,8 +235,7 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    ```bash
    git add src/ tests/
    git commit -m "implement(PLN-NNN-<slug>): fix findings"
-   cd ../..
-   # Update REGISTRY: active → verify (same as step 24-25)
+   # Then follow Phase 3 steps 23-26 (uses $DEVELOP_ROOT)
    ```
    This re-triggers the verify agent.
 

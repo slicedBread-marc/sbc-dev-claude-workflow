@@ -38,9 +38,10 @@ If exit code 1: check stderr for "CLAIMED:" lines. If stale claims are listed, s
 
 After user picks:
 1. `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get plan details
-2. `scripts/wf-claim.sh $PLAN_NAME`
-3. `cd feature-branches/$PLAN_NAME/`
-4. Continue to testing
+2. If `$PLAN_GOAL_MISSING` is `true`, ask the user: "This plan has no goal summary. Please provide a one-line goal." Then write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run the eval to pick up the goal.
+3. `scripts/wf-claim.sh $PLAN_NAME`
+4. `cd feature-branches/$PLAN_NAME/`
+5. Continue to testing
 
 **If on a feature branch:**
 1. `eval "$(scripts/wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME

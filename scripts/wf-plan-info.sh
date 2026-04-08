@@ -61,4 +61,11 @@ echo "PLAN_STATE=$state"
 echo "PLAN_BRANCH=$branch"
 echo "PLAN_DIR=$plan_dir"
 echo "PLAN_NAME=$plan_name"
-echo "PLAN_GOAL=\"$goal\""
+# Single-quote the goal to prevent eval breakage from semicolons, backticks, etc.
+escaped_goal=$(printf '%s' "$goal" | sed "s/'/'\\\\''/g")
+echo "PLAN_GOAL='$escaped_goal'"
+if [ -z "$goal" ]; then
+  echo "PLAN_GOAL_MISSING=true"
+else
+  echo "PLAN_GOAL_MISSING=false"
+fi
