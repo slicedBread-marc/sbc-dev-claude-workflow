@@ -113,12 +113,12 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 10. **Confirm you are on the feature branch** — run `git branch --show-current`
 11. **Merge develop into feature branch:**
     ```bash
-    scripts/wf-merge-develop.sh
+    $DEVELOP_ROOT/scripts/wf-merge-develop.sh
     ```
     This auto-resolves conflicts in `plans/` and `.plan-ref` by taking develop's version (those files belong to develop, not feature branches). If non-plan conflicts remain, resolve them manually.
 12. **Set the Docker project name and port:**
     ```bash
-    eval "$(scripts/wf-plan-port.sh PLN-NNN-<slug>)"
+    eval "$($DEVELOP_ROOT/scripts/wf-plan-port.sh PLN-NNN-<slug>)"
     ```
 13. **Read the plan** — from develop worktree: `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/plan.md`
 14. **Execute steps in order** — follow each step exactly as specified
@@ -127,7 +127,7 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
 16. **Log progress** — after each step, append to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/progress.md`: `[date] Step N — done / blocked (reason)`. **Never use relative paths** — `plans/` only exists on the develop worktree.
 17. **Deploy to local container for testing:**
     ```bash
-    scripts/wf-docker-up.sh PLN-NNN-<slug>
+    $DEVELOP_ROOT/scripts/wf-docker-up.sh PLN-NNN-<slug>
     ```
 18. **Launch build and test agents in background:**
     ```
@@ -174,7 +174,7 @@ Show numbered list from script output. If exit code 1: "No plans ready to implem
     ```
 23. **Destroy the docker container:**
     ```bash
-    scripts/wf-docker-down.sh PLN-NNN-<slug>
+    $DEVELOP_ROOT/scripts/wf-docker-down.sh PLN-NNN-<slug>
     ```
 
 ---
@@ -225,7 +225,7 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd feature-branches/PLN-NNN-<slug>
    ```
-4. **Merge develop** — `scripts/wf-merge-develop.sh`
+4. **Merge develop** — `$DEVELOP_ROOT/scripts/wf-merge-develop.sh`
 5. **Fix each unchecked finding** — address the issue, then check it off in `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/findings.md`:
    ```markdown
    - [x] **Code**: Login endpoint returns 500 on empty password (src/auth.ts:42)
