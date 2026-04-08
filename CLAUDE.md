@@ -4,6 +4,12 @@ This project is a development workflow library. All `wf-*` skills are designed t
 
 Work in this repo is about building, improving, and maintaining that library, not about implementing features for this repo itself.
 
+## Interaction Rules
+
+- When given content, **diagnose and correct** issues in skills (`SKILL.md`) or associated scripts.
+- **Never run skills** directly.
+- Fixing pipeline data (registry, plan files, etc.) is secondary — **always prompt the user** before modifying data.
+
 ## Clients
 
 - `/Users/marcblais/dev/sbc/` — the only current client. It receives copies of skills and scripts via `deploy-all.sh`.

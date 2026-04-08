@@ -38,16 +38,34 @@ Do NOT use agents for writing code — implementation is inherently sequential a
 
 **If on `develop`:**
 
-Run `scripts/wf-list-implementable.sh` — output is tab-separated: `<type>\t<plan-name>\t<goal>`
+Run `scripts/wf-list-implementable.sh` — output is tab-separated: `<type>\t<plan-name>\t<goal>`.
+**This script is the ONLY source of truth for plan availability. Do NOT write your own detection logic, check worktree ages, or query claim files manually. Run the script and use its output verbatim.**
 
-| Type | Label | Action |
+Show results as **two tables** — actionable items (numbered) and processing items (no numbers, informational only):
+
+| Type | Table | Action |
 |-|-|-|
-| `new` | (new plan) | Phase 1 → Phase 2 → Phase 3 |
-| `resume` | (resume) | cd to worktree, continue Phase 2 |
-| `fix` | (fix cycle) | cd to worktree, fix findings |
-| `processing` | (in progress) | Show as non-selectable — another session is working on it |
+| `new` | Actionable (numbered) | Phase 1 → Phase 2 → Phase 3 |
+| `resume` | Actionable (numbered) | cd to worktree, continue Phase 2 |
+| `fix` | Actionable (numbered) | cd to worktree, fix findings |
+| `processing` | Processing (no numbers) | Non-selectable — another session is working on it |
 
-Show numbered list from script output. If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline state."
+```
+## Ready to implement
+
+| # | Plan | Type | Goal |
+|-|-|-|-|
+| 1 | PLN-040-user-admin-page | fix | Replace hardcoded claim string |
+
+## In progress (other sessions)
+
+| Plan | Goal |
+|-|-|
+| PLN-042-lessons-page-infinite-spinner | Fix infinite loading spinner |
+```
+
+If there are no actionable items, say "No plans ready to implement. Run /wf-status to see pipeline state." If there are no processing items, omit the second table.
+If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline state."
 
 **If on a feature branch:**
 - Run `eval "$(scripts/wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME
