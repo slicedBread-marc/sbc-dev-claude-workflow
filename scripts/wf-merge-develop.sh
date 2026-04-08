@@ -28,10 +28,14 @@ has_non_plan_conflicts=false
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
-  if [[ "$file" == plans/* ]] || [[ "$file" == .plan-ref ]]; then
+  if [[ "$file" == plans/* ]]; then
     git checkout develop -- "$file" 2>/dev/null || git checkout --theirs -- "$file"
     git add "$file"
     echo "  resolved: $file (took develop's version)"
+  elif [[ "$file" == .plan-ref ]]; then
+    git checkout --ours -- "$file"
+    git add "$file"
+    echo "  resolved: $file (kept feature branch version)"
   else
     has_non_plan_conflicts=true
     echo "  CONFLICT: $file (requires manual resolution)"

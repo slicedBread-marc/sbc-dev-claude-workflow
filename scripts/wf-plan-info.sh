@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# wf-plan-info.sh <plan-id>
+# wf-plan-info.sh <plan-id-or-name>
 # Looks up a plan in REGISTRY.md and outputs key=value pairs.
 # Output (eval-friendly):
 #   PLAN_ID=PLN-004
@@ -10,20 +10,28 @@
 #   PLAN_NAME=PLN-004-deployment-date-footer
 #   PLAN_GOAL="Add deployment date to footer"
 #
+# Accepts either a plan ID (PLN-004) or full plan name (PLN-004-deployment-date-footer).
 # Usage: eval "$(scripts/wf-plan-info.sh PLN-004)"
 # Exit 0 if found, 1 if not.
 
 set -euo pipefail
 
 REGISTRY="plans/REGISTRY.md"
-plan_id="${1:-}"
+input="${1:-}"
 
-if [ -z "$plan_id" ]; then
-  echo "Usage: $0 <plan-id>" >&2
+if [ -z "$input" ]; then
+  echo "Usage: $0 <plan-id-or-name>" >&2
   exit 1
 fi
 
 [ -f "$REGISTRY" ] || { echo "Error: $REGISTRY not found" >&2; exit 1; }
+
+# Extract plan ID (PLN-NNN) from full name if needed
+plan_id=$(echo "$input" | grep -oE 'PLN-[0-9]+')
+if [ -z "$plan_id" ]; then
+  echo "Error: could not extract plan ID from '$input'" >&2
+  exit 1
+fi
 
 # Find the row
 row=$(grep "| $plan_id |" "$REGISTRY" | head -1)

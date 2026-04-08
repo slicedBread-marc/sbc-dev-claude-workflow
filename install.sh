@@ -80,15 +80,6 @@ for f in "$SCRIPT_DIR/templates/plans/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/
     fi
 done
 
-# Guard: warn if ~/.claude/skills is a symlink to source repo (causes duplicate skills)
-if [ -L "$HOME/.claude/skills" ]; then
-    link_target=$(readlink "$HOME/.claude/skills")
-    if [ "$link_target" = "$SCRIPT_DIR/skills" ]; then
-        echo -e "${RED}Warning: ~/.claude/skills is symlinked to $SCRIPT_DIR/skills${NC}"
-        echo -e "${RED}This causes duplicate skills in client sessions. Remove it with: rm ~/.claude/skills${NC}"
-    fi
-fi
-
 # Copy and templatize skills
 echo "Installing skills..."
 mkdir -p "$TARGET_DIR/.claude/skills"
@@ -179,6 +170,49 @@ done
 WORKFLOW_VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 echo "$WORKFLOW_VERSION" > "$TARGET_DIR/.claude/workflow-version"
 echo -e "${GREEN}  Stamped workflow version $WORKFLOW_VERSION → .claude/workflow-version${NC}"
+
+# ── Propagate to feature worktrees ───────────────────────────────────────────
+if git -C "$TARGET_DIR" rev-parse --git-dir &>/dev/null; then
+    echo "Updating feature worktrees..."
+    TARGET_ABS="$(cd "$TARGET_DIR" && pwd)"
+    WT_COUNT=0
+
+    wt_path="" wt_branch=""
+    while IFS= read -r line; do
+        if [[ "$line" == worktree\ * ]]; then
+            wt_path="${line#worktree }"
+            wt_branch=""
+        elif [[ "$line" == branch\ * ]]; then
+            wt_branch="${line#branch }"
+        elif [[ -z "$line" ]]; then
+            # End of block — process if it's a feature worktree (not the main one)
+            if [[ -n "$wt_path" && "$wt_path" != "$TARGET_ABS" && "$wt_branch" == *feature/* ]]; then
+                mkdir -p "$wt_path/scripts"
+                for script in "$TARGET_ABS/scripts"/wf-*.sh; do
+                    cp "$script" "$wt_path/scripts/$(basename "$script")"
+                    chmod +x "$wt_path/scripts/$(basename "$script")"
+                done
+
+                for skill_dir in "$TARGET_ABS/.claude/skills"/*/; do
+                    dest="$wt_path/.claude/skills/$(basename "$skill_dir")"
+                    mkdir -p "$dest"
+                    cp "$skill_dir/SKILL.md" "$dest/SKILL.md"
+                done
+
+                mkdir -p "$wt_path/.claude"
+                [ -f "$TARGET_ABS/.claude/workflow.md" ] && cp "$TARGET_ABS/.claude/workflow.md" "$wt_path/.claude/workflow.md"
+                [ -f "$TARGET_ABS/.claude/workflow-version" ] && cp "$TARGET_ABS/.claude/workflow-version" "$wt_path/.claude/workflow-version"
+
+                echo -e "  ${GREEN}Updated $(basename "$wt_path")${NC}"
+                ((WT_COUNT++)) || true
+            fi
+            wt_path="" wt_branch=""
+        fi
+    done < <(git -C "$TARGET_DIR" worktree list --porcelain; echo "")
+
+    [ "$WT_COUNT" -gt 0 ] && echo -e "${GREEN}  $WT_COUNT worktree(s) updated${NC}" || echo -e "  ${YELLOW}No feature worktrees found${NC}"
+    echo ""
+fi
 
 # Always overwrite .claude/workflow.md (the referenced file — keeps it current on every deploy)
 WORKFLOW_MD="$TARGET_DIR/.claude/workflow.md"

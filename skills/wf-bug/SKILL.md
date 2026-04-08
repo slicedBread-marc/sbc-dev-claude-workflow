@@ -99,7 +99,7 @@ _(context, workarounds, related information)_
 ## Attachment handling
 
 When an attachment is provided:
-- Place it (or a symlink note) in the bug folder alongside `bug.md`
+- Place it in the bug folder alongside `bug.md`
 - Reference it with a relative path: `[filename.ext](./filename.ext)`
 - If it's a path outside the repo, note the full path as a non-relative reference with a warning that it may not be portable
 

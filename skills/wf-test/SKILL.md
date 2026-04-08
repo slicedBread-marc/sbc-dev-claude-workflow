@@ -230,6 +230,12 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
    PLAN_GOAL=$(grep -A 1 "^## Goal" ../../plans/$PLAN_NAME/plan.md | tail -1)
    ```
+   **Merge release into feature branch** to ensure it's up-to-date (auto-resolves `.plan-ref` and `plans/` conflicts):
+   ```bash
+   ../../scripts/wf-merge-release.sh
+   ```
+   If this fails with non-trivial conflicts, route back to builder (same as merge-blocked path below).
+
    Push to remote. If push fails, display the error and **stop** — ask the user to resolve manually.
    ```bash
    git push -u origin "$CURRENT_BRANCH"
