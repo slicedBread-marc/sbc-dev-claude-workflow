@@ -48,35 +48,42 @@ Ask the user: **"What would you like to plan? Pick a plan to amend, a bug number
 
 ---
 
-## ID Assignment
+## ID Inheritance
 
+Plans inherit their number from the source artifact — no new counter allocation.
+
+- **From brief BRF-041** → plan becomes **PLN-041**
+- **From bug BUG-043** → plan becomes **PLN-043**
+
+Extract the number from the source ID:
 ```bash
-new_id=$(scripts/wf-counter-next.sh PLN)
+# Example: source_id="BRF-041" or "BUG-043"
+plan_num="${source_id##*-}"          # "041"
+new_id="PLN-${plan_num}"            # "PLN-041"
 ```
-This reads the counter, prints the prefixed ID (e.g., `PLN-021`), and increments the counter in REGISTRY.md.
+
+Do **not** call `wf-counter-next.sh` — the number was already allocated when the brief or bug was created.
 
 ## Plan from bug
 
 If the user picks a bug BUG-NNN:
 
 1. **Read the bug** — read `bugs/open/BUG-NNN-<slug>/bug.md`
-2. **Extract the bug ID** — save BUG-NNN for use in the plan folder name
+2. **Inherit the plan ID** — BUG-NNN becomes PLN-NNN (same number, see [ID Inheritance](#id-inheritance))
 3. **Use it as context** — the bug's description, steps, and expected behavior become the plan's Goal and acceptance criteria
 4. **Choose a feature name** — a short kebab-case slug describing the fix (e.g. `login-crash`, `webhook-timeout`)
-5. **Assign a plan ID** — next available `PLN-NNN` from REGISTRY.md counter
-6. **Construct the plan folder name** — use `PLN-NNN-bug-BUG-NNN-<slug>` (e.g. `PLN-003-bug-BUG-003-login-crash`)
-7. **Treat it like a brief** — proceed as normal, but the scope is defined by fixing the bug
-8. The bug consumption happens in the [Bug consumption](#bug-consumption) section below
+5. **Construct the plan folder name** — `PLN-NNN-<slug>` (e.g. `PLN-003-login-crash`)
+6. **Treat it like a brief** — proceed as normal, but the scope is defined by fixing the bug
+7. The bug consumption happens in the [Bug consumption](#bug-consumption) section below
 
 ## What you do
 
 1. **Read the input** — if from a brief: read the relevant brief in `plans/briefs/`; if from a bug: the bug's `bug.md` becomes the scope definition
 2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `login-crash`)
-3. **Assign a plan ID** — next available `PLN-NNN` from REGISTRY.md counter
+3. **Inherit the plan ID** — reuse the source artifact's number (see [ID Inheritance](#id-inheritance)). Do not call `wf-counter-next.sh`.
 4. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
 5. **Create the plan folder** — `plans/PLN-NNN-<slug>/` with three files following `templates/plans/TEMPLATE.md`:
-   - For briefs: `plans/PLN-NNN-<slug>/` (e.g. `plans/PLN-001-user-auth/`)
-   - For bugs: `plans/PLN-NNN-bug-BUG-NNN-<slug>/` (e.g. `plans/PLN-003-bug-003-login-crash/`)
+   - Folder is always `plans/PLN-NNN-<slug>/` (e.g. `plans/PLN-041-user-auth/`)
    - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 4`
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty (no table header needed — findings are appended as flat checklists)

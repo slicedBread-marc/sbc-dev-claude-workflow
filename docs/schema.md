@@ -93,7 +93,9 @@ Routing rules:
 
 ## Counter
 
-Embedded in `plans/REGISTRY.md` as `<!-- Counter: N -->`. To allocate:
+Embedded in `plans/REGISTRY.md` as `<!-- Counter: N -->`. To allocate a new number (briefs and bugs only):
 1. Read N from the comment
 2. Use N as the new artifact ID
 3. Write N+1 back in the same commit
+
+**Number inheritance:** When a brief or bug is converted to a plan, the plan reuses the same number — no new counter allocation. BRF-041 → PLN-041, BUG-043 → PLN-043. The counter is only incremented when creating new briefs or bugs.

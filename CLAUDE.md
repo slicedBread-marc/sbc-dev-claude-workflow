@@ -6,7 +6,7 @@ Work in this repo is about building, improving, and maintaining that library, no
 
 ## Clients
 
-- `/Users/marcblais/dev/sbc/` — the only current client. It consumes the library via symlinks pointing back to the skills in this repo.
+- `/Users/marcblais/dev/sbc/` — the only current client. It receives copies of skills and scripts via `deploy-all.sh`.
 
 ---
 
@@ -95,7 +95,8 @@ T3 creates a `feature/<plan-name>` branch and worktree from `develop`. On comple
 
 All artifacts (plans, bugs, briefs) use a **global shared counter** embedded in `plans/REGISTRY.md` as `<!-- Counter: N -->`.
 
-- When creating any artifact, read the counter, use it, write `N+1` back in the same commit.
+- When creating a **brief or bug**, allocate a new counter number (`wf-counter-next.sh`).
+- When converting a brief/bug to a **plan**, the plan **inherits the same number** — no new allocation. BRF-041 → PLN-041, BUG-043 → PLN-043.
 - IDs are type-prefixed: `PLN-NNN`, `BUG-NNN`, `BRF-NNN`.
 - Numbers are globally unique across all types.
 
