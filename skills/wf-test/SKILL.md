@@ -68,6 +68,7 @@ After user picks:
    **State A — Fresh start** (no test-progress.md):
    ```
    App is running at http://localhost:$FEATURE_PORT
+   Start here: http://localhost:$FEATURE_PORT/<first criterion's route>
    Current build: Apr 08 14:32 (a1b2c3d)
 
    ## Acceptance Criteria
@@ -86,6 +87,7 @@ After user picks:
 
    ```
    App is running at http://localhost:$FEATURE_PORT
+   Start here: http://localhost:$FEATURE_PORT/<resume criterion's route>
    Current build: Apr 08 14:32 (f4e5d6c)
 
    ## Prior Round Findings
@@ -108,6 +110,7 @@ After user picks:
    **State C — Regression sweep** (all criteria show PASS, but some on an older build):
    ```
    App is running at http://localhost:$FEATURE_PORT
+   Start here: http://localhost:$FEATURE_PORT/<first stale criterion's route>
    Current build: Apr 08 16:45 (g7h8i9j)
 
    ## Acceptance Criteria
@@ -134,6 +137,7 @@ After user picks:
 
 6. **For each criterion being tested:**
    - Display the criterion clearly
+   - **Prefer deeplinks**: If the criterion mentions a route (e.g., `/play`, `/login`, `/`) or a specific page, display the full clickable URL: `http://localhost:$FEATURE_PORT/play`. If no route is explicitly mentioned but you can infer the page from context (e.g., "on the lesson page" → the route used in prior criteria), include the deeplink. Only fall back to the base URL when no route can be determined.
    - If the user seems unclear about context (asks "what should I be seeing?" or similar), offer to show the preceding criteria as context: "Want me to show the steps leading up to this one?" Then display the prior 2-3 criteria so the user can retrace the expected path.
    - **Let the user describe what they see** — accept natural descriptions
    - Classify their response:
