@@ -55,6 +55,11 @@ After user picks:
 1. **Read the plan** — from develop worktree: `../../plans/PLN-NNN-<slug>/plan.md`
    - Read Goal and Verification Checklist sections
    - **Only present `### Human Test Criteria` items** (combine `#### Chrome-Assisted` and `#### Manual` into a single flat list) — Build & Tests and Code Quality were already handled by the verify agent
+   - **Chrome-assisted detection:** If the plan contains a `#### Chrome-Assisted` subsection with criteria, display a one-line suggestion before the criteria list:
+     ```
+     💡 This plan has Chrome-assisted criteria. Run /wf-chrome-test for automated browser checks.
+     ```
+     Then continue normally — wf-test treats all criteria as manual regardless.
 2. **Check for prior test progress** — look for `../../plans/PLN-NNN-<slug>/test-progress.md`. If it exists, read it to get per-criterion results and build identifiers.
 3. **Deploy to local container and capture build identifier:**
    ```bash
