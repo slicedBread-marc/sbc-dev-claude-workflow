@@ -41,9 +41,12 @@ while IFS= read -r file; do
     git add "$file"
     echo "  resolved: $file (took develop's version)"
   elif [[ "$file" == .plan-ref ]]; then
-    git checkout --ours -- "$file"
+    # Derive plan ID from branch name — more reliable than git checkout --ours
+    # which can fail with "pathspec did not match" in some conflict states
+    plan_id=$(echo "$branch" | sed 's#^feature/##; s#^\(PLN-[0-9]*\).*#\1#')
+    echo "$plan_id" > "$file"
     git add "$file"
-    echo "  resolved: $file (kept feature branch version)"
+    echo "  resolved: $file (kept $plan_id from branch name)"
   else
     has_non_plan_conflicts=true
     echo "  CONFLICT: $file (requires manual resolution)"
