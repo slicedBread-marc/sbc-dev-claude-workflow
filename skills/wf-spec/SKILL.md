@@ -9,49 +9,46 @@ model: haiku
 
 You are in **spec mode**. Your job is to convert decided briefs into precise, step-by-step implementation plans that another Claude session can execute without judgment calls.
 
-## IMMEDIATE STARTUP — run these two commands in parallel before reading further
+## IMMEDIATE STARTUP — run in parallel before reading further
 
-```bash
-scripts/wf-branch-check.sh develop true
-```
-```bash
-scripts/wf-list-specable.sh
-```
+1. Run branch check (do not prompt the user):
+   ```bash
+   scripts/wf-branch-check.sh develop true
+   ```
 
-Branch check switches to develop automatically if needed. Do not prompt the user.
-
-Show menu from list output as **two numbered tables** — always use table format, never bullet lists. Split items into actionable vs already-planned.
-
-**Table 1 — Actionable items:** Replans (escalated plans), bugs, and briefs that do NOT already have a plan. These get sequential numbering.
-For replans, the script outputs a third tab field with the plan's priority — show it in a Priority column.
-Bugs and briefs do not have a priority field — show `—` for those rows.
-
-**Table 2 — "Already planned" items:** Briefs whose detail says "Already has plan PLN-NNN". Show these separately with no numbering — they are informational only and cannot be selected.
+2. Spawn a **haiku subagent** to fetch and format the worklist:
 
 ```
-## Available work
+Agent(model: haiku, prompt: "Run `scripts/wf-list-specable.sh` in the current directory.
+Parse the tab-separated output (sections: # replanning, # bugs, # briefs).
 
+Format as TWO markdown tables:
+
+**Table 1 — Available work** (actionable items with sequential numbering):
 | # | Priority | Type | ID | Name | Detail |
 |-|-|-|-|-|-|
-| 1 | urgent | Replan | PLN-046 | platformer-ui | 3 escalated findings |
-| 2 | — | Bug | BUG-012 | login-crash | High — Login crashes on empty password |
-| 3 | — | Brief | BRF-041 | user-auth | Short goal snippet |
+- Replans: the third tab field is priority (show it). Type = Replan.
+- Bugs: priority = '—', second field = severity, third = title. Type = Bug.
+- Briefs: priority = '—', second field = name, third = description. Type = Brief.
+  If a brief's detail says 'Already has plan PLN-NNN', put it in Table 2 instead.
 
-## Already planned
-
+**Table 2 — Already planned** (informational, no numbering):
 | Type | ID | Name | Plan |
 |-|-|-|-|
-| Brief | BRF-011 | arcade-sorting-arena | PLN-012 |
+Only briefs that already have a plan go here. Omit this table if empty.
+
+After the tables add: Mark a plan urgent: \`u <number>\` (replans only)
+
+If no actionable items, say 'No specable work found.'
+
+Final response: ONLY the formatted tables and footer line. No commentary.")
 ```
 
-After showing the menu, add one line: `Mark a plan urgent: \`u <number>\`` (replans only — bugs and briefs are not in REGISTRY)
+Display the subagent's output verbatim, then tell the user: "Run `/model opus`, then pick a number or describe new work."
 
-If the user types `u <N>` for a replan: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-display the updated menu.
-If the user types `u <N>` for an already-urgent replan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-display.
-
-If there are no actionable items, say so. If there are no already-planned items, omit the second table.
-
-Then tell the user: "Run `/model opus`, then pick a number or describe new work."
+**Handling `u <N>` commands:**
+If the user types `u <N>` for a replan: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent above to re-display the updated menu.
+If the user types `u <N>` for an already-urgent replan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
 
 - If they pick an escalated plan: **claim it** (`scripts/wf-claim.sh PLN-NNN-<slug>`), then go to [Replanning](#replanning)
 - If they pick a bug: go to [Plan from bug](#plan-from-bug)
