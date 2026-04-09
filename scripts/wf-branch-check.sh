@@ -40,6 +40,9 @@ if [ "$current" = "$expected" ]; then
 fi
 
 if [ "$auto_switch" = "true" ]; then
+  # Reset infra files before switching — prevents unmerged/dirty conflicts
+  # Use HEAD to resolve both dirty and unmerged (U) states
+  git checkout HEAD -- .claude/workflow-version .claude/workflow.md 2>/dev/null || true
   git checkout "$expected" 2>/dev/null
   echo "CURRENT_BRANCH=$expected"
   echo "SWITCHED_FROM=$current"
