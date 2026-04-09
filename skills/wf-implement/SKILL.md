@@ -38,31 +38,52 @@ Do NOT use agents for writing code — implementation is inherently sequential a
 
 **If on `develop`:**
 
-Run `scripts/wf-list-implementable.sh` — output is tab-separated: `<type>\t<plan-name>\t<goal>`.
+Run `scripts/wf-list-implementable.sh` — output is tab-separated: `<type>\t<plan-name>\t<goal>\t<priority>`.
 **This script is the ONLY source of truth for plan availability. Do NOT write your own detection logic, check worktree ages, or query claim files manually. Run the script and use its output verbatim.**
 
-Show results as **two tables** — actionable items (numbered) and processing items (no numbers, informational only):
+Show results as **two tables** — actionable items (numbered) and processing items (no numbers, informational only).
+Urgent items are already sorted first by the script; preserve that order.
+
+The processing table has a 5th tab-separated field: claim age (e.g. `47m ago`). Always show it in the table.
 
 | Type | Table | Action |
 |-|-|-|
 | `new` | Actionable (numbered) | Phase 1 → Phase 2 → Phase 3 |
 | `resume` | Actionable (numbered) | cd to worktree, continue Phase 2 |
 | `fix` | Actionable (numbered) | cd to worktree, fix findings |
-| `processing` | Processing (no numbers) | Non-selectable — another session is working on it |
+| `processing` | Processing (no numbers) | Claimed by another session — show claim age |
 
 ```
 ## Ready to implement
 
-| # | Plan | Type | Goal |
-|-|-|-|-|
-| 1 | PLN-040-user-admin-page | fix | Replace hardcoded claim string |
+| # | Priority | Plan | Type | Goal |
+|-|-|-|-|-|
+| 1 | urgent | PLN-040-user-admin-page | fix | Replace hardcoded claim string |
+| 2 | — | PLN-039-profile-page | new | Add user profile page |
 
 ## In progress (other sessions)
 
-| Plan | Goal |
-|-|-|
-| PLN-042-lessons-page-infinite-spinner | Fix infinite loading spinner |
+| Priority | Plan | Goal | Claimed |
+|-|-|-|-|
+| urgent | PLN-022-lesson-deeplink-urls | Support deep-linking to lesson screen | 47m ago |
+| — | PLN-042-lessons-page-infinite-spinner | Fix infinite loading spinner | 12m ago |
 ```
+
+After showing the menu, add two lines:
+```
+Mark a plan urgent: `u <number>`
+Force-take a stale claim: `force <plan-id>` (e.g. `force PLN-022-lesson-deeplink-urls`)
+```
+
+If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-display the updated menu.
+If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-display.
+
+If the user types `force <plan-id>`:
+```bash
+scripts/wf-unclaim.sh <plan-id>
+scripts/wf-claim.sh <plan-id>
+```
+Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry, and proceed to Phase 2.
 
 If there are no actionable items, say "No plans ready to implement. Run /wf-status to see pipeline state." If there are no processing items, omit the second table.
 If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline state."
@@ -140,7 +161,12 @@ If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline sta
     ```
 13. **Read the plan** — from develop worktree: `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/plan.md`
 14. **Execute steps in order** — follow each step exactly as specified
-    - After each step, commit: `git add src/ tests/ && git commit -m "implement(PLN-NNN-<slug>): step N — <desc>"`
+    - After each step, commit and refresh the claim:
+      ```bash
+      git add src/ tests/ && git commit -m "implement(PLN-NNN-<slug>): step N — <desc>"
+      $DEVELOP_ROOT/scripts/wf-claim.sh PLN-NNN-<slug>
+      ```
+      Refreshing the claim on every commit means the claim age reflects time since last activity. Sessions that crash without committing will have their claims auto-expire (TTL: 2 hours).
     - **Config-driven randomness**: If a step introduces probabilistic or random behavior (e.g., a spawn chance, drop rate, trigger probability), store the controlling value in `appsettings.json` (or equivalent config) rather than as a hardcoded constant. This lets testers force or suppress the behavior via override values (e.g., `1.0` to always trigger, `0.0` to never trigger) without modifying source code.
 15. **Write tests** — implement all tests listed in the Tests table
 16. **Log progress** — after each step, append to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/progress.md`: `[date] Step N — done / blocked (reason)`. **Never use relative paths** — `plans/` only exists on the develop worktree.
@@ -254,6 +280,7 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    ```bash
    git add src/ tests/
    git commit -m "implement(PLN-NNN-<slug>): fix findings"
+   $DEVELOP_ROOT/scripts/wf-claim.sh PLN-NNN-<slug>
    # Then follow Phase 3 steps 23-26 (uses $DEVELOP_ROOT)
    ```
    This re-triggers the verify agent.

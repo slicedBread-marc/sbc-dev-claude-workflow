@@ -2,23 +2,29 @@
 # wf-list-implementable.sh
 # Outputs plans available for /wf-implement by reading REGISTRY.md.
 #
-# Format per line: <type>\t<plan-name>\t<goal>
+# Format per line: <type>\t<plan-name>\t<goal>\t<priority>
 #   type = "new"        — state: ready, no existing worktree
 #   type = "resume"     — state: active, no unchecked findings
 #   type = "fix"        — state: active, has unchecked findings
 #   type = "processing" — state: active, claimed by another session (< 2h old claim file)
+#   priority = "urgent" or "—" (normal)
 #
-# Exit 0 if any found, exit 1 if none.
+# Urgent items are output first. Exit 0 if any found, exit 1 if none.
 
 set -euo pipefail
 
 REGISTRY="plans/REGISTRY.md"
 found=0
 
-while IFS='|' read -r _ id slug state branch _rest; do
+urgent_lines=()
+normal_lines=()
+processing_lines=()
+
+while IFS='|' read -r _ id slug state priority branch _rest; do
   id=$(echo "$id" | xargs)
   slug=$(echo "$slug" | xargs)
   state=$(echo "$state" | xargs)
+  priority=$(echo "$priority" | xargs)
   branch=$(echo "$branch" | xargs)
 
   # Skip malformed or blank lines
@@ -32,7 +38,8 @@ while IFS='|' read -r _ id slug state branch _rest; do
   plan_name="${id}-${slug}"
 
   if [ "$state" = "ready" ]; then
-    printf "new\t%s\t%s\n" "$plan_name" "$goal"
+    line=$(printf "new\t%s\t%s\t%s" "$plan_name" "$goal" "$priority")
+    if [ "$priority" = "urgent" ]; then urgent_lines+=("$line"); else normal_lines+=("$line"); fi
     found=1
   elif [ "$state" = "active" ]; then
     claimfile="$plan_dir/.wf-claim"
@@ -49,18 +56,25 @@ while IFS='|' read -r _ id slug state branch _rest; do
       fi
     fi
     if [ "$claimed" -eq 1 ]; then
-      printf "processing\t%s\t%s\n" "$plan_name" "$goal"
+      claim_age_min=$(( age / 60 ))
+      processing_lines+=("$(printf "processing\t%s\t%s\t%s\t%s" "$plan_name" "$goal" "$priority" "${claim_age_min}m ago")")
       found=1
       continue
     fi
     findings="$plan_dir/findings.md"
     if [ -f "$findings" ] && grep -q "^\- \[ \]" "$findings" 2>/dev/null; then
-      printf "fix\t%s\t%s\n" "$plan_name" "$goal"
+      line=$(printf "fix\t%s\t%s\t%s" "$plan_name" "$goal" "$priority")
     else
-      printf "resume\t%s\t%s\n" "$plan_name" "$goal"
+      line=$(printf "resume\t%s\t%s\t%s" "$plan_name" "$goal" "$priority")
     fi
+    if [ "$priority" = "urgent" ]; then urgent_lines+=("$line"); else normal_lines+=("$line"); fi
     found=1
   fi
 done < <(grep "^|" "$REGISTRY" | tail -n +3)
+
+# Output urgent items first, then normal, then processing
+for line in "${urgent_lines[@]+"${urgent_lines[@]}"}"; do printf "%s\n" "$line"; done
+for line in "${normal_lines[@]+"${normal_lines[@]}"}"; do printf "%s\n" "$line"; done
+for line in "${processing_lines[@]+"${processing_lines[@]}"}"; do printf "%s\n" "$line"; done
 
 exit $((1 - found))
