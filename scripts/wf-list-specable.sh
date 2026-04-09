@@ -70,9 +70,12 @@ if [ -f "plans/briefs/INDEX.md" ]; then
     fi
     if [ $in_decided -eq 1 ] && echo "$line" | grep -q "^\- \["; then
       name=$(echo "$line" | sed 's/^\- \[//' | sed 's/\].*//')
+      link=$(echo "$line" | grep -oE '\([^)]+\)' | head -1 | tr -d '()')
+      brief_id=$(echo "$link" | grep -oE 'BRF-[0-9]+' | head -1)
+      [ -n "$brief_id" ] || brief_id="—"
       desc=$(echo "$line" | sed 's/^[^—]*— //')
       if [ $briefs_found -eq 0 ]; then echo "# briefs"; fi
-      printf "%s\t%s\n" "$name" "$desc"
+      printf "%s\t%s\t%s\n" "$brief_id" "$name" "$desc"
       briefs_found=1
       found=1
     fi

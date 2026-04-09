@@ -64,6 +64,7 @@ After user picks:
    BUILD=$(git log -1 --format='%ad (%h)' --date=format:'%b %d %H:%M')
    ```
    This sets FEATURE_PORT, COMPOSE_PROJECT_NAME, and BUILD.
+   Also read `guest_entry_path` from `claude-workflow.yml` (root of repo). If set, store it as `GUEST_ENTRY_PATH`.
 4. **Run e2e tests** (app is now running):
    ```
    Agent(model: haiku, run_in_background: true, prompt:
@@ -94,6 +95,7 @@ After user picks:
    **State A — Fresh start** (no test-progress.md):
    ```
    App is running at http://localhost:$FEATURE_PORT
+   Login first: http://localhost:$FEATURE_PORT$GUEST_ENTRY_PATH   ← only if GUEST_ENTRY_PATH is set
    Current build: Apr 08 14:32 (a1b2c3d)
 
    ## Acceptance Criteria

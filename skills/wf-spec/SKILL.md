@@ -37,13 +37,13 @@ Show menu from script output as **two numbered tables** — always use table for
 |-|-|-|-|-|
 | 1 | Replan | PLN-046 | platformer-ui | 3 escalated findings |
 | 2 | Bug | BUG-012 | login-crash | High — Login crashes on empty password |
-| 3 | Brief | — | user-auth | Short goal snippet |
+| 3 | Brief | BRF-041 | user-auth | Short goal snippet |
 
 ## Already planned
 
 | Type | ID | Name | Plan |
 |-|-|-|-|
-| Brief | — | arcade-sorting-arena | PLN-012 |
+| Brief | BRF-011 | arcade-sorting-arena | PLN-012 |
 ```
 
 If there are no actionable items, say so. If there are no already-planned items, omit the second table.

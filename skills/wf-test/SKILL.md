@@ -67,6 +67,7 @@ After user picks:
    BUILD=$(git log -1 --format='%ad (%h)' --date=format:'%b %d %H:%M')
    ```
    This sets FEATURE_PORT, COMPOSE_PROJECT_NAME, and BUILD.
+   Also read `guest_entry_path` from `claude-workflow.yml` (root of repo). If set, store it as `GUEST_ENTRY_PATH`.
 4. **Run e2e tests** (app is now running):
    ```
    Agent(model: haiku, run_in_background: true, prompt:
@@ -82,7 +83,9 @@ After user picks:
 
    **State A — Fresh start** (no test-progress.md):
    ```
+   Testing: PLN-NNN — <plan title>
    App is running at http://localhost:$FEATURE_PORT
+   Login first: http://localhost:$FEATURE_PORT$GUEST_ENTRY_PATH   ← only if GUEST_ENTRY_PATH is set
    Start here: http://localhost:$FEATURE_PORT/<first criterion's route>
    Current build: Apr 08 14:32 (a1b2c3d)
 
@@ -101,7 +104,9 @@ After user picks:
    Read `../../plans/PLN-NNN-<slug>/findings.md` to get the prior round's findings. Show checked-off items (builder fixed) and unchecked items (still open) as context before the criteria list:
 
    ```
+   Testing: PLN-NNN — <plan title>
    App is running at http://localhost:$FEATURE_PORT
+   Login first: http://localhost:$FEATURE_PORT$GUEST_ENTRY_PATH   ← only if GUEST_ENTRY_PATH is set
    Start here: http://localhost:$FEATURE_PORT/<resume criterion's route>
    Current build: Apr 08 14:32 (f4e5d6c)
 
@@ -124,7 +129,9 @@ After user picks:
 
    **State C — Regression sweep** (all criteria show PASS, but some on an older build):
    ```
+   Testing: PLN-NNN — <plan title>
    App is running at http://localhost:$FEATURE_PORT
+   Login first: http://localhost:$FEATURE_PORT$GUEST_ENTRY_PATH   ← only if GUEST_ENTRY_PATH is set
    Start here: http://localhost:$FEATURE_PORT/<first stale criterion's route>
    Current build: Apr 08 16:45 (g7h8i9j)
 
