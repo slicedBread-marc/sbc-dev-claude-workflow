@@ -204,13 +204,18 @@ Then after review passes, update to `ready`.
 
 ## Replanning
 
-When a plan in REGISTRY.md has state `draft` AND has `ESCALATED` items in its `findings.md`, it's a plan returned from verify or test that needs design amendments.
+When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `findings.md`, it's a plan returned from verify or test that needs review. Findings come in two categories:
 
-1. **Read `plan.md` and `findings.md`** from `plans/PLN-NNN-<slug>/` — understand the full plan and all `ESCALATED` findings
-2. **Discuss with the user** — present the escalated findings and ask how to resolve them. Do not make design decisions unilaterally.
-3. **Write an Amendment** — append to `plan.md`'s **Amendments** section. Never rewrite Steps, Tests, or Design Decisions already there.
+- **ESCALATED** (design) — require plan amendments and design decisions
+- **Behavior** (code fix) — bugs found during human testing, routed here for Opus review before sending to builder
+
+1. **Read `plan.md` and `findings.md`** from `plans/PLN-NNN-<slug>/` — understand the full plan and all findings
+2. **Triage findings:**
+   - **ESCALATED findings** — present to the user and discuss how to resolve. Write amendments as needed.
+   - **Behavior findings** — review each finding. Add implementation guidance to `findings.md` (append a line under the finding with context, root cause hints, or file pointers). If a behavior finding reveals a spec gap, write an amendment.
+3. **Write an Amendment** (if needed) — append to `plan.md`'s **Amendments** section. Never rewrite Steps, Tests, or Design Decisions already there.
 4. **Update Design Decisions** — add any new decisions to `plan.md`
-5. **Address findings** — for each `ESCALATED` item in `findings.md`, check it off if resolved by the amendment. If the fix requires code changes, leave it unchecked (T3 will handle it).
+5. **Address findings** — for each `ESCALATED` item in `findings.md`, check it off if resolved by the amendment. Leave behavior findings unchecked (T3 will handle them).
 6. **Run the review gate** — same as above
 7. **Update REGISTRY.md:**
    ```bash

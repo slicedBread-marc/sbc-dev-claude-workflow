@@ -184,8 +184,9 @@ After user picks:
    - Classify their response:
      - **Pass**: note it and continue
      - **Fail**: capture description. Classify:
-       - **ESCALATED** (design — requires T2): new behavior not in plan, scope addition, UX change
-       - **Behavior** (code fix — T3 can resolve): bug in specified behavior
+       - **ESCALATED** (design): new behavior not in plan, scope addition, UX change
+       - **Behavior** (code fix): bug in specified behavior
+       All findings route to wf-spec (Opus) for review before returning to builder.
        If unsure: "Is this a new behavior you want added, or something that should work but doesn't?"
        **Do NOT stop testing.** Ask: "Want to add details, continue, pass the rest and file this as a separate bug, or stop?"
      - **Skip**: note it and continue. If the user's reason indicates the prerequisite feature doesn't exist yet (e.g. "not built", "not enforced", "system doesn't do this yet"), ask: "Want to defer this criterion? It will be saved to `plans/deferred-criteria.md` so it gets picked up when the prerequisite is built." If yes, go to [Deferring a criterion](#deferring-a-criterion).
@@ -478,13 +479,13 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
      git commit -m "test(PLN-NNN-<slug>): escalated findings — needs replanning"
      ```
      Display: "N escalated findings require design decisions. Run /wf-spec."
-   - **`active`** → route to active:
+   - **`active`** → route to draft (Opus reviews all findings before sending to builder):
      ```bash
-     scripts/wf-registry-update.sh PLN-NNN testing active
+     scripts/wf-registry-update.sh PLN-NNN testing draft
      git add plans/REGISTRY.md plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
-     git commit -m "test(PLN-NNN-<slug>): N findings from human test"
+     git commit -m "test(PLN-NNN-<slug>): N findings from human test — routing to spec"
      ```
-     Display: "N findings written. Run /wf-implement to fix them."
+     Display: "N findings written. Run /wf-spec to review and route to builder."
 
 ---
 
@@ -508,7 +509,7 @@ If you hit an error and need to stop early, **destroy the container first** befo
 - **Do NOT** skip user input — let the user describe what they see
 - **Do NOT** break testing context — write findings immediately, never tell user to switch branches mid-test
 - **Accept natural language** — interpret user descriptions, don't force rigid prompts
-- Severity for human-test findings is either `Behavior` (code fix) or `ESCALATED` (design) — never Critical
+- Severity for human-test findings is either `Behavior` (code fix) or `ESCALATED` (design) — never Critical. Both route to wf-spec (draft) for Opus review.
 - Only one testing worktree at a time
 
 ## Notes
