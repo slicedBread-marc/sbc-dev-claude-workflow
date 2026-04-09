@@ -22,6 +22,32 @@ if [ -d "$claim_dir" ]; then
   date +%s > "$claim_dir/.wf-claim"
 fi
 
+# ── Pre-sync workflow infra for non-sparse worktrees ────────────────────────
+# Sparse-checkout worktrees exclude infra files from tracking, so no conflicts.
+# Legacy (non-sparse) worktrees still track them — reset to develop's version
+# before merging so they can't cause dirty-tree failures or conflicts.
+if ! git config core.sparseCheckout 2>/dev/null | grep -q true; then
+  needs_sync=false
+  for path in .claude/workflow.md .claude/workflow-version; do
+    if [ -f "$path" ]; then
+      git checkout develop -- "$path" 2>/dev/null && needs_sync=true || true
+    fi
+  done
+  git checkout develop -- .claude/skills/ 2>/dev/null && needs_sync=true || true
+  git checkout develop -- plans/ 2>/dev/null && needs_sync=true || true
+  git checkout develop -- templates/ 2>/dev/null && needs_sync=true || true
+  for f in scripts/wf-*.sh; do
+    [ -f "$f" ] && git checkout develop -- "$f" 2>/dev/null && needs_sync=true || true
+  done
+  if $needs_sync; then
+    git add .claude/workflow.md .claude/workflow-version .claude/skills/ plans/ templates/ scripts/wf-*.sh 2>/dev/null || true
+    if ! git diff --cached --quiet 2>/dev/null; then
+      git commit -m "chore: sync workflow infra from develop"
+      echo "Pre-synced workflow infra to develop's version."
+    fi
+  fi
+fi
+
 # Attempt clean merge first
 if git merge develop --no-edit 2>/dev/null; then
   echo "Merged develop cleanly."

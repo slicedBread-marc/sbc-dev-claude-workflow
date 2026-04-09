@@ -111,6 +111,7 @@ If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline sta
    ```bash
    mkdir -p feature-branches
    git worktree add -b feature/PLN-NNN-<slug> feature-branches/PLN-NNN-<slug> HEAD
+   scripts/wf-worktree-sparse.sh feature-branches/PLN-NNN-<slug>
    ```
 7. **Write `.plan-ref` in the worktree:**
    ```bash
