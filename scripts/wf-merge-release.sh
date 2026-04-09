@@ -29,14 +29,14 @@ has_real_conflicts=false
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
-  if [[ "$file" == .plan-ref ]]; then
+  if [[ "$file" == .plan-ref ]] || [[ "$file" == plans/* ]]; then
     git checkout --ours -- "$file"
     git add "$file"
     echo "  resolved: $file (kept feature branch version)"
-  elif [[ "$file" == plans/* ]]; then
-    git checkout --ours -- "$file"
+  elif [[ "$file" == .claude/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == skills/* ]] || [[ "$file" == templates/* ]]; then
+    git checkout --theirs -- "$file"
     git add "$file"
-    echo "  resolved: $file (kept feature branch version)"
+    echo "  resolved: $file (took release version)"
   else
     has_real_conflicts=true
     echo "  CONFLICT: $file (requires manual resolution)"
