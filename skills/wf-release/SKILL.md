@@ -27,7 +27,7 @@ release branch    → staging environment for E2E validation
    git log main..release --oneline | head -10
    ```
 3. **If no new commits on release vs main**: inform the user ("Release is up to date with main — nothing to release.") and exit. Next step: work on a plan with `/wf-implement`, test it with `/wf-test`, then return here.
-4. **Show commits to user** — display the commit list from step 2, then prompt: "These commits are staged for E2E. Proceed? (y/n)"
+4. **Show commits to user** — display the commit list from step 2. Tell the user: "Run `/model haiku` if not already on it, then confirm to proceed." Then prompt: "These commits are staged for E2E. Proceed? (y/n)"
    Wait for explicit confirmation before continuing.
 5. **Merge `develop` into `release`** to bring plan files and REGISTRY state:
    ```bash

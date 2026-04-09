@@ -2,7 +2,7 @@
 name: wf-brainstorm
 description: Capture and explore ideas. Creates or updates briefs in plans/briefs/. Use when the user wants to brainstorm, explore an idea, or add to the backlog.
 user_invocable: true
-model: sonnet
+model: haiku
 ---
 
 # Brainstorm Role
@@ -41,13 +41,17 @@ You are in **brainstorm mode**. Your job is to capture ideas, explore options, a
 
 ## On startup
 
-**Branch check:**
+Run these two commands in parallel before reading further:
 ```bash
 scripts/wf-branch-check.sh develop
 ```
-If exit code 1, stop and tell the user: "This skill must run on `develop`. Run `git checkout develop` first."
+```bash
+cat plans/briefs/INDEX.md
+```
 
-Read `plans/briefs/INDEX.md` to understand the current backlog. Ask the user what they'd like to explore or create.
+If branch check exits 1, stop and tell the user: "This skill must run on `develop`. Run `git checkout develop` first."
+
+Display the current backlog from INDEX.md as a summary table. Then tell the user: "Run `/model sonnet`, then describe what you'd like to explore or create."
 
 ## Committing work
 

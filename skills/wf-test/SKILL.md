@@ -20,16 +20,24 @@ List testable plans:
 scripts/wf-list-testable.sh
 ```
 
-Show menu from script output as a **numbered table** — always use table format, never paragraphs:
+Show menu from script output as a **numbered table** — always use table format, never paragraphs.
+Output format is `<plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>`. Show priority as a column; list urgent plans first.
 
 ```
-| # | Plan | Goal |
-|-|-|-|
-| 1 | PLN-006-bug-008-responsive-notice-dismiss | Fix responsive notice dismiss |
-| 2 | PLN-007-bug-006-province-puzzle-bleedthrough | Fix province puzzle bleedthrough |
+| # | Priority | Plan | Goal |
+|-|-|-|-|
+| 1 | urgent | PLN-006-bug-008-responsive-notice-dismiss | Fix responsive notice dismiss |
+| 2 | — | PLN-007-bug-006-province-puzzle-bleedthrough | Fix province puzzle bleedthrough |
 ```
+
+After showing the menu, add one line: `Mark a plan urgent: \`u <number>\``
+
+If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-display the updated menu.
+If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-display.
 
 If exit code 1: check stderr for "CLAIMED:" lines. If stale claims are listed, show them and ask: "These plans have stale claims from a previous session. Clear claims and continue?" On yes, run `scripts/wf-unclaim.sh <plan-name>` for each, then re-run `scripts/wf-list-testable.sh`. If no claimed plans in stderr, say "No plans ready for testing. Run /wf-status to see pipeline state."
+
+Tell the user: "Run `/model sonnet`, then pick a number."
 
 After user picks:
 1. `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get plan details
@@ -72,9 +80,17 @@ After user picks:
    ```
    When presenting or walking through individual criteria, if a criterion tests behavior that appears controlled by one of these parameters, remind the user which parameter to set and to what value before testing that criterion.
 4. **Run e2e tests** (app is now running):
+
+   First, extract the plan's e2e scope (may be blank):
+   ```bash
+   E2E_SCOPE=$(awk '/^## E2E Scope/{found=1;next} found && /^## /{exit} found && /[^[:space:]]/ && !/^_/{print}' ../../plans/$PLAN_NAME/plan.md | tr '\n' ' ' | xargs)
+   ```
+
+   If `$E2E_SCOPE` is non-empty, run only those tests. Otherwise run the full suite:
    ```
    Agent(model: haiku, run_in_background: true, prompt:
-     "Run `{{test_command}} {{test_only_e2e}}` in the current directory.
+     "Run `{{test_command}} {{test_only_e2e}} $E2E_SCOPE` in the current directory.
+      (If E2E_SCOPE is empty, omit it — runs full suite.)
       Report: total tests, passed, failed, skipped.
       If any failed, list each failure with test name and error message.
       Final response under 1500 characters.")
@@ -98,8 +114,8 @@ After user picks:
    ...
 
    How would you like to test?
-   [each] - Walk through each criterion individually
-   [all]  - Pass all criteria (assume they all passed)
+   [**e**ach] - Walk through each criterion individually
+   [**a**ll]  - Pass all criteria (assume they all passed)
    ```
 
    **State B — Resume from failure** (test-progress.md exists, some criteria are `—` or `FAIL`):
@@ -125,9 +141,9 @@ After user picks:
    ...
 
    Resuming from #3 (failed on build Apr 07 09:15 (a1b2c3d)).
-   [each]    - Walk through criteria starting from #3
-   [all]     - Pass all remaining criteria
-   [restart] - Start over from #1
+   [**e**ach]    - Walk through criteria starting from #3
+   [**a**ll]     - Pass all remaining criteria
+   [**r**estart] - Start over from #1
    ```
 
    **State C — Regression sweep** (all criteria show PASS, but some on an older build):
@@ -147,9 +163,9 @@ After user picks:
 
    All criteria have passed, but #1-7 passed on older builds.
    Recommend a regression sweep to confirm on current build.
-   [sweep] - Retest #1-7 on current build
-   [all]   - Trust prior results, mark complete
-   [each]  - Walk through all 9 criteria
+   [**s**weep] - Retest #1-7 on current build
+   [**a**ll]   - Trust prior results, mark complete
+   [**e**ach]  - Walk through all 9 criteria
    ```
 
 6. **Mode handling:**
@@ -172,7 +188,7 @@ After user picks:
        - **Behavior** (code fix — T3 can resolve): bug in specified behavior
        If unsure: "Is this a new behavior you want added, or something that should work but doesn't?"
        **Do NOT stop testing.** Ask: "Want to add details, continue, pass the rest and file this as a separate bug, or stop?"
-     - **Skip**: note it and continue
+     - **Skip**: note it and continue. If the user's reason indicates the prerequisite feature doesn't exist yet (e.g. "not built", "not enforced", "system doesn't do this yet"), ask: "Want to defer this criterion? It will be saved to `plans/deferred-criteria.md` so it gets picked up when the prerequisite is built." If yes, go to [Deferring a criterion](#deferring-a-criterion).
      - **Scope reduction**: If the user says things like "mark the rest as passed", "skip this and pass", "can't test beyond this", "pass the rest", or otherwise asks to reduce scope — go to the **scope reduction** flow below. Do NOT create findings.
 
 ### Completion gate
@@ -191,9 +207,9 @@ Before completing:
 - Spotted anything that should be filed as a separate bug?
 - Ready to create PR and close out this plan?
 
-[complete] - Proceed to PR and merge
-[bug]      - File a related bug first, then complete
-[escalate] - Flag a design concern (routes back to planner)
+[**c**omplete] - Proceed to PR and merge
+[**b**ug]      - File a related bug first, then complete
+[**e**scalate] - Flag a design concern (routes back to planner)
 ```
 
 - **[complete]**: proceed to the "If all pass" exit path.
@@ -225,12 +241,16 @@ Last failure: #3 on build Apr 08 14:32 (f4e5d6c)
 **On findings (failure exit):** write test-progress.md with current state. Include in the findings commit:
 ```bash
 git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
+# If any criteria were deferred this session:
+git add plans/deferred-criteria.md
 ```
 
 **On complete (all pass on current build):** delete the progress file as part of cleanup:
 ```bash
 rm -f plans/PLN-NNN-<slug>/test-progress.md
 git add plans/PLN-NNN-<slug>/test-progress.md
+# If any criteria were deferred this session:
+git add plans/deferred-criteria.md
 ```
 (Include in the final completion commit.)
 
@@ -251,6 +271,31 @@ When triggered:
 3. After the plan completes, tell the user: "File the remaining edge case with `/wf-bug` so it gets its own plan."
 
 **When NOT to use:** The core behavior specified in the plan doesn't work — that's a real failure.
+
+---
+
+### Deferring a criterion
+
+When the user confirms they want to defer a skipped criterion, append it to `../../plans/deferred-criteria.md`. If the file doesn't exist, create it with the header first.
+
+**Header (create only if file is absent):**
+```markdown
+# Deferred Criteria
+
+Criteria that couldn't be tested because the required feature wasn't built yet. Reviewed by wf-spec when creating or amending related plans.
+
+| ID | Criterion | Prerequisite | Prereq Plan | Source Plan | Deferred On |
+|-|-|-|-|-|-|
+```
+
+**Row to append:**
+```
+| DC-NNN | <criterion text> | <what the user said isn't built yet> | PLN-NNN or — | PLN-NNN-<slug> | YYYY-MM-DD |
+```
+
+- `DC-NNN`: auto-increment by counting existing rows (DC-001, DC-002, …)
+- `Prereq Plan`: if the missing feature is associated with a known plan ID, record it here — ask the user "Is this related to a specific plan? (e.g. PLN-022, or leave blank)". Otherwise `—`.
+- Do **not** commit this file separately — it is committed as part of the normal test-exit commit (findings or completion).
 
 ---
 
@@ -355,6 +400,12 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```bash
    fi
    git stash pop 2>/dev/null || true
+   # Commit any pending plan/brief changes restored from stash (e.g. from interrupted prior sessions)
+   if ! git diff --quiet -- plans/ plans/briefs/ 2>/dev/null || git ls-files --others --exclude-standard -- plans/ plans/briefs/ | grep -q .; then
+     git add -u -- plans/ plans/briefs/
+     git add -- plans/ plans/briefs/
+     git commit -m "plans: commit pending changes (restored from stash)"
+   fi
    ```
 4. Release claim and update REGISTRY:
    ```bash
@@ -408,6 +459,12 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    git stash --include-untracked -m "wf-test: stash before checkout" 2>/dev/null || true
    git checkout develop
    git stash pop 2>/dev/null || true
+   # Commit any pending plan/brief changes restored from stash (e.g. from interrupted prior sessions)
+   if ! git diff --quiet -- plans/ plans/briefs/ 2>/dev/null || git ls-files --others --exclude-standard -- plans/ plans/briefs/ | grep -q .; then
+     git add -u -- plans/ plans/briefs/
+     git add -- plans/ plans/briefs/
+     git commit -m "plans: commit pending changes (restored from stash)"
+   fi
    ```
 4. Release claim and determine route:
    ```bash
