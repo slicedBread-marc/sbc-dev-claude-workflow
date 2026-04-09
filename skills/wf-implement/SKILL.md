@@ -146,9 +146,10 @@ If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline sta
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
-   cd feature-branches/PLN-NNN-<slug>
+   cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
    ```
    Use `$DEVELOP_ROOT` for all paths to `plans/` throughout implementation.
+   **Important:** The working directory persists between bash calls. Once you `cd` into the worktree, do NOT re-run `cd feature-branches/...` — use the absolute path `$DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>` if you need to navigate there again.
 10. **Confirm you are on the feature branch** — run `git branch --show-current`
 11. **Merge develop into feature branch:**
     ```bash
@@ -268,7 +269,7 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
-   cd feature-branches/PLN-NNN-<slug>
+   cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
    ```
 4. **Merge develop** — `$DEVELOP_ROOT/scripts/wf-merge-develop.sh`
 5. **Fix each unchecked finding** — address the issue, then check it off in `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/findings.md`:

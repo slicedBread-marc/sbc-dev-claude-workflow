@@ -36,7 +36,7 @@ has_non_plan_conflicts=false
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
-  if [[ "$file" == plans/* ]]; then
+  if [[ "$file" == plans/* ]] || [[ "$file" == .claude/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == skills/* ]] || [[ "$file" == templates/* ]]; then
     git checkout develop -- "$file" 2>/dev/null || git checkout --theirs -- "$file"
     git add "$file"
     echo "  resolved: $file (took develop's version)"
