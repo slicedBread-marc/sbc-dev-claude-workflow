@@ -377,6 +377,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```bash
    cd /absolute/path/to/project
    git checkout develop
+   git checkout -- .claude/workflow-version .claude/workflow.md 2>/dev/null || true
    git stash --include-untracked -m "wf-chrome-test: stash before merge"
    ```
    ```bash
@@ -394,6 +395,8 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```bash
    fi
    git stash pop 2>/dev/null || true
+   # Auto-resolve infra conflicts from stash pop (infra files always match develop)
+   git checkout HEAD -- .claude/workflow-version .claude/workflow.md 2>/dev/null || true
    ```
 4. Release claim and update REGISTRY:
    ```bash
@@ -444,9 +447,12 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 3. Switch to develop:
    ```bash
    cd /absolute/path/to/project
+   git checkout -- .claude/workflow-version .claude/workflow.md 2>/dev/null || true
    git stash --include-untracked -m "wf-chrome-test: stash before checkout" 2>/dev/null || true
    git checkout develop
    git stash pop 2>/dev/null || true
+   # Auto-resolve infra conflicts from stash pop (infra files always match develop)
+   git checkout HEAD -- .claude/workflow-version .claude/workflow.md 2>/dev/null || true
    ```
 4. Release claim and determine route:
    ```bash
