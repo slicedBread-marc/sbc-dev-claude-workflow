@@ -49,7 +49,7 @@ Use the agent's output to populate each section. If a script produced no output,
 - PLN-004 — audit-log — state: ready
 - [urgent] PLN-005 — login-fix — state: ready
 
-### In flight
+### Implementing
 - PLN-003 — payment-hook — state: active [branch: feature/PLN-003-payment-hook]
 - [urgent] PLN-007 — fast-checkout — state: active [branch: feature/PLN-007-fast-checkout]
 
@@ -93,7 +93,7 @@ Use the agent's output to populate each section. If a script produced no output,
 | `draft` with ESCALATED findings | Needs replanning | Check findings.md for ESCALATED items |
 | `draft` without findings | Drafts | New plan being written |
 | `ready` | Ready to build | |
-| `active` | In flight | Show branch name |
+| `active` | Implementing | Show branch name |
 | `verify` | Verifying (agent) | Automated — no user action needed |
 | `testing` | Ready to test | |
 | `complete` | Done | Just count |
