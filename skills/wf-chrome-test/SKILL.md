@@ -38,7 +38,7 @@ Show menu from script output as a **numbered table** — always use table format
 
 If exit code 1: check stderr for "CLAIMED:" lines. If stale claims are listed, show them and ask: "These plans have stale claims from a previous session. Clear claims and continue?" On yes, run `scripts/wf-unclaim.sh <plan-name>` for each, then re-run `scripts/wf-list-testable.sh`. If no claimed plans in stderr, say "No plans ready for testing. Run /wf-status to see pipeline state."
 
-Then switch to sonnet: `/model sonnet`. Ask the user to pick a number.
+Then tell the user: "Run `/model sonnet`, then pick a number."
 
 After user picks:
 1. `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get plan details

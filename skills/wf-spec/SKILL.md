@@ -51,7 +51,7 @@ If the user types `u <N>` for an already-urgent replan: run `scripts/wf-set-prio
 
 If there are no actionable items, say so. If there are no already-planned items, omit the second table.
 
-Then switch to opus: `/model opus`. Ask the user: **"What would you like to plan? Pick a number, or describe new work."**
+Then tell the user: "Run `/model opus`, then pick a number or describe new work."
 
 - If they pick an escalated plan: **claim it** (`scripts/wf-claim.sh PLN-NNN-<slug>`), then go to [Replanning](#replanning)
 - If they pick a bug: go to [Plan from bug](#plan-from-bug)

@@ -27,7 +27,7 @@ scripts/wf-list-rollbacks.sh 2>/dev/null || true
 grep -E "\| (complete|active) \|" plans/REGISTRY.md
 ```
 
-Show rollback candidates as a numbered table. Then switch to sonnet: `/model sonnet`. Ask the user which plan to roll back.
+Show rollback candidates as a numbered table. Then tell the user: "Run `/model sonnet`, then pick a plan to roll back."
 
 ---
 

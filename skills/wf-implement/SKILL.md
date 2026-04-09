@@ -16,7 +16,7 @@ scripts/wf-branch-check.sh develop true
 scripts/wf-list-implementable.sh
 ```
 
-Parse the results and show the menu. Then switch to sonnet: `/model sonnet`. Ask the user to pick a number.
+Parse the results and show the menu. Then tell the user: "Run `/model sonnet`, then pick a number."
 
 ---
 
