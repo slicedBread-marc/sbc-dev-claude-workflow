@@ -24,7 +24,7 @@ cat plans/REGISTRY.md
 scripts/wf-list-replanning.sh 2>/dev/null || true
 scripts/wf-list-drafts.sh 2>/dev/null || true
 scripts/wf-list-ready.sh 2>/dev/null || true
-scripts/wf-list-active.sh 2>/dev/null || true
+scripts/wf-list-implementable.sh 2>/dev/null || true
 scripts/wf-list-verify.sh 2>/dev/null || true
 scripts/wf-list-testable.sh 2>/dev/null || true
 scripts/wf-list-findings.sh 2>/dev/null || true
@@ -49,9 +49,12 @@ Use the agent's output to populate each section. If a script produced no output,
 - PLN-004 — audit-log — state: ready
 - [urgent] PLN-005 — login-fix — state: ready
 
+### Ready to fix
+- PLN-003 — payment-hook (2 open findings)
+- [urgent] PLN-007 — fast-checkout (1 open finding)
+
 ### In progress
-- PLN-003 — payment-hook — state: active [branch: feature/PLN-003-payment-hook]
-- [urgent] PLN-007 — fast-checkout — state: active [branch: feature/PLN-007-fast-checkout]
+- PLN-008 — notifications — claimed 14m ago
 
 ### Verifying (agent)
 - PLN-005 — notif-system — state: verify (automated checks running)
@@ -84,19 +87,23 @@ Use the agent's output to populate each section. If a script produced no output,
 
 ### Priority
 
-`wf-list-active.sh`, `wf-list-ready.sh`, and `wf-list-testable.sh` include a `<priority>` field as the last tab-separated column. When priority is `urgent`, prepend `[urgent]` to the plan's line in the output.
+`wf-list-implementable.sh`, `wf-list-ready.sh`, and `wf-list-testable.sh` include a `<priority>` field as the last tab-separated column. When priority is `urgent`, prepend `[urgent]` to the plan's line in the output.
 
-### How to classify REGISTRY rows
+### How to classify rows
 
-| State | Section | Notes |
-|-|-|-|
-| `draft` with ESCALATED findings | Needs replanning | Check findings.md for ESCALATED items |
-| `draft` without findings | Drafts | New plan being written |
-| `ready` | Ready to build | |
-| `active` | In progress | Show branch name |
-| `verify` | Verifying (agent) | Automated — no user action needed |
-| `testing` | Ready to test | |
-| `complete` | Done | Just count |
+Use `wf-list-implementable.sh` output (tab-separated: `<type>\t<plan-name>\t<goal>\t<priority>`) to populate active-plan sections. Ignore `new` type — those are already covered by `wf-list-ready.sh`.
+
+| Source | Type | Section | Notes |
+|-|-|-|-|
+| wf-list-replanning.sh | — | Needs replanning | draft with ESCALATED findings |
+| wf-list-drafts.sh | — | Drafts | draft without findings |
+| wf-list-ready.sh | — | Ready to build | |
+| wf-list-implementable.sh | `fix` | Ready to fix | active, unclaimed, has open findings |
+| wf-list-implementable.sh | `resume` | Ready to fix | active, unclaimed, no findings — stalled |
+| wf-list-implementable.sh | `processing` | In progress | active, claimed — show claim age |
+| wf-list-verify.sh | — | Verifying (agent) | automated |
+| wf-list-testable.sh | — | Ready to test | |
+| REGISTRY.md | `complete` | Done | count only |
 
 To check for ESCALATED findings: `scripts/wf-list-replanning.sh 2>/dev/null`
 
