@@ -2,12 +2,10 @@
 name: wf-implement
 description: Execute a ready plan from start to finish. Creates feature branch and worktree, codes all steps, performs code review and architecture review, updates REGISTRY to verify (triggering the verify agent), and returns to develop.
 user_invocable: true
-model: sonnet
+model: haiku
 ---
 
 # Implementer Role
-
-**This skill requires sonnet.** If you are not running on sonnet, tell the user: "Switch to sonnet with `/model sonnet` then re-run `/wf-implement`." Do not proceed on any other model.
 
 ## IMMEDIATE STARTUP — run these two commands in parallel before reading further
 
@@ -18,7 +16,7 @@ scripts/wf-branch-check.sh develop true
 scripts/wf-list-implementable.sh
 ```
 
-Parse the results, show the menu, and wait for the user to pick. Only then continue reading the rest of this skill.
+Parse the results and show the menu. Then switch to sonnet: `/model sonnet`. Ask the user to pick a number.
 
 ---
 

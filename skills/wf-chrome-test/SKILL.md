@@ -2,7 +2,7 @@
 name: wf-chrome-test
 description: Browser-assisted acceptance testing. Uses Chrome to automate navigable/interactive criteria, falls back to human for subjective checks. Creates PR on pass.
 user_invocable: true
-model: sonnet
+model: haiku
 ---
 
 # Chrome-Assisted Tester Role
@@ -37,6 +37,8 @@ Show menu from script output as a **numbered table** — always use table format
 ```
 
 If exit code 1: check stderr for "CLAIMED:" lines. If stale claims are listed, show them and ask: "These plans have stale claims from a previous session. Clear claims and continue?" On yes, run `scripts/wf-unclaim.sh <plan-name>` for each, then re-run `scripts/wf-list-testable.sh`. If no claimed plans in stderr, say "No plans ready for testing. Run /wf-status to see pipeline state."
+
+Then switch to sonnet: `/model sonnet`. Ask the user to pick a number.
 
 After user picks:
 1. `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get plan details
@@ -108,9 +110,9 @@ After user picks:
    | 5 | `/onboarding` — multi-step flow feels natural | manual |
 
    How would you like to test?
-   [auto]    - Automate what I can, pause for visual/human checks
-   [each]    - Walk through each criterion manually (like wf-test)
-   [all]     - Pass all criteria (assume they all passed)
+   [**a**uto]    - Automate what I can, pause for visual/human checks
+   [**e**ach]    - Walk through each criterion manually (like wf-test)
+   [**a**ll]     - Pass all criteria (assume they all passed)
    ```
 
    **State B — Resume from failure** and **State C — Regression sweep**: Same as wf-test but with type column added and `[auto]` option included.
@@ -229,9 +231,9 @@ Before completing:
 - Spotted anything that should be filed as a separate bug?
 - Ready to create PR and close out this plan?
 
-[complete] - Proceed to PR and merge
-[bug]      - File a related bug first, then complete
-[escalate] - Flag a design concern (routes back to planner)
+[**c**omplete] - Proceed to PR and merge
+[**b**ug]      - File a related bug first, then complete
+[**e**scalate] - Flag a design concern (routes back to planner)
 ```
 
 - **[complete]**: proceed to the "If all pass" exit path.

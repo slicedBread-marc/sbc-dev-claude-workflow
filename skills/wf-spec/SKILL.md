@@ -2,42 +2,40 @@
 name: wf-spec
 description: Convert a decided brief or open bug into a step-by-step implementation plan. Creates immovable plan folders in plans/. Use when the user wants to create or amend an implementation plan.
 user_invocable: true
-model: opus
+model: haiku
 ---
 
 # Spec Role
 
-**This skill requires opus.** If you are not running on opus, tell the user: "Switch to opus with `/model opus` then re-run `/wf-spec`." Do not proceed on any other model.
-
 You are in **spec mode**. Your job is to convert decided briefs into precise, step-by-step implementation plans that another Claude session can execute without judgment calls.
 
-## Branch check
+## IMMEDIATE STARTUP — run these two commands in parallel before reading further
 
 ```bash
 scripts/wf-branch-check.sh develop true
 ```
-Switches to develop automatically if needed. Do not prompt the user.
+```bash
+scripts/wf-list-specable.sh
+```
 
----
+Branch check switches to develop automatically if needed. Do not prompt the user.
 
-## Entry (simple)
-
-Run `scripts/wf-list-specable.sh` to find all available work. Output is grouped by section headers (`# replanning`, `# bugs`, `# briefs`) with tab-separated entries.
-
-Show menu from script output as **two numbered tables** — always use table format, never bullet lists. Split items into actionable vs already-planned:
+Show menu from list output as **two numbered tables** — always use table format, never bullet lists. Split items into actionable vs already-planned.
 
 **Table 1 — Actionable items:** Replans (escalated plans), bugs, and briefs that do NOT already have a plan. These get sequential numbering.
+For replans, the script outputs a third tab field with the plan's priority — show it in a Priority column.
+Bugs and briefs do not have a priority field — show `—` for those rows.
 
 **Table 2 — "Already planned" items:** Briefs whose detail says "Already has plan PLN-NNN". Show these separately with no numbering — they are informational only and cannot be selected.
 
 ```
 ## Available work
 
-| # | Type | ID | Name | Detail |
-|-|-|-|-|-|
-| 1 | Replan | PLN-046 | platformer-ui | 3 escalated findings |
-| 2 | Bug | BUG-012 | login-crash | High — Login crashes on empty password |
-| 3 | Brief | BRF-041 | user-auth | Short goal snippet |
+| # | Priority | Type | ID | Name | Detail |
+|-|-|-|-|-|-|
+| 1 | urgent | Replan | PLN-046 | platformer-ui | 3 escalated findings |
+| 2 | — | Bug | BUG-012 | login-crash | High — Login crashes on empty password |
+| 3 | — | Brief | BRF-041 | user-auth | Short goal snippet |
 
 ## Already planned
 
@@ -46,9 +44,14 @@ Show menu from script output as **two numbered tables** — always use table for
 | Brief | BRF-011 | arcade-sorting-arena | PLN-012 |
 ```
 
+After showing the menu, add one line: `Mark a plan urgent: \`u <number>\`` (replans only — bugs and briefs are not in REGISTRY)
+
+If the user types `u <N>` for a replan: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-display the updated menu.
+If the user types `u <N>` for an already-urgent replan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-display.
+
 If there are no actionable items, say so. If there are no already-planned items, omit the second table.
 
-Ask the user: **"What would you like to plan? Pick a number, or describe new work."**
+Then switch to opus: `/model opus`. Ask the user: **"What would you like to plan? Pick a number, or describe new work."**
 
 - If they pick an escalated plan: **claim it** (`scripts/wf-claim.sh PLN-NNN-<slug>`), then go to [Replanning](#replanning)
 - If they pick a bug: go to [Plan from bug](#plan-from-bug)
@@ -88,6 +91,15 @@ If the user picks a bug BUG-NNN:
 ## What you do
 
 1. **Read the input** — if from a brief: read the relevant brief in `plans/briefs/`; if from a bug: the bug's `bug.md` becomes the scope definition
+1a. **Check deferred criteria** — if `plans/deferred-criteria.md` exists, read it and scan for entries where `Prereq Plan` matches the current plan ID, or where the criterion text or prerequisite description overlaps with the feature being planned. If any match, show them to the user before writing the plan:
+    ```
+    Found N deferred criterion/criteria that may apply to this plan:
+    | # | Criterion | From |
+    |-|-|-|
+    | DC-001 | <text> | PLN-009 |
+    ```
+    Ask: "Include any of these in the acceptance criteria? (Enter numbers, or press enter to skip.)"
+    For each included: add it to the plan's Human Test Criteria and remove its row from `deferred-criteria.md`.
 2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `login-crash`)
 3. **Inherit the plan ID** — reuse the source artifact's number (see [ID Inheritance](#id-inheritance)). Do not call `wf-counter-next.sh`.
 4. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
@@ -103,6 +115,7 @@ If the user picks a bug BUG-NNN:
    - Class/method/component names and signatures
    - Acceptance criteria (test command, observable behavior)
 7. **Define tests** — fill in the Tests table with specific test IDs, types, descriptions, and commands. **Maximize automation:** API responses, data correctness, markup structure, auth gates, redirects, and status codes are all automatable (unit tests, integration tests, curl commands, scripts). Only use `Manual` type for things that genuinely require human eyes — visual rendering, subjective UX, complex multi-step physical interactions.
+7a. **Fill `## E2E Scope`** — list the e2e test file paths or glob patterns that cover this plan's changes (one per line, no backticks). If the project has a single flat e2e directory and there are no dedicated per-feature files yet, leave the section blank — wf-test will fall back to the full suite. Only populate this if you can identify specific test files that exercise the affected routes or behaviors.
 8. **Fill verification checklist** — the verify agent needs to know exactly what to check. For `### Human Test Criteria`, split into two subsections:
    - `#### Chrome-Assisted` — objectively verifiable behavior (navigations, clicks, form submissions, error states, persistence). Each criterion starts with a route: `- [ ] /login — redirects to /dashboard after valid credentials`
    - `#### Manual` — subjective or visual checks that need human eyes (layout, animation, UX feel). Each criterion starts with a route: `- [ ] /play — animation feels smooth and natural`
@@ -176,6 +189,8 @@ Final response under 2000 characters.")
    ```bash
    scripts/wf-unclaim.sh PLN-NNN-<slug>
    git add plans/PLN-NNN-<slug>/ plans/REGISTRY.md plans/briefs/ bugs/
+   # If any deferred criteria were consumed (rows removed from deferred-criteria.md):
+   git add plans/deferred-criteria.md
    git commit -m "spec: PLN-NNN-<slug> — plan ready"
    ```
 
@@ -204,6 +219,8 @@ When a plan in REGISTRY.md has state `draft` AND has `ESCALATED` items in its `f
 8. **Commit:**
    ```
    git add plans/PLN-NNN-<slug>/ plans/REGISTRY.md
+   # If any deferred criteria were consumed:
+   git add plans/deferred-criteria.md
    git commit -m "spec: PLN-NNN-<slug> — amendment, back to ready"
    ```
 

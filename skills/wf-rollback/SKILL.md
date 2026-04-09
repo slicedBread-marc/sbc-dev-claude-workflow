@@ -2,7 +2,7 @@
 name: wf-rollback
 description: Execute a rollback for a completed or active plan. Reads the plan's rollback section, walks through steps interactively, moves the plan to rolled-back/, and optionally files a bug. Use when a deployed feature needs to be reverted.
 user_invocable: true
-model: sonnet
+model: haiku
 ---
 
 # Rollback Role
@@ -18,16 +18,24 @@ plans/PLN-NNN-*/     → immovable plan folders (never move)
 
 Rollback candidates are plans in `complete` or `active` state in REGISTRY.md.
 
+## IMMEDIATE STARTUP — run these two commands in parallel before reading further
+
+```bash
+scripts/wf-list-rollbacks.sh 2>/dev/null || true
+```
+```bash
+grep -E "\| (complete|active) \|" plans/REGISTRY.md
+```
+
+Show rollback candidates as a numbered table. Then switch to sonnet: `/model sonnet`. Ask the user which plan to roll back.
+
+---
+
 ## What you do
 
 ### 1. Identify the plan
 
-Ask the user which feature to roll back. List candidates:
-```bash
-scripts/wf-list-rollbacks.sh  # existing rolled-back plans
-grep -E "\| (complete|active) \|" plans/REGISTRY.md  # rollback candidates
-```
-For each candidate, run `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get details.
+The user has already selected a plan. Run `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get its details.
 
 ### 2. Read the rollback section
 
