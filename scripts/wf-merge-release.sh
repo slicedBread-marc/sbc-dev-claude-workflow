@@ -16,6 +16,34 @@ branch=$(git branch --show-current)
 
 git fetch origin release
 
+# ── Pre-sync workflow infra for non-sparse worktrees ────────────────────────
+# Sparse-checkout worktrees exclude infra files from tracking, so no conflicts.
+# Legacy (non-sparse) worktrees still track them — reset to release's version
+# before merging so they can't cause dirty-tree failures or conflicts.
+if ! git config core.sparseCheckout 2>/dev/null | grep -q true; then
+  needs_sync=false
+  for path in .claude/workflow.md .claude/workflow-version; do
+    if [ -f "$path" ]; then
+      git checkout origin/release -- "$path" 2>/dev/null && needs_sync=true || true
+    fi
+  done
+  git checkout origin/release -- .claude/skills/ 2>/dev/null && needs_sync=true || true
+  git checkout origin/release -- plans/ 2>/dev/null && needs_sync=true || true
+  git checkout origin/release -- bugs/ 2>/dev/null && needs_sync=true || true
+  git checkout origin/release -- briefs/ 2>/dev/null && needs_sync=true || true
+  git checkout origin/release -- templates/ 2>/dev/null && needs_sync=true || true
+  for f in scripts/wf-*.sh; do
+    [ -f "$f" ] && git checkout origin/release -- "$f" 2>/dev/null && needs_sync=true || true
+  done
+  if $needs_sync; then
+    git add .claude/workflow.md .claude/workflow-version .claude/skills/ plans/ bugs/ briefs/ templates/ scripts/wf-*.sh 2>/dev/null || true
+    if ! git diff --cached --quiet 2>/dev/null; then
+      git commit -m "chore: sync workflow infra from release"
+      echo "Pre-synced workflow infra to release's version."
+    fi
+  fi
+fi
+
 # Attempt clean merge first
 if git merge origin/release --no-edit 2>/dev/null; then
   echo "Merged release cleanly."
@@ -29,7 +57,7 @@ has_real_conflicts=false
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
-  if [[ "$file" == .plan-ref ]] || [[ "$file" == plans/* ]]; then
+  if [[ "$file" == .plan-ref ]] || [[ "$file" == plans/* ]] || [[ "$file" == bugs/* ]] || [[ "$file" == briefs/* ]]; then
     git checkout --ours -- "$file"
     git add "$file"
     echo "  resolved: $file (kept feature branch version)"
