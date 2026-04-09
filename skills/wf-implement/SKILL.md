@@ -141,6 +141,7 @@ If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline sta
 13. **Read the plan** — from develop worktree: `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/plan.md`
 14. **Execute steps in order** — follow each step exactly as specified
     - After each step, commit: `git add src/ tests/ && git commit -m "implement(PLN-NNN-<slug>): step N — <desc>"`
+    - **Config-driven randomness**: If a step introduces probabilistic or random behavior (e.g., a spawn chance, drop rate, trigger probability), store the controlling value in `appsettings.json` (or equivalent config) rather than as a hardcoded constant. This lets testers force or suppress the behavior via override values (e.g., `1.0` to always trigger, `0.0` to never trigger) without modifying source code.
 15. **Write tests** — implement all tests listed in the Tests table
 16. **Log progress** — after each step, append to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/progress.md`: `[date] Step N — done / blocked (reason)`. **Never use relative paths** — `plans/` only exists on the develop worktree.
 17. **Deploy to local container for testing:**

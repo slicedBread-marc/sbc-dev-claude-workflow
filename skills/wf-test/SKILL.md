@@ -15,12 +15,7 @@ You are in **tester mode**. Your job is to guide a human through acceptance crit
 
 **If on `develop`:**
 
-First, clean up orphaned containers from completed plans (silent, best-effort):
-```bash
-scripts/wf-docker-cleanup.sh 2>/dev/null || true
-```
-
-Then list testable plans:
+List testable plans:
 ```bash
 scripts/wf-list-testable.sh
 ```
@@ -52,6 +47,8 @@ After user picks:
 
 ## Testing
 
+**CWD note:** All commands in this section run from within `feature-branches/$PLAN_NAME/` — the working directory was changed in Entry step 4 and persists. Do NOT prepend `cd feature-branches/$PLAN_NAME &&` to any command here.
+
 1. **Read the plan** — from develop worktree: `../../plans/PLN-NNN-<slug>/plan.md`
    - Read Goal and Verification Checklist sections
    - **Only present `### Human Test Criteria` items** (combine `#### Chrome-Assisted` and `#### Manual` into a single flat list) — Build & Tests and Code Quality were already handled by the verify agent
@@ -61,13 +58,19 @@ After user picks:
      ```
      Then continue normally — wf-test treats all criteria as manual regardless.
 2. **Check for prior test progress** — look for `../../plans/PLN-NNN-<slug>/test-progress.md`. If it exists, read it to get per-criterion results and build identifiers.
-3. **Deploy to local container and capture build identifier:**
+3. **Deploy to local container and capture build identifier** (single bash call — already inside feature branch):
    ```bash
-   eval "$(../../scripts/wf-docker-up.sh)"
-   BUILD=$(git log -1 --format='%ad (%h)' --date=format:'%b %d %H:%M')
+   eval "$(../../scripts/wf-docker-up.sh)" && BUILD=$(git log -1 --format='%ad (%h)' --date=format:'%b %d %H:%M')
    ```
    This sets FEATURE_PORT, COMPOSE_PROJECT_NAME, and BUILD.
    Also read `guest_entry_path` from `claude-workflow.yml` (root of repo). If set, store it as `GUEST_ENTRY_PATH`.
+3b. **Check for injectable test parameters** — scan `appsettings.json` (and `appsettings.Development.json` if present) for numeric fields whose names suggest probability, rate, chance, or frequency. If any are found, note them and surface them before the criteria list:
+   ```
+   💡 Injectable parameters detected — modify these in appsettings.json to force or suppress behaviors:
+      - "BonusRoundProbability": 0.9  →  set to 1.0 to always trigger, 0.0 to never trigger
+   After editing, restart the container: ../../scripts/wf-docker-up.sh
+   ```
+   When presenting or walking through individual criteria, if a criterion tests behavior that appears controlled by one of these parameters, remind the user which parameter to set and to what value before testing that criterion.
 4. **Run e2e tests** (app is now running):
    ```
    Agent(model: haiku, run_in_background: true, prompt:
