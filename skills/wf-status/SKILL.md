@@ -11,9 +11,13 @@ You are the **project orchestrator**. Your job is to read the plan registry, pre
 
 ## On startup
 
-Run these data-gathering commands in parallel (each as a separate Bash call).
-Every script exits 1 when its list is empty — append `|| true` so empty results don't cancel sibling calls.
-```bash
+Spawn a haiku agent to gather all pipeline data in parallel:
+
+```
+Agent(model: haiku, prompt: "
+Run these commands in parallel and return all output verbatim, labeled by command name.
+Scripts exit 1 when empty — append || true to each so failures don't stop others.
+
 git branch --show-current
 cat .claude/workflow-version 2>/dev/null || true
 cat plans/REGISTRY.md
@@ -26,8 +30,11 @@ scripts/wf-list-testable.sh 2>/dev/null || true
 scripts/wf-list-findings.sh 2>/dev/null || true
 scripts/wf-list-briefs.sh 2>/dev/null || true
 scripts/wf-list-bugs.sh 2>/dev/null || true
+
+Return raw output only. No commentary.")
 ```
-Use list script output to populate each section. If a script produced no output, the section is empty — omit it.
+
+Use the agent's output to populate each section. If a script produced no output, the section is empty — omit it.
 
 ## Output Format
 
