@@ -40,9 +40,11 @@ Use list script output to populate each section. If a script produced no output,
 
 ### Ready to build
 - PLN-004 — audit-log — state: ready
+- [urgent] PLN-005 — login-fix — state: ready
 
 ### In flight
 - PLN-003 — payment-hook — state: active [branch: feature/PLN-003-payment-hook]
+- [urgent] PLN-007 — fast-checkout — state: active [branch: feature/PLN-007-fast-checkout]
 
 ### Verifying (agent)
 - PLN-005 — notif-system — state: verify (automated checks running)
@@ -73,6 +75,10 @@ Use list script output to populate each section. If a script produced no output,
 [Single clear recommendation]
 ```
 
+### Priority
+
+`wf-list-active.sh`, `wf-list-ready.sh`, and `wf-list-testable.sh` include a `<priority>` field as the last tab-separated column. When priority is `urgent`, prepend `[urgent]` to the plan's line in the output.
+
 ### How to classify REGISTRY rows
 
 | State | Section | Notes |
@@ -89,14 +95,20 @@ To check for ESCALATED findings: `scripts/wf-list-replanning.sh 2>/dev/null`
 
 ## Priority order for recommendations
 
-1. **Plans in `active` with findings** → "Run `/wf-implement` to fix N findings in [plan]"
-2. **Plans in `draft` with ESCALATED findings** → "Run `/wf-spec` to address escalated findings in [plan]"
+Evaluate each level in order. **Stop at the first level that applies.** Do not skip to a lower priority because a higher one "seems minor" or has fewer items — the order is mandatory.
+
+1. **Plans in `active` with findings** (check `wf-list-findings.sh` output) → "Run `/wf-implement` to fix N findings in [plan]"
+2. **Plans in `draft` with ESCALATED findings** (check `wf-list-replanning.sh` output) → "Run `/wf-spec` to address escalated findings in [plan]"
 3. **Plans in `testing`** → "Run `/wf-test` for human acceptance testing of [plan]"
 4. **Plans in `ready`** → "Run `/wf-implement` to start [plan]"
 5. **Plans in `draft` (new)** → "Review draft in `/wf-spec` to move it to ready"
 6. **Decided briefs or open Critical/High bugs** → "Run `/wf-spec` to plan [brief/bug]"
 7. **Plans in `verify`** → "Verify agent is running — check back shortly"
 8. **Nothing pending** → "Run `/wf-brainstorm` to capture new ideas"
+
+**Guardrail:** Before writing the recommendation, state which priority level applies and why (one sentence). Then write the recommendation. If `wf-list-findings.sh` returned any output, priority 1 applies — do not recommend anything else.
+
+**Urgency:** If any qualifying plan at the applied priority level is marked `urgent`, lead the recommendation with `[URGENT]` and name that plan first.
 
 ## Rules
 
