@@ -11,7 +11,22 @@ plan_name="${1:?Usage: wf-claim.sh <plan-name>}"
 plan_dir="plans/${plan_name}"
 claimfile="$plan_dir/.wf-claim"
 
-[ -d "$plan_dir" ] || { echo "Error: plan directory not found: $plan_dir" >&2; exit 1; }
+if [ ! -d "$plan_dir" ]; then
+  # Plan dir may be excluded by sparse checkout — restore from git if present
+  tree_hash=$(git ls-tree HEAD "$plan_dir" 2>/dev/null | awk '{print $3}')
+  if [ -z "$tree_hash" ]; then
+    echo "Error: plan directory not found: $plan_dir" >&2
+    exit 1
+  fi
+  mkdir -p "$plan_dir"
+  while IFS=$'\t' read -r meta file; do
+    hash=$(echo "$meta" | awk '{print $3}')
+    git cat-file -p "$hash" > "$plan_dir/$file"
+  done < <(git ls-tree "$tree_hash")
+  # Clear skip-worktree bits so git tracks these files normally
+  git update-index --no-skip-worktree "$plan_dir"/* 2>/dev/null || true
+  echo "Restored $plan_dir from git (sparse checkout)"
+fi
 
 date +%s > "$claimfile"
 echo "Claimed $plan_name"
