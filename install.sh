@@ -154,6 +154,16 @@ else
     echo -e "${YELLOW}  post-commit hook already up to date — skipping${NC}"
 fi
 
+# Configure REGISTRY.md merge driver — protects develop's state when feature branches merge in
+git -C "$TARGET_DIR" config merge.ours.driver true
+GITATTRIBUTES="$TARGET_DIR/.gitattributes"
+if ! grep -q 'plans/REGISTRY.md' "$GITATTRIBUTES" 2>/dev/null; then
+    echo 'plans/REGISTRY.md merge=ours' >> "$GITATTRIBUTES"
+    echo -e "${GREEN}  Updated .gitattributes — plans/REGISTRY.md protected from merge corruption${NC}"
+else
+    echo -e "${YELLOW}  .gitattributes REGISTRY rule already present — skipping${NC}"
+fi
+
 # Install workflow scripts
 echo "Installing scripts..."
 mkdir -p "$TARGET_DIR/scripts"

@@ -158,8 +158,11 @@ route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
    ```bash
    scripts/wf-unclaim.sh PLN-NNN-<slug>
    scripts/wf-registry-update.sh PLN-NNN verify testing \
-     --commit "verify(PLN-NNN-<slug>): clean — ready for human test"
+     --commit "verify(PLN-NNN-<slug>): clean — ready for human test" \
+     --add plans/PLN-NNN-<slug>/findings.md
    ```
+   The `--add` flag ensures findings and REGISTRY update commit atomically.
+   Do NOT stage or commit `findings.md` separately before calling this.
 
 After each route, run `scripts/wf-check-reboot-flag.sh` and append any output to your completion message.
 
