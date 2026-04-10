@@ -134,20 +134,16 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
 
 ## Phase 2: Implementation (in the worktree)
 
-9. **Set develop root, claim the plan, and change to worktree:**
+9. **Set develop root, claim the plan, change to worktree, confirm branch, and merge develop — all in a single bash call:**
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
+   git branch --show-current
+   $DEVELOP_ROOT/scripts/wf-merge-develop.sh
    ```
-   Use `$DEVELOP_ROOT` for all paths to `plans/` throughout implementation.
-   **Important:** The working directory persists between bash calls. Once you `cd` into the worktree, do NOT re-run `cd feature-branches/...` — use the absolute path `$DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>` if you need to navigate there again.
-10. **Confirm you are on the feature branch** — run `git branch --show-current`
-11. **Merge develop into feature branch:**
-    ```bash
-    $DEVELOP_ROOT/scripts/wf-merge-develop.sh
-    ```
-    This auto-resolves conflicts in `plans/` and `.plan-ref` by taking develop's version (those files belong to develop, not feature branches). If non-plan conflicts remain, resolve them manually.
+   Shell variables and working directory do NOT persist across bash calls. Run these together so `DEVELOP_ROOT` and `cd` stay in scope for `wf-merge-develop.sh`. Use `$DEVELOP_ROOT` for all paths to `plans/` throughout implementation — set it with `$(git worktree list --porcelain | head -1 | sed 's/^worktree //')` in any later bash call that needs it.
+   **Important:** The working directory persists between bash calls. Once you `cd` into the worktree, do NOT re-run `cd feature-branches/...` in a later call — the relative path no longer exists from inside the worktree.
 12. **Set the Docker project name and port:**
     ```bash
     eval "$($DEVELOP_ROOT/scripts/wf-plan-port.sh PLN-NNN-<slug>)"
@@ -205,10 +201,10 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
     - **Tests failed:** fix failures, re-verify via haiku agent
     - Log results in `progress.md`
     - **Tick off automated checklist sections** in `plan.md` — mark `### Build & Tests`, `### Code Quality`, `### Regression Scope` items as `[x]`
-22. **When all steps, reviews, and tests pass** — commit on feature branch:
+22. **When all steps, reviews, and tests pass** — commit on feature branch (skip if nothing to commit — all changes may already be committed per-step):
     ```
     git add -A
-    git commit -m "implement(PLN-NNN-<slug>): all steps complete"
+    git diff --cached --quiet || git commit -m "implement(PLN-NNN-<slug>): all steps complete"
     ```
 23. **Destroy the docker container:**
     ```bash
@@ -257,13 +253,14 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
 
 1. **Entry** — `grep "| active |" plans/REGISTRY.md` shows the plan
 2. **Read findings** — `plans/PLN-NNN-<slug>/findings.md` has unchecked items
-3. **Set develop root, claim the plan, and cd to the feature worktree:**
+3. **Set develop root, claim the plan, cd to the feature worktree, and merge develop — all in a single bash call:**
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
+   $DEVELOP_ROOT/scripts/wf-merge-develop.sh
    ```
-4. **Merge develop** — `$DEVELOP_ROOT/scripts/wf-merge-develop.sh`
+   Shell variables do NOT persist across bash calls — keep these together so `DEVELOP_ROOT` stays in scope for `wf-merge-develop.sh`.
 5. **Fix each unchecked finding** — address the issue, then check it off in `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/findings.md`:
    ```markdown
    - [x] **Code**: Login endpoint returns 500 on empty password (src/auth.ts:42)
