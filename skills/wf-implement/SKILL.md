@@ -145,12 +145,13 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
 **CWD RULE: After step 9 runs `cd` into the worktree, you are INSIDE the worktree for the rest of Phase 2. The path `feature-branches/...` does not exist from inside the worktree. Never `cd feature-branches/...` again. Use `$DEVELOP_ROOT` (resolved via `git worktree list`) for any path back to develop.**
 
 9. **Set develop root, claim the plan, change to worktree, confirm branch, and merge develop — all in a single bash call:**
+   Workflow scripts may appear modified after a deploy — they are sparse-checkout excluded and **must NOT be committed**. The pathspec exclusions below handle this.
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
    git branch --show-current
-   git diff --quiet && git diff --cached --quiet || (git add -u && git commit -m "implement(PLN-NNN-<slug>): wip before merge")
+   git add -u -- ':(exclude)scripts/wf-*.sh' ':(exclude).claude/' ':(exclude)plans/' ':(exclude)templates/' 2>/dev/null; git diff --cached --quiet || git commit -m "implement(PLN-NNN-<slug>): wip before merge"
    $DEVELOP_ROOT/scripts/wf-merge-develop.sh
    ```
    Shell variables do NOT persist across bash calls — run these together so `DEVELOP_ROOT` and `cd` stay in scope. In any later bash call that needs develop paths, re-resolve: `DEVELOP_ROOT=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')`
@@ -267,11 +268,12 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
 1. **Entry** — `grep "| active |" plans/REGISTRY.md` shows the plan
 2. **Read findings** — `plans/PLN-NNN-<slug>/findings.md` has unchecked items
 3. **Set develop root, claim the plan, cd to the feature worktree, and merge develop — all in a single bash call:**
+   Workflow scripts may appear modified after a deploy — they are sparse-checkout excluded and **must NOT be committed**. The pathspec exclusions below handle this.
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
-   git diff --quiet && git diff --cached --quiet || (git add -u && git commit -m "implement(PLN-NNN-<slug>): wip before merge")
+   git add -u -- ':(exclude)scripts/wf-*.sh' ':(exclude).claude/' ':(exclude)plans/' ':(exclude)templates/' 2>/dev/null; git diff --cached --quiet || git commit -m "implement(PLN-NNN-<slug>): wip before merge"
    $DEVELOP_ROOT/scripts/wf-merge-develop.sh
    ```
    Shell variables do NOT persist across bash calls — keep these together so `DEVELOP_ROOT` stays in scope. After this call, you are INSIDE the worktree — never `cd feature-branches/...` again.
