@@ -28,9 +28,17 @@ GIT_DIR=$(git rev-parse --git-dir)
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # Enable sparse checkout in the shared repo config.
-# Worktrees without their own patterns file default to including all files,
-# so this does not affect the main worktree.
+# This is a repo-wide flag, so we must also protect the main worktree
+# (develop) by ensuring its sparse-checkout file includes everything.
 git -C "$REPO_ROOT" config core.sparseCheckout true
+
+# Protect the main worktree: ensure develop's sparse-checkout file is a
+# catch-all so the global flag doesn't accidentally exclude files there.
+main_sparse="$REPO_ROOT/.git/info/sparse-checkout"
+if [ ! -f "$main_sparse" ] || grep -q '^!' "$main_sparse"; then
+  mkdir -p "$REPO_ROOT/.git/info"
+  echo '/**' > "$main_sparse"
+fi
 
 # Write patterns directly to the worktree-specific sparse-checkout file.
 # `git sparse-checkout set` behaves inconsistently in linked worktrees on
