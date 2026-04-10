@@ -419,7 +419,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 7. Clean up test progress and commit REGISTRY/bug changes:
    ```bash
    rm -f plans/PLN-NNN-<slug>/test-progress.md
-   git add plans/PLN-NNN-<slug>/test-progress.md bugs/
+   git add plans/PLN-NNN-<slug>/test-progress.md bugs/ 2>/dev/null || true
    git commit --allow-empty -m "test(PLN-NNN-<slug>): complete — merged to develop"
    ```
 8. Display:
