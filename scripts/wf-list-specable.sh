@@ -11,10 +11,11 @@ found=0
 
 # --- Escalated plans in draft state (highest priority) ---
 escalated=()
-while IFS='|' read -r _ id slug state _rest; do
+while IFS='|' read -r _ id slug state priority _rest; do
   id=$(echo "$id" | xargs)
   slug=$(echo "$slug" | xargs)
   state=$(echo "$state" | xargs)
+  priority=$(echo "$priority" | xargs)
   [ "$state" = "draft" ] || continue
   plan_dir="plans/${id}-${slug}"
   [ -d "$plan_dir" ] || continue
@@ -31,7 +32,7 @@ while IFS='|' read -r _ id slug state _rest; do
   findings="$plan_dir/findings.md"
   if [ -f "$findings" ] && grep -q "ESCALATED" "$findings" 2>/dev/null; then
     count=$(grep -c "ESCALATED" "$findings" 2>/dev/null || echo 0)
-    escalated+=("${id}-${slug}	$count escalated finding(s)")
+    escalated+=("${id}-${slug}	$count escalated finding(s)	$priority")
     found=1
   fi
 done < <(grep "^|" "$REGISTRY" | tail -n +3)

@@ -100,10 +100,16 @@ If the user picks a bug BUG-NNN:
 2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `login-crash`)
 3. **Inherit the plan ID** — reuse the source artifact's number (see [ID Inheritance](#id-inheritance)). Do not call `wf-counter-next.sh`.
 4. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
+4b. **Draft the one-liner goal** — before creating any files, write a single sentence describing what this plan achieves and show it to the user:
+    ```
+    Goal: <one-line summary>
+    Confirm or edit?
+    ```
+    Do not proceed to step 5 until the user confirms or provides a revised goal. This line will be extracted by scripts (`wf-plan-info.sh`) and displayed in `wf-implement`, `wf-test`, and PR descriptions — it must be concrete, not a placeholder.
 5. **Create the plan folder** — `plans/PLN-NNN-<slug>/` with three files following `templates/plans/TEMPLATE.md`:
    - Folder is always `plans/PLN-NNN-<slug>/` (e.g. `plans/PLN-041-user-auth/`)
    - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 4`
-   - **Goal (required)** — under `## Goal`, the **first line** MUST be a concrete one-line summary of what this plan achieves (not template placeholder text). This line is extracted by `wf-plan-info.sh` and displayed by `wf-implement`, `wf-test`, and in PR descriptions. Follow the one-liner with an optional paragraph providing additional context or motivation.
+   - **Goal** — use the confirmed one-liner from step 4b as the first line under `## Goal`. Follow with an optional context paragraph.
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty (no table header needed — findings are appended as flat checklists)
    - `progress.md` — step list (copied from plan steps), empty log

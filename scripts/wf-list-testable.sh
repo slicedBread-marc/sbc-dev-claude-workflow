@@ -3,7 +3,7 @@
 # Outputs plans eligible for human testing by reading REGISTRY.md.
 # Eligible = state: testing
 #
-# Format per line (stdout): <plan-name>\t<worktree>\t<branch>\t<goal>
+# Format per line (stdout): <plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>
 # Stderr summary: TESTABLE: N, TOTAL: N
 #
 # Exit 0 if any testable found, exit 1 if none.
@@ -15,10 +15,11 @@ testable=0
 total=0
 claimed_plans=()
 
-while IFS='|' read -r _ id slug state branch _rest; do
+while IFS='|' read -r _ id slug state priority branch _rest; do
   id=$(echo "$id" | xargs)
   slug=$(echo "$slug" | xargs)
   state=$(echo "$state" | xargs)
+  priority=$(echo "$priority" | xargs)
   branch=$(echo "$branch" | xargs)
 
   [ "$state" = "testing" ] || continue
@@ -45,7 +46,7 @@ while IFS='|' read -r _ id slug state branch _rest; do
   worktree="feature-branches/${plan_name}"
   [ -d "$worktree" ] || worktree=""
 
-  printf "%s\t%s\t%s\t%s\n" "$plan_name" "$worktree" "$branch" "$goal"
+  printf "%s\t%s\t%s\t%s\t%s\n" "$plan_name" "$worktree" "$branch" "$goal" "$priority"
   testable=$((testable + 1))
 done < <(grep "^|" "$REGISTRY" | tail -n +3)
 

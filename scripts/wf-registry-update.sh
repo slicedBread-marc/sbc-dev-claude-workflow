@@ -112,15 +112,15 @@ fi
 
 if [ -n "$branch" ]; then
   if [ "$branch" = "-" ]; then
-    # Clear branch to em-dash — use # delimiter to avoid / in plan_id
-    sed -i '' "/$plan_id/s#| $from_state |[^|]*|[^|]*|#| $to_state | — | $today |#" "$REGISTRY"
+    # Clear branch to em-dash — preserve priority column (col 4)
+    sed -i '' "/$plan_id/s#| $from_state |\([^|]*\)|[^|]*|[^|]*|#| $to_state |\1| — | $today |#" "$REGISTRY"
   else
-    # Use # delimiter — branch contains / (e.g. feature/PLN-001-slug)
-    sed -i '' "/$plan_id/s#| $from_state |[^|]*|[^|]*|#| $to_state | $branch | $today |#" "$REGISTRY"
+    # Update branch — preserve priority column (col 4)
+    sed -i '' "/$plan_id/s#| $from_state |\([^|]*\)|[^|]*|[^|]*|#| $to_state |\1| $branch | $today |#" "$REGISTRY"
   fi
 else
-  # Update state and date only, preserve branch column — use # delimiter
-  sed -i '' "/$plan_id/s#| $from_state |\([^|]*\)|[^|]*|#| $to_state |\1| $today |#" "$REGISTRY"
+  # Update state and date only — preserve priority (col 4) and branch (col 5)
+  sed -i '' "/$plan_id/s#| $from_state |\([^|]*\)|\([^|]*\)|[^|]*|#| $to_state |\1|\2| $today |#" "$REGISTRY"
 fi
 
 # Verify the update worked

@@ -35,12 +35,14 @@ if ! git config core.sparseCheckout 2>/dev/null | grep -q true; then
   done
   git checkout develop -- .claude/skills/ 2>/dev/null && needs_sync=true || true
   git checkout develop -- plans/ 2>/dev/null && needs_sync=true || true
+  git checkout develop -- bugs/ 2>/dev/null && needs_sync=true || true
+  git checkout develop -- briefs/ 2>/dev/null && needs_sync=true || true
   git checkout develop -- templates/ 2>/dev/null && needs_sync=true || true
   for f in scripts/wf-*.sh; do
     [ -f "$f" ] && git checkout develop -- "$f" 2>/dev/null && needs_sync=true || true
   done
   if $needs_sync; then
-    git add .claude/workflow.md .claude/workflow-version .claude/skills/ plans/ templates/ scripts/wf-*.sh 2>/dev/null || true
+    git add .claude/workflow.md .claude/workflow-version .claude/skills/ plans/ bugs/ briefs/ templates/ scripts/wf-*.sh 2>/dev/null || true
     if ! git diff --cached --quiet 2>/dev/null; then
       git commit -m "chore: sync workflow infra from develop"
       echo "Pre-synced workflow infra to develop's version."
@@ -62,7 +64,7 @@ has_non_plan_conflicts=false
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
-  if [[ "$file" == plans/* ]] || [[ "$file" == .claude/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == skills/* ]] || [[ "$file" == templates/* ]]; then
+  if [[ "$file" == plans/* ]] || [[ "$file" == bugs/* ]] || [[ "$file" == briefs/* ]] || [[ "$file" == .claude/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == skills/* ]] || [[ "$file" == templates/* ]]; then
     git checkout develop -- "$file" 2>/dev/null || git checkout --theirs -- "$file"
     git add "$file"
     echo "  resolved: $file (took develop's version)"

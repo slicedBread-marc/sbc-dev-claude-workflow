@@ -56,6 +56,9 @@ Maximize automated tests. Only mark a test as `Manual` when it genuinely cannot 
 | T2 | API | ... | `curl ...` or inline script |
 | T3 | Manual | [only if not automatable] | Manual — [what to observe] |
 
+## E2E Scope
+_Optional. List e2e test file paths or patterns (one per line) that cover this plan. If blank, wf-test runs the full suite._
+
 ## Verification Checklist
 Structured checks for the **verifier** session to execute after implementation.
 

@@ -44,13 +44,15 @@ When creating new artifacts, always write `schema_version: 4`.
 Single source of truth for plan state. Lives at `plans/REGISTRY.md` on develop.
 
 ```markdown
-| ID | Slug | State | Branch | Updated |
-|-|-|-|-|-|
-| PLN-001 | user-auth | complete | — | 2026-04-01 |
-| PLN-003 | payment-hook | active | feature/PLN-003-payment-hook | 2026-04-06 |
+| ID | Slug | State | Priority | Branch | Updated |
+|-|-|-|-|-|-|
+| PLN-001 | user-auth | complete | — | — | 2026-04-01 |
+| PLN-003 | payment-hook | active | urgent | feature/PLN-003-payment-hook | 2026-04-06 |
 
 <!-- Counter: 4 -->
 ```
+
+The `Priority` column is optional per-plan. Default value is `—` (normal). Set to `urgent` to surface plans at the top of workable item menus. Use `scripts/wf-set-priority.sh <plan-id> urgent` to mark a plan urgent, or `scripts/wf-set-priority.sh <plan-id> —` to clear it.
 
 ### States
 
