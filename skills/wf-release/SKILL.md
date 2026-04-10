@@ -84,3 +84,5 @@ release branch    → staging environment for E2E validation
 This skill creates one merge commit (`develop → release`) and one push. No other commits are created.
 
 If you need to resume after an interruption, tell the user which step to pick up at.
+
+On completion, run `scripts/wf-check-reboot-flag.sh` and append any output to your completion message.

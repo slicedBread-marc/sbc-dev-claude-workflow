@@ -161,6 +161,8 @@ route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
      --commit "verify(PLN-NNN-<slug>): clean — ready for human test"
    ```
 
+After each route, run `scripts/wf-check-reboot-flag.sh` and append any output to your completion message.
+
 ### Broad-scope security bugs
 
 After routing, if any `← BROAD-SCOPE` security findings exist, file an urgent bug for each one. These are independent of the plan's routing — a plan can go to `active` or `testing` while still spawning bugs for out-of-scope security issues.

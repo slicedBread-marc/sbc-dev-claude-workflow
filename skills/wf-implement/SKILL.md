@@ -244,6 +244,7 @@ DEVELOP_ROOT=$(git worktree list | head -1 | awk '{print $1}')
     If the verify agent finds issues, the plan will return to active (check /wf-status).
     If clean, it moves to testing for T4 human acceptance test.
     ```
+    Then run `scripts/wf-check-reboot-flag.sh` and append any output to the message above.
 
 ---
 

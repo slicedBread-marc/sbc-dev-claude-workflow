@@ -442,6 +442,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    
    Next: Run /wf-release to merge to staging, then /wf-deploy to promote to main.
    ```
+   Then run `scripts/wf-check-reboot-flag.sh` and append any output to the message above.
 
 ### If findings (failures)
 

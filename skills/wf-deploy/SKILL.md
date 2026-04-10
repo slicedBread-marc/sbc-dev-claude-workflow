@@ -130,6 +130,8 @@ Three commits are normal:
 
 If you need to resume after an interruption, tell the user which step to pick up at.
 
+On completion, run `scripts/wf-check-reboot-flag.sh` and append any output to your completion message.
+
 ## Production deploy (separate step)
 
 This skill does NOT push to main. After `/wf-deploy` completes:

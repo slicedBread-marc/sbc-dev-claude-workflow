@@ -196,6 +196,7 @@ Final response under 2000 characters.")
    git add plans/deferred-criteria.md
    git commit -m "spec: PLN-NNN-<slug> — plan ready"
    ```
+   Then run `scripts/wf-check-reboot-flag.sh` and append any output after your completion message.
 
 For new plans, also add the REGISTRY.md row in the same commit:
 ```

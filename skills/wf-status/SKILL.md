@@ -84,6 +84,7 @@ Use the agent's output to populate each section. If a script produced no output,
 ## Recommended next action
 [Single clear recommendation]
 ```
+Then run `scripts/wf-check-reboot-flag.sh` and append any output after the status report.
 
 ### Priority
 
