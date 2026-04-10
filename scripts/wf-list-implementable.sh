@@ -46,14 +46,15 @@ while IFS='|' read -r _ id slug state priority branch _rest; do
     claimed=0
     now=$(date +%s)
     if [ -f "$claimfile" ]; then
-      claim_ts=$(cat "$claimfile" 2>/dev/null)
+      claim_ts=$(sed -n '1p' "$claimfile" 2>/dev/null)
+      claim_pid=$(sed -n '2p' "$claimfile" 2>/dev/null)
       age=$(( now - claim_ts ))
-      if [ "$age" -lt 7200 ]; then
-        claimed=1
+      if [ -n "$claim_pid" ]; then
+        kill -0 "$claim_pid" 2>/dev/null && [ "$age" -lt 7200 ] && claimed=1
       else
-        # Stale claim — clean it up
-        rm -f "$claimfile"
+        [ "$age" -lt 7200 ] && claimed=1
       fi
+      [ "$claimed" -eq 0 ] && rm -f "$claimfile"
     fi
     if [ "$claimed" -eq 1 ]; then
       claim_age_min=$(( age / 60 ))

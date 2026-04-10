@@ -20,13 +20,18 @@ while IFS='|' read -r _ id slug state priority _rest; do
   plan_dir="plans/${id}-${slug}"
   [ -d "$plan_dir" ] || continue
 
-  # Check for active claim (< 2 hours old)
+  # Check for active claim (PID alive, or TTL fallback for old format)
   claimfile="$plan_dir/.wf-claim"
   if [ -f "$claimfile" ]; then
-    claim_ts=$(cat "$claimfile" 2>/dev/null)
+    claim_ts=$(sed -n '1p' "$claimfile" 2>/dev/null)
+    claim_pid=$(sed -n '2p' "$claimfile" 2>/dev/null)
     now=$(date +%s)
     age=$(( now - claim_ts ))
-    [ "$age" -lt 7200 ] && continue
+    if [ -n "$claim_pid" ]; then
+      kill -0 "$claim_pid" 2>/dev/null && [ "$age" -lt 7200 ] && continue
+    else
+      [ "$age" -lt 7200 ] && continue
+    fi
   fi
 
   findings="$plan_dir/findings.md"

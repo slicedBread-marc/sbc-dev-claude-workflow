@@ -136,7 +136,12 @@ if [ "$to_state" = "active" ]; then
   slug=$(grep "| $plan_id |" "$REGISTRY" | head -1 | awk -F'|' '{print $3}' | xargs)
   claim_dir="plans/${plan_id}-${slug}"
   if [ -d "$claim_dir" ]; then
-    date +%s > "$claim_dir/.wf-claim"
+    _pid=$PPID
+    for _i in 1 2 3 4 5; do
+      _name=$(ps -o comm= -p "$_pid" 2>/dev/null)
+      case "$_name" in bash|sh|zsh|dash) _pid=$(ps -o ppid= -p "$_pid" 2>/dev/null | tr -d ' ') ;; *) break ;; esac
+    done
+    printf '%s\n%s\n' "$(date +%s)" "$_pid" > "$claim_dir/.wf-claim"
   fi
 fi
 
