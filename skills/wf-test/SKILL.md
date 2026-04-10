@@ -15,27 +15,29 @@ You are in **tester mode**. Your job is to guide a human through acceptance crit
 
 **If on `develop`:**
 
-List testable plans:
-```bash
-scripts/wf-list-testable.sh
-```
-
-Show menu from script output as a **numbered table** — always use table format, never paragraphs.
-Output format is `<plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>`. Show priority as a column; list urgent plans first.
+Spawn a **haiku subagent** to fetch and format the worklist:
 
 ```
+Agent(model: haiku, prompt: "Run `scripts/wf-list-testable.sh` in the current directory.
+Output is tab-separated: <plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>.
+
+If exit code 1: check stderr for 'CLAIMED:' lines. If any, return them verbatim prefixed with 'CLAIMED_PLANS:'. Otherwise return 'NO_PLANS'.
+
+If exit code 0: format as a numbered markdown table, urgent first:
 | # | Priority | Plan | Goal |
 |-|-|-|-|
-| 1 | urgent | PLN-006-bug-008-responsive-notice-dismiss | Fix responsive notice dismiss |
-| 2 | — | PLN-007-bug-006-province-puzzle-bleedthrough | Fix province puzzle bleedthrough |
+
+After the table add one line: Mark a plan urgent: \`u <number>\`
+
+Final response: ONLY the formatted table and footer line, or the CLAIMED_PLANS/NO_PLANS signal. No commentary.")
 ```
 
-After showing the menu, add one line: `Mark a plan urgent: \`u <number>\``
+Display the subagent's output verbatim, then:
 
-If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-display the updated menu.
-If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-display.
-
-If exit code 1: check stderr for "CLAIMED:" lines. If stale claims are listed, show them and ask: "These plans have stale claims from a previous session. Clear claims and continue?" On yes, run `scripts/wf-unclaim.sh <plan-name>` for each, then re-run `scripts/wf-list-testable.sh`. If no claimed plans in stderr, say "No plans ready for testing. Run /wf-status to see pipeline state."
+- If output is `NO_PLANS`: say "No plans ready for testing. Run /wf-status to see pipeline state."
+- If output starts with `CLAIMED_PLANS:`: show the claimed plans and ask "These plans have stale claims from a previous session. Clear claims and continue?" On yes, run `scripts/wf-unclaim.sh <plan-name>` for each, then re-run the haiku subagent.
+- If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent to re-display the updated menu.
+- If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
 
 Tell the user: "Run `/model sonnet`, then pick a number."
 

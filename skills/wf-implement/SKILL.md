@@ -7,16 +7,40 @@ model: haiku
 
 # Implementer Role
 
-## IMMEDIATE STARTUP — run these two commands in parallel before reading further
+## IMMEDIATE STARTUP — run in parallel before reading further
 
-```bash
-scripts/wf-branch-check.sh develop true
+1. Run branch check (do not prompt the user):
+   ```bash
+   scripts/wf-branch-check.sh develop true
+   ```
+
+2. Spawn a **haiku subagent** to fetch and format the worklist:
+
 ```
-```bash
-scripts/wf-list-implementable.sh
+Agent(model: haiku, prompt: "Run `scripts/wf-list-implementable.sh` in the current directory.
+Output is tab-separated: <type>\t<plan-name>\t<goal>\t<priority>. Processing type has a 5th field: <claim-age>.
+Exit code 1 means no plans.
+
+Format as TWO markdown tables:
+
+**Table 1 — Ready to implement** (types: new/resume/fix, numbered, urgent first):
+| # | Priority | Plan | Type | Goal |
+|-|-|-|-|-|
+
+**Table 2 — In progress (other sessions)** (type: processing, no numbers):
+| Priority | Plan | Goal | Claimed |
+|-|-|-|-|
+
+Omit Table 2 if empty. After the tables add:
+Mark a plan urgent: \`u <number>\`
+Force-take a stale claim: \`force <plan-id>\` (e.g. \`force PLN-022-lesson-deeplink-urls\`)
+
+If no actionable items (or exit code 1), output: 'No plans ready to implement. Run /wf-status to see pipeline state.'
+
+Final response: ONLY the formatted output. No commentary.")
 ```
 
-Parse the results and show the menu. Then tell the user: "Run `/model sonnet`, then pick a number."
+Display the subagent's output verbatim, then tell the user: "Run `/model sonnet`, then pick a number."
 
 ---
 
@@ -36,13 +60,7 @@ Do NOT use agents for writing code — implementation is inherently sequential a
 
 **If on `develop`:**
 
-Run `scripts/wf-list-implementable.sh` — output is tab-separated: `<type>\t<plan-name>\t<goal>\t<priority>`.
-**This script is the ONLY source of truth for plan availability. Do NOT write your own detection logic, check worktree ages, or query claim files manually. Run the script and use its output verbatim.**
-
-Show results as **two tables** — actionable items (numbered) and processing items (no numbers, informational only).
-Urgent items are already sorted first by the script; preserve that order.
-
-The processing table has a 5th tab-separated field: claim age (e.g. `47m ago`). Always show it in the table.
+Display the subagent output from IMMEDIATE STARTUP. **`wf-list-implementable.sh` is the ONLY source of truth for plan availability. Do NOT write your own detection logic, check worktree ages, or query claim files manually.**
 
 | Type | Table | Action |
 |-|-|-|
@@ -51,30 +69,8 @@ The processing table has a 5th tab-separated field: claim age (e.g. `47m ago`). 
 | `fix` | Actionable (numbered) | cd to worktree, fix findings |
 | `processing` | Processing (no numbers) | Claimed by another session — show claim age |
 
-```
-## Ready to implement
-
-| # | Priority | Plan | Type | Goal |
-|-|-|-|-|-|
-| 1 | urgent | PLN-040-user-admin-page | fix | Replace hardcoded claim string |
-| 2 | — | PLN-039-profile-page | new | Add user profile page |
-
-## In progress (other sessions)
-
-| Priority | Plan | Goal | Claimed |
-|-|-|-|-|
-| urgent | PLN-022-lesson-deeplink-urls | Support deep-linking to lesson screen | 47m ago |
-| — | PLN-042-lessons-page-infinite-spinner | Fix infinite loading spinner | 12m ago |
-```
-
-After showing the menu, add two lines:
-```
-Mark a plan urgent: `u <number>`
-Force-take a stale claim: `force <plan-id>` (e.g. `force PLN-022-lesson-deeplink-urls`)
-```
-
-If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-display the updated menu.
-If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-display.
+If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent to re-display the updated menu.
+If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
 
 If the user types `force <plan-id>`:
 ```bash
@@ -82,9 +78,6 @@ scripts/wf-unclaim.sh <plan-id>
 scripts/wf-claim.sh <plan-id>
 ```
 Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry, and proceed to Phase 2.
-
-If there are no actionable items, say "No plans ready to implement. Run /wf-status to see pipeline state." If there are no processing items, omit the second table.
-If exit code 1: "No plans ready to implement. Run /wf-status to see pipeline state."
 
 **If on a feature branch:**
 - Run `eval "$(scripts/wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME
