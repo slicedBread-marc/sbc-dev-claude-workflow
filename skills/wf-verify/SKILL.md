@@ -173,6 +173,7 @@ eval "$(scripts/wf-branch-check.sh develop true)"
 new_id=$(scripts/wf-counter-next.sh BUG)
 # Create bugs/open/BUG-NNN-<slug>/bug.md with:
 #   Severity: Critical
+#   Source: agent:wf-verify
 #   Description: the finding text from findings.md
 #   Links: "discovered during verify of PLN-NNN"
 # Then:

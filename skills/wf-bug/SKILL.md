@@ -72,6 +72,7 @@ bugs/closed/  → resolved by /wf-deploy when a plan completes
 > **Filed:** YYYY-MM-DD
 > **Project:** [project]
 > **Severity:** Critical | High | Medium | Low
+> **Source:** human
 > **Plan:** _(none — link added by /wf-spec when a fix plan is created)_
 > **Links:** _(optional: caused by BUG-NNN, blocks BUG-NNN, regression from PLN-NNN, discovered during debug of BUG-NNN, etc.)_
 
