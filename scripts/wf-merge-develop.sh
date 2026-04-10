@@ -58,6 +58,13 @@ fi
 
 echo "Merge conflicts detected — auto-resolving plan files..."
 
+# If no MERGE_HEAD, the merge was aborted (dirty working tree), not conflicted.
+if ! git rev-parse MERGE_HEAD >/dev/null 2>&1; then
+  echo "Error: merge aborted — working tree has uncommitted changes that would be overwritten." >&2
+  echo "Run 'git status' to see which files are dirty, then commit or stash them." >&2
+  exit 1
+fi
+
 # Auto-resolve plans/ and .plan-ref by taking develop's version
 conflicted=$(git diff --name-only --diff-filter=U)
 has_non_plan_conflicts=false

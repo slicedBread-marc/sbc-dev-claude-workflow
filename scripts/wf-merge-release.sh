@@ -52,12 +52,26 @@ fi
 
 echo "Merge conflicts detected — auto-resolving known files..."
 
+# If no MERGE_HEAD, the merge was aborted (dirty working tree), not conflicted.
+if ! git rev-parse MERGE_HEAD >/dev/null 2>&1; then
+  echo "Error: merge aborted — working tree has uncommitted changes that would be overwritten." >&2
+  echo "Run 'git status' to see which files are dirty, then commit or stash them." >&2
+  exit 1
+fi
+
 conflicted=$(git diff --name-only --diff-filter=U)
 has_real_conflicts=false
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
-  if [[ "$file" == .plan-ref ]] || [[ "$file" == plans/* ]] || [[ "$file" == bugs/* ]] || [[ "$file" == briefs/* ]]; then
+  if [[ "$file" == .plan-ref ]]; then
+    # Derive plan ID from branch name — more reliable than git checkout --ours
+    # which can fail with "pathspec did not match" in some conflict states
+    plan_id=$(echo "$branch" | sed 's#^feature/##; s#^\(PLN-[0-9]*\).*#\1#')
+    echo "$plan_id" > "$file"
+    git add "$file"
+    echo "  resolved: $file (kept $plan_id from branch name)"
+  elif [[ "$file" == plans/* ]] || [[ "$file" == bugs/* ]] || [[ "$file" == briefs/* ]]; then
     git checkout --ours -- "$file"
     git add "$file"
     echo "  resolved: $file (kept feature branch version)"
