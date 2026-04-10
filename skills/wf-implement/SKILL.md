@@ -21,23 +21,27 @@ Agent(model: haiku, prompt: "Run `scripts/wf-list-implementable.sh` in the curre
 Output is tab-separated: <type>\t<plan-name>\t<goal>\t<priority>. Processing type has a 5th field: <claim-age>.
 Exit code 1 means no plans.
 
-Format as TWO markdown tables:
+You MUST format output as markdown tables using pipe syntax. Do NOT use paragraphs, bullet lists, or plain text.
 
-**Table 1 — Ready to implement** (types: new/resume/fix, numbered, urgent first):
+Table 1 — Ready to implement (types: new/resume/fix, numbered, urgent first):
+
 | # | Priority | Plan | Type | Goal |
 |-|-|-|-|-|
+| 1 | urgent | PLN-001-example | new | Example goal |
 
-**Table 2 — In progress (other sessions)** (type: processing, no numbers):
+Table 2 — In progress (types: processing only, no row numbers):
+
 | Priority | Plan | Goal | Claimed |
 |-|-|-|-|
+| — | PLN-002-example | Example goal | 15m ago |
 
-Omit Table 2 if empty. After the tables add:
+Omit Table 2 if no processing items. After the tables add:
 Mark a plan urgent: \`u <number>\`
 Force-take a stale claim: \`force <plan-id>\` (e.g. \`force PLN-022-lesson-deeplink-urls\`)
 
 If no actionable items (or exit code 1), output: 'No plans ready to implement. Run /wf-status to see pipeline state.'
 
-Final response: ONLY the formatted output. No commentary.")
+Final response: ONLY the formatted tables. No commentary. No paragraphs.")
 ```
 
 Display the subagent's output verbatim, then tell the user: "Run `/model sonnet`, then pick a number."
@@ -62,12 +66,16 @@ Do NOT use agents for writing code — implementation is inherently sequential a
 
 Display the subagent output from IMMEDIATE STARTUP. **`wf-list-implementable.sh` is the ONLY source of truth for plan availability. Do NOT write your own detection logic, check worktree ages, or query claim files manually.**
 
-| Type | Table | Action |
-|-|-|-|
-| `new` | Actionable (numbered) | Phase 1 → Phase 2 → Phase 3 |
-| `resume` | Actionable (numbered) | cd to worktree, continue Phase 2 |
-| `fix` | Actionable (numbered) | cd to worktree, fix findings |
-| `processing` | Processing (no numbers) | Claimed by another session — show claim age |
+Wait for the user to pick a number. Then check the **Type** column for that row:
+
+| Type | Action |
+|-|-|
+| `new` | **Phase 1** (setup) → Phase 2 → Phase 3 |
+| `resume` | **Skip Phase 1 entirely** → jump to Phase 2 step 9 |
+| `fix` | **Skip Phase 1 entirely** → jump to Fix Cycle |
+| `processing` | Not selectable — claimed by another session |
+
+**CRITICAL — resume/fix plans already have a worktree and branch.** Do NOT run Phase 1 for them. Do NOT run `git worktree add`, `wf-registry-update.sh ready active`, or create a new branch. Jump directly to Phase 2 step 9 (which claims the plan, cd's to the existing worktree, and merges develop).
 
 If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent to re-display the updated menu.
 If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
@@ -134,16 +142,18 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
 
 ## Phase 2: Implementation (in the worktree)
 
+**CWD RULE: After step 9 runs `cd` into the worktree, you are INSIDE the worktree for the rest of Phase 2. The path `feature-branches/...` does not exist from inside the worktree. Never `cd feature-branches/...` again. Use `$DEVELOP_ROOT` (resolved via `git worktree list`) for any path back to develop.**
+
 9. **Set develop root, claim the plan, change to worktree, confirm branch, and merge develop — all in a single bash call:**
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
    git branch --show-current
+   git diff --quiet && git diff --cached --quiet || (git add -u && git commit -m "implement(PLN-NNN-<slug>): wip before merge")
    $DEVELOP_ROOT/scripts/wf-merge-develop.sh
    ```
-   Shell variables and working directory do NOT persist across bash calls. Run these together so `DEVELOP_ROOT` and `cd` stay in scope for `wf-merge-develop.sh`. Use `$DEVELOP_ROOT` for all paths to `plans/` throughout implementation — set it with `$(git worktree list --porcelain | head -1 | sed 's/^worktree //')` in any later bash call that needs it.
-   **Important:** The working directory persists between bash calls. Once you `cd` into the worktree, do NOT re-run `cd feature-branches/...` in a later call — the relative path no longer exists from inside the worktree.
+   Shell variables do NOT persist across bash calls — run these together so `DEVELOP_ROOT` and `cd` stay in scope. In any later bash call that needs develop paths, re-resolve: `DEVELOP_ROOT=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')`
 12. **Set the Docker project name and port:**
     ```bash
     eval "$($DEVELOP_ROOT/scripts/wf-plan-port.sh PLN-NNN-<slug>)"
@@ -252,6 +262,8 @@ DEVELOP_ROOT=$(git worktree list | head -1 | awk '{print $1}')
 
 The verify agent found code/test/spec issues and set the REGISTRY state back to `active`.
 
+**The worktree and branch already exist. Do NOT run Phase 1. Do NOT create a branch or worktree.**
+
 1. **Entry** — `grep "| active |" plans/REGISTRY.md` shows the plan
 2. **Read findings** — `plans/PLN-NNN-<slug>/findings.md` has unchecked items
 3. **Set develop root, claim the plan, cd to the feature worktree, and merge develop — all in a single bash call:**
@@ -259,9 +271,10 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    DEVELOP_ROOT=$(pwd)
    scripts/wf-claim.sh PLN-NNN-<slug>
    cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
+   git diff --quiet && git diff --cached --quiet || (git add -u && git commit -m "implement(PLN-NNN-<slug>): wip before merge")
    $DEVELOP_ROOT/scripts/wf-merge-develop.sh
    ```
-   Shell variables do NOT persist across bash calls — keep these together so `DEVELOP_ROOT` stays in scope for `wf-merge-develop.sh`.
+   Shell variables do NOT persist across bash calls — keep these together so `DEVELOP_ROOT` stays in scope. After this call, you are INSIDE the worktree — never `cd feature-branches/...` again.
 5. **Fix each unchecked finding** — address the issue, then check it off in `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/findings.md`:
    ```markdown
    - [x] **Code**: Login endpoint returns 500 on empty password (src/auth.ts:42)

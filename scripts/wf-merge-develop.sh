@@ -71,7 +71,9 @@ if ! git rev-parse MERGE_HEAD >/dev/null 2>&1; then
 fi
 
 # Auto-resolve plans/ and .plan-ref by taking develop's version
-conflicted=$(git diff --name-only --diff-filter=U)
+# Use ls-files -u instead of diff --diff-filter=U: the latter skips files excluded
+# by sparse checkout, leaving hidden unmerged index entries that block git commit.
+conflicted=$(git ls-files -u | awk '{print $4}' | sort -u)
 has_non_plan_conflicts=false
 
 while IFS= read -r file; do

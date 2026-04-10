@@ -59,7 +59,9 @@ if ! git rev-parse MERGE_HEAD >/dev/null 2>&1; then
   exit 1
 fi
 
-conflicted=$(git diff --name-only --diff-filter=U)
+# Use ls-files -u instead of diff --diff-filter=U: the latter skips files excluded
+# by sparse checkout, leaving hidden unmerged index entries that block git commit.
+conflicted=$(git ls-files -u | awk '{print $4}' | sort -u)
 has_real_conflicts=false
 
 while IFS= read -r file; do
