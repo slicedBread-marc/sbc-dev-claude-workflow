@@ -305,6 +305,10 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    PLAN_NAME=$(echo "$CURRENT_BRANCH" | sed 's|feature/||')
    PLAN_GOAL=$(grep -A 1 "^## Goal" ../../plans/$PLAN_NAME/plan.md | tail -1)
    ```
+   **Commit any dirty files before merging** (workflow infra may have been updated by deploy):
+   ```bash
+   git add -u -- ':(exclude)plans/' ':(exclude)bugs/' ':(exclude)briefs/' 2>/dev/null; git diff --cached --quiet || git commit -m "test($PLAN_NAME): wip before release merge"
+   ```
    **Merge release into feature branch** to ensure it's up-to-date:
    ```bash
    ../../scripts/wf-merge-release.sh
@@ -340,12 +344,12 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    ```
    **Merge the PR.** If merge fails (conflicts, branch protection, required checks), **stop and route to builder:**
    ```bash
-     if ! gh pr merge --merge --delete-branch 2>/tmp/wf-pr-merge-err; then
+     if ! gh pr merge --merge 2>/tmp/wf-pr-merge-err; then
        PR_URL=$(gh pr view --json url -q .url)
        echo "MERGE FAILED: PR $PR_URL — see error above."
        echo "Routing back to builder."
    ```
-   - Destroy container: `../../scripts/wf-docker-down.sh`
+   - Destroy container: `../../scripts/wf-docker-down.sh $PLAN_NAME`
    - Switch to project root
    - Write findings to `plans/$PLAN_NAME/findings.md`:
      ```markdown
@@ -368,7 +372,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    ```
 2. Destroy container:
    ```bash
-   ../../scripts/wf-docker-down.sh
+   ../../scripts/wf-docker-down.sh $PLAN_NAME
    ```
 
 Steps below run from **project root** — use absolute path `cd /absolute/path/to/project`:
@@ -439,7 +443,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```
 2. Destroy container (from worktree):
    ```bash
-   ../../scripts/wf-docker-down.sh
+   ../../scripts/wf-docker-down.sh $PLAN_NAME
    ```
 
 Steps below run from **project root** — use absolute path `cd /absolute/path/to/project`:
@@ -480,7 +484,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 
 Always destroy the container before leaving the worktree — on pass, fail, or early abort. From the worktree:
 ```bash
-../../scripts/wf-docker-down.sh
+../../scripts/wf-docker-down.sh $PLAN_NAME
 ```
 If you hit an error and need to stop early, **destroy the container first** before routing back or displaying the error.
 

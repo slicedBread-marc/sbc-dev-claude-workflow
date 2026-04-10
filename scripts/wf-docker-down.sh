@@ -20,7 +20,12 @@ if [ -z "$plan_folder" ]; then
   exit 0
 fi
 
-eval "$("$SCRIPT_DIR/wf-plan-port.sh" "$plan_folder")"
+eval "$("$SCRIPT_DIR/wf-plan-port.sh" "$plan_folder")" 2>/dev/null || true
+
+if [ -z "${COMPOSE_PROJECT_NAME:-}" ]; then
+  echo "Warning: could not determine COMPOSE_PROJECT_NAME for $plan_folder" >&2
+  exit 0
+fi
 
 docker compose -f docker/docker-compose.yml \
   -p "$COMPOSE_PROJECT_NAME" \
