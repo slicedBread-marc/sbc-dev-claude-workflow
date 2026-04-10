@@ -147,9 +147,8 @@ fi
 
 # --- Atomic commit (under lock) ---
 if [ -n "$commit_msg" ]; then
-  git add "$REGISTRY"
   for f in "${add_files[@]+"${add_files[@]}"}"; do
     git add "$f"
   done
-  git commit -m "$commit_msg"
+  git commit --allow-empty -m "$commit_msg"
 fi

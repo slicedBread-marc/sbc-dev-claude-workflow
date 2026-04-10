@@ -191,7 +191,7 @@ Final response under 2000 characters.")
 6. **Release claim and commit:**
    ```bash
    scripts/wf-unclaim.sh PLN-NNN-<slug>
-   git add plans/PLN-NNN-<slug>/ plans/REGISTRY.md plans/briefs/ bugs/
+   git add plans/PLN-NNN-<slug>/ plans/briefs/ bugs/
    # If any deferred criteria were consumed (rows removed from deferred-criteria.md):
    git add plans/deferred-criteria.md
    git commit -m "spec: PLN-NNN-<slug> — plan ready"
@@ -227,7 +227,7 @@ When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `fin
    ```
 8. **Commit:**
    ```
-   git add plans/PLN-NNN-<slug>/ plans/REGISTRY.md
+   git add plans/PLN-NNN-<slug>/
    # If any deferred criteria were consumed:
    git add plans/deferred-criteria.md
    git commit -m "spec: PLN-NNN-<slug> — amendment, back to ready"

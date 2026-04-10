@@ -88,7 +88,7 @@ Update `plan.md`:
 Update REGISTRY.md — change the plan's state to `rolled-back` and commit:
 ```bash
 scripts/wf-registry-update.sh PLN-NNN <current-state> rolled-back -
-git add plans/REGISTRY.md plans/PLN-NNN-<slug>/plan.md
+git add plans/PLN-NNN-<slug>/plan.md
 git commit -m "rollback(PLN-NNN-<slug>): <reason>"
 ```
 

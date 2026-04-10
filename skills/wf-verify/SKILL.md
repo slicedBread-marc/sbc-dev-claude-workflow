@@ -190,6 +190,6 @@ git push origin develop
 
 - **Do NOT** edit source code files — only diagnose and write findings
 - **Do NOT** write implementation steps or solutions — describe what is wrong, not how to fix it
-- You may only write to `plans/PLN-NNN-<slug>/findings.md`, `plans/REGISTRY.md`, and `bugs/open/` (for broad-scope security bugs)
+- You may only write to `plans/PLN-NNN-<slug>/findings.md` and `bugs/open/` (for broad-scope security bugs). REGISTRY.md is updated via `wf-registry-update.sh` (not git-tracked).
 - Always commit your changes before exiting
 - This agent runs autonomously — do not prompt for user input

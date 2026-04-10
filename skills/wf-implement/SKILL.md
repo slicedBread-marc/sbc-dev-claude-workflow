@@ -103,18 +103,13 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
    ```bash
    scripts/wf-registry-update.sh PLN-NNN ready active feature/PLN-NNN-<slug>
    ```
-5. **Commit on develop:**
-   ```
-   git add plans/REGISTRY.md
-   git commit -m "implement(PLN-NNN-<slug>): lock plan"
-   ```
-6. **Create feature branch and worktree:**
+5. **Create feature branch and worktree:**
    ```bash
    mkdir -p feature-branches
    git worktree add -b feature/PLN-NNN-<slug> feature-branches/PLN-NNN-<slug> HEAD
    scripts/wf-worktree-sparse.sh feature-branches/PLN-NNN-<slug>
    ```
-7. **Write `.plan-ref` in the worktree:**
+6. **Write `.plan-ref` in the worktree:**
    ```bash
    echo "PLN-NNN" > feature-branches/PLN-NNN-<slug>/.plan-ref
    cd feature-branches/PLN-NNN-<slug>
@@ -122,7 +117,7 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
    git commit -m "chore(PLN-NNN): add .plan-ref"
    cd ../..
    ```
-8. **Drop settings.local.json into worktree** for full write permissions:
+7. **Drop settings.local.json into worktree** for full write permissions:
    ```
    mkdir -p feature-branches/PLN-NNN-<slug>/.claude
    cat > feature-branches/PLN-NNN-<slug>/.claude/settings.local.json << 'EOF'
@@ -242,7 +237,7 @@ DEVELOP_ROOT=$(git worktree list | head -1 | awk '{print $1}')
     ```
 26. **Commit on develop:**
     ```bash
-    cd "$DEVELOP_ROOT" && git add plans/REGISTRY.md plans/PLN-NNN-<slug>/progress.md plans/PLN-NNN-<slug>/findings.md && git commit -m "implement(PLN-NNN-<slug>): verified, moved to verify"
+    cd "$DEVELOP_ROOT" && git add plans/PLN-NNN-<slug>/progress.md plans/PLN-NNN-<slug>/findings.md && git commit --allow-empty -m "implement(PLN-NNN-<slug>): verified, moved to verify"
     ```
 
     **This commit triggers the verify agent automatically** (via hook on REGISTRY state change to `verify`).

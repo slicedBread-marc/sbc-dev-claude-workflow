@@ -61,7 +61,7 @@ Before starting, confirm E2E passed on release:
    ```
 10. **Commit plan and bug updates**:
     ```bash
-    git add plans/REGISTRY.md plans/PLN-*/plan.md bugs/closed/
+    git add plans/PLN-*/plan.md bugs/closed/
     git commit -m "release: complete [plan-names], close bugs"
     ```
 11. **Back-merge `main` → `develop`** (auto-resolve in favor of main):

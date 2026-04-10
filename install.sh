@@ -63,6 +63,17 @@ mkdir -p "$TARGET_DIR/plans/complete"
 mkdir -p "$TARGET_DIR/plans/rolled-back"
 echo -e "${GREEN}  plans/ folder structure created${NC}"
 
+# Seed REGISTRY.md if it doesn't exist (gitignored — never overwrite live state)
+REGISTRY_TEMPLATE="$SCRIPT_DIR/templates/plans/REGISTRY.md"
+REGISTRY_DEST="$TARGET_DIR/plans/REGISTRY.md"
+if [ -f "$REGISTRY_TEMPLATE" ] && [ ! -f "$REGISTRY_DEST" ]; then
+    mkdir -p "$TARGET_DIR/plans"
+    cp "$REGISTRY_TEMPLATE" "$REGISTRY_DEST"
+    echo -e "${GREEN}  Seeded plans/REGISTRY.md from template${NC}"
+else
+    echo -e "${YELLOW}  plans/REGISTRY.md already exists — skipping${NC}"
+fi
+
 # Copy and templatize plan templates
 echo "Installing templates..."
 for f in "$SCRIPT_DIR/templates/plans/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/briefs/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/briefs/INDEX.md"; do
@@ -154,14 +165,11 @@ else
     echo -e "${YELLOW}  post-commit hook already up to date — skipping${NC}"
 fi
 
-# Configure REGISTRY.md merge driver — protects develop's state when feature branches merge in
-git -C "$TARGET_DIR" config merge.ours.driver true
-GITATTRIBUTES="$TARGET_DIR/.gitattributes"
-if ! grep -q 'plans/REGISTRY.md' "$GITATTRIBUTES" 2>/dev/null; then
-    echo 'plans/REGISTRY.md merge=ours' >> "$GITATTRIBUTES"
-    echo -e "${GREEN}  Updated .gitattributes — plans/REGISTRY.md protected from merge corruption${NC}"
-else
-    echo -e "${YELLOW}  .gitattributes REGISTRY rule already present — skipping${NC}"
+# Gitignore REGISTRY.md (operational state, not source code)
+GITIGNORE="$TARGET_DIR/.gitignore"
+if ! grep -qF "plans/REGISTRY.md" "$GITIGNORE" 2>/dev/null; then
+    echo "plans/REGISTRY.md" >> "$GITIGNORE"
+    echo -e "${GREEN}  Added plans/REGISTRY.md to .gitignore${NC}"
 fi
 
 # Install workflow scripts

@@ -60,10 +60,4 @@ PATTERNS
 # those won't differ from develop and won't cause merge conflicts.
 git sparse-checkout reapply 2>/dev/null || true
 
-# Verify: warn if REGISTRY.md specifically is indexed without skip-worktree.
-# Runtime files (e.g. .wf-claim) may be tracked normally — that's acceptable.
-if git ls-files -t plans/REGISTRY.md 2>/dev/null | grep -v '^S ' | grep -q .; then
-    echo "Warning: plans/REGISTRY.md lacks skip-worktree protection — it could corrupt REGISTRY via merge"
-fi
-
 echo "Sparse checkout configured — workflow infra excluded from tracking"
