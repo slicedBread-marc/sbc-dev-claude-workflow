@@ -35,10 +35,17 @@ while IFS='|' read -r _ id slug state priority _rest; do
   fi
 
   findings="$plan_dir/findings.md"
-  if [ -f "$findings" ] && grep -q "ESCALATED" "$findings" 2>/dev/null; then
-    count=$(grep -c "ESCALATED" "$findings" 2>/dev/null || echo 0)
-    escalated+=("${id}-${slug}	$count escalated finding(s)	$priority")
-    found=1
+  if [ -f "$findings" ] && grep -q '^\- \[ \]' "$findings" 2>/dev/null; then
+    esc_count=$(grep -c "ESCALATED" "$findings" 2>/dev/null || true)
+    bhv_count=$(grep -c "Behavior" "$findings" 2>/dev/null || true)
+    parts=()
+    [ "$esc_count" -gt 0 ] && parts+=("$esc_count escalated")
+    [ "$bhv_count" -gt 0 ] && parts+=("$bhv_count behavior")
+    if [ ${#parts[@]} -gt 0 ]; then
+      detail=$(IFS=', '; echo "${parts[*]}")
+      escalated+=("${id}-${slug}	${detail} finding(s)	$priority")
+      found=1
+    fi
   fi
 done < <(grep "^|" "$REGISTRY" | tail -n +3)
 
