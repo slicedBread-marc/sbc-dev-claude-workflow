@@ -20,6 +20,7 @@ Scripts exit 1 when empty — append || true to each so failures don't stop othe
 
 git branch --show-current
 cat .claude/workflow-version 2>/dev/null || true
+scripts/wf-prune-versions.sh --list 2>/dev/null || true
 cat plans/REGISTRY.md
 scripts/wf-exec.sh wf-list-replanning.sh 2>/dev/null || true
 scripts/wf-exec.sh wf-list-drafts.sh 2>/dev/null || true
@@ -41,6 +42,7 @@ Use the agent's output to populate each section. If a script produced no output,
 ```
 ## Pipeline Status — Workflow v{version}
 ### (On branch: {branch})
+### Script folder: {current_folder} | In use: {folders_in_use}
 
 ### Needs replanning
 - PLN-002 — login-fix — state: draft (has ESCALATED findings)
