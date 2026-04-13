@@ -1,0 +1,14 @@
+# Workflow version → script folder mapping.
+#
+# Resolution: find the highest row where min_workflow_version <= effective
+# workflow version (from plan WF column, .claude/workflow-version, or
+# $WF_VERSION env). That row's script_folder is where wf-exec.sh dispatches.
+#
+# Add a new row ONLY when scripts actually change. Most workflow bumps
+# keep mapping to the same script folder.
+#
+# Columns are whitespace-separated. Sort ascending by min_workflow_version.
+#
+# min_workflow_version  script_folder
+0.00                    v1.x
+2.00                    v2.00

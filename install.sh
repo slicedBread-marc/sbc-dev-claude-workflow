@@ -197,15 +197,39 @@ if ! grep -qF "plans/REGISTRY.md" "$GITIGNORE" 2>/dev/null; then
     echo -e "${GREEN}  Added plans/REGISTRY.md to .gitignore${NC}"
 fi
 
-# Install workflow scripts
+# Install workflow scripts — versioned layout (v2.0+).
+# Each scripts/v*/ in the library is a complete, frozen snapshot. The
+# unversioned dispatcher (scripts/wf-exec.sh) routes plans to the right
+# snapshot via scripts/version-map.txt.
 echo "Installing scripts..."
 mkdir -p "$TARGET_DIR/scripts"
-for script in "$SCRIPT_DIR/scripts"/wf-*.sh; do
-    DEST="$TARGET_DIR/scripts/$(basename "$script")"
-    cp "$script" "$DEST"
-    chmod +x "$DEST"
-    echo -e "${GREEN}  Installed scripts/$(basename "$script")${NC}"
+
+# Template each versioned snapshot.
+for version_dir in "$SCRIPT_DIR/scripts"/v*/; do
+    [ -d "$version_dir" ] || continue
+    folder_name=$(basename "$version_dir")
+    DEST_VDIR="$TARGET_DIR/scripts/$folder_name"
+    mkdir -p "$DEST_VDIR"
+    for script in "$version_dir"/wf-*.sh; do
+        [ -f "$script" ] || continue
+        DEST="$DEST_VDIR/$(basename "$script")"
+        sed -e "s|{{project_slug}}|$PROJECT_SLUG|g" \
+            -e "s|{{production_logs_url}}|$PRODUCTION_LOGS_URL|g" \
+            -e "s|{{production_url}}|$PRODUCTION_URL|g" \
+            "$script" > "$DEST"
+        chmod +x "$DEST"
+    done
+    echo -e "${GREEN}  Installed scripts/$folder_name/ ($(ls "$DEST_VDIR" | wc -l | tr -d ' ') scripts)${NC}"
 done
+
+# Dispatcher + pruning tool + version map — unversioned, copied verbatim.
+for f in wf-exec.sh wf-prune-versions.sh; do
+    cp "$SCRIPT_DIR/scripts/$f" "$TARGET_DIR/scripts/$f"
+    chmod +x "$TARGET_DIR/scripts/$f"
+    echo -e "${GREEN}  Installed scripts/$f${NC}"
+done
+cp "$SCRIPT_DIR/scripts/version-map.txt" "$TARGET_DIR/scripts/version-map.txt"
+echo -e "${GREEN}  Installed scripts/version-map.txt${NC}"
 
 # Gitignore workflow runtime files
 GITIGNORE="$TARGET_DIR/.gitignore"
@@ -221,6 +245,30 @@ echo "$WORKFLOW_VERSION" > "$TARGET_DIR/.claude/workflow-version"
 echo -e "${GREEN}  Stamped workflow version $WORKFLOW_VERSION → .claude/workflow-version${NC}"
 
 # ── Propagate to feature worktrees ───────────────────────────────────────────
+# Resolve a worktree's plan WF stamp → script_folder using the same algorithm
+# as wf-exec.sh. Only that folder (plus the unversioned dispatcher + map) gets
+# copied into the worktree — so an in-flight plan keeps running the scripts it
+# was built against, even after we publish newer generations.
+resolve_script_folder() {
+    local wf="$1"
+    local map="$TARGET_ABS/scripts/version-map.txt"
+    [ -z "$wf" ] && wf="0.00"
+    [ -f "$map" ] || { echo ""; return; }
+    local folder=""
+    while IFS= read -r line; do
+        line="${line%%#*}"
+        [ -z "${line// }" ] && continue
+        local min_ver f
+        min_ver=$(echo "$line" | awk '{print $1}')
+        f=$(echo "$line" | awk '{print $2}')
+        [ -z "$min_ver" ] || [ -z "$f" ] && continue
+        if [ "$(printf '%s\n%s\n' "$min_ver" "$wf" | sort -V | head -1)" = "$min_ver" ]; then
+            folder="$f"
+        fi
+    done < "$map"
+    echo "$folder"
+}
+
 if git -C "$TARGET_DIR" rev-parse --git-dir &>/dev/null; then
     echo "Updating feature worktrees..."
     TARGET_ABS="$(cd "$TARGET_DIR" && pwd)"
@@ -236,11 +284,33 @@ if git -C "$TARGET_DIR" rev-parse --git-dir &>/dev/null; then
         elif [[ -z "$line" ]]; then
             # End of block — process if it's a feature worktree (not the main one)
             if [[ -n "$wt_path" && "$wt_path" != "$TARGET_ABS" && "$wt_branch" == *feature/* ]]; then
+                # Resolve this worktree's plan WF → script folder.
+                # Branch format: refs/heads/feature/PLN-NNN[-slug]
+                wt_plan_id=$(echo "$wt_branch" | grep -oE 'PLN-[0-9]+' | head -1 || true)
+                wt_wf=""
+                if [ -n "$wt_plan_id" ] && [ -f "$TARGET_ABS/plans/REGISTRY.md" ]; then
+                    row=$(grep "^| ${wt_plan_id} " "$TARGET_ABS/plans/REGISTRY.md" | head -1 || true)
+                    [ -n "$row" ] && wt_wf=$(echo "$row" | awk -F'|' '{print $7}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                fi
+                wt_folder=$(resolve_script_folder "$wt_wf")
+
                 mkdir -p "$wt_path/scripts"
-                for script in "$TARGET_ABS/scripts"/wf-*.sh; do
-                    cp "$script" "$wt_path/scripts/$(basename "$script")"
-                    chmod +x "$wt_path/scripts/$(basename "$script")"
+                # Copy the resolved version folder.
+                if [ -n "$wt_folder" ] && [ -d "$TARGET_ABS/scripts/$wt_folder" ]; then
+                    mkdir -p "$wt_path/scripts/$wt_folder"
+                    for script in "$TARGET_ABS/scripts/$wt_folder"/wf-*.sh; do
+                        [ -f "$script" ] || continue
+                        cp "$script" "$wt_path/scripts/$wt_folder/$(basename "$script")"
+                        chmod +x "$wt_path/scripts/$wt_folder/$(basename "$script")"
+                    done
+                fi
+                # Copy unversioned dispatcher + pruning tool + map.
+                for f in wf-exec.sh wf-prune-versions.sh; do
+                    [ -f "$TARGET_ABS/scripts/$f" ] || continue
+                    cp "$TARGET_ABS/scripts/$f" "$wt_path/scripts/$f"
+                    chmod +x "$wt_path/scripts/$f"
                 done
+                [ -f "$TARGET_ABS/scripts/version-map.txt" ] && cp "$TARGET_ABS/scripts/version-map.txt" "$wt_path/scripts/version-map.txt"
 
                 for skill_dir in "$TARGET_ABS/.claude/skills"/*/; do
                     dest="$wt_path/.claude/skills/$(basename "$skill_dir")"
@@ -252,7 +322,7 @@ if git -C "$TARGET_DIR" rev-parse --git-dir &>/dev/null; then
                 [ -f "$TARGET_ABS/.claude/workflow.md" ] && cp "$TARGET_ABS/.claude/workflow.md" "$wt_path/.claude/workflow.md"
                 [ -f "$TARGET_ABS/.claude/workflow-version" ] && cp "$TARGET_ABS/.claude/workflow-version" "$wt_path/.claude/workflow-version"
 
-                echo -e "  ${GREEN}Updated $(basename "$wt_path")${NC}"
+                echo -e "  ${GREEN}Updated $(basename "$wt_path") (scripts/${wt_folder:-none})${NC}"
                 ((WT_COUNT++)) || true
             fi
             wt_path="" wt_branch=""

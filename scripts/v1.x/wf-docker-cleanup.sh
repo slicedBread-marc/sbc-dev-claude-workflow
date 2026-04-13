@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # wf-docker-cleanup.sh
 # Removes orphaned Docker containers from completed plans.
-# Scans for <project_slug>-pln* compose projects and tears down any whose
+# Scans for {{project_slug}}-pln* compose projects and tears down any whose
 # plan is no longer in testing/verify/active state.
 #
-# Project slug is resolved from PROJECT_SLUG env, then claude-workflow.yml,
-# falling back to "wf".
+# {{project_slug}} is baked in by install.sh at deploy time.
 #
 # Safe to run anytime — only removes containers for finished plans.
 
@@ -14,27 +13,9 @@ set -euo pipefail
 REGISTRY="plans/REGISTRY.md"
 [ -f "$REGISTRY" ] || exit 0
 
-resolve_project_slug() {
-  if [ -n "${PROJECT_SLUG:-}" ]; then printf '%s' "$PROJECT_SLUG"; return; fi
-  local dir="$PWD" cfg=""
-  while [ "$dir" != "/" ]; do
-    if [ -f "$dir/claude-workflow.yml" ]; then cfg="$dir/claude-workflow.yml"; break; fi
-    dir="$(dirname "$dir")"
-  done
-  if [ -n "$cfg" ]; then
-    local v
-    v=$(grep '^project_slug:' "$cfg" 2>/dev/null \
-          | sed 's/^project_slug:[[:space:]]*//;s/"//g;s/^[[:space:]]*//;s/[[:space:]]*$//' \
-          | head -1)
-    if [ -n "$v" ]; then printf '%s' "$v"; return; fi
-  fi
-  printf 'wf'
-}
+prefix="{{project_slug}}-pln"
 
-slug=$(resolve_project_slug)
-prefix="${slug}-pln"
-
-# Get list of <slug>-pln* compose projects
+# Get list of {{project_slug}}-pln* compose projects
 projects=$(docker compose ls --format json 2>/dev/null \
   | PREFIX="$prefix" python3 -c "import os,sys,json; p=os.environ['PREFIX']; [print(x['Name']) for x in json.load(sys.stdin) if x['Name'].startswith(p)]" 2>/dev/null) || true
 
@@ -42,7 +23,7 @@ projects=$(docker compose ls --format json 2>/dev/null \
 
 cleaned=0
 while IFS= read -r proj; do
-  # Extract plan number from project name (<slug>-pln004 → 004)
+  # Extract plan number from project name ({{project_slug}}-pln004 → 004)
   num="${proj#$prefix}"
   # Zero-pad to 3 digits for registry lookup
   padded=$(printf "%03d" "$num" 2>/dev/null) || continue

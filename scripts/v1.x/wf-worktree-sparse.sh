@@ -11,7 +11,9 @@
 #   .claude/skills/           — skill definitions, deployed from library
 #   plans/                    — registry + plan content, develop-only
 #   templates/                — plan templates
-#   scripts/wf-*.sh           — workflow scripts, deployed from library
+#   scripts/wf-*.sh           — workflow scripts (legacy flat layout)
+#   scripts/v*/wf-*.sh        — versioned script snapshots, deployed from library
+#   scripts/version-map.txt   — workflow→folder mapping, deployed from library
 #
 # After sparse-checkout, install.sh propagation can still copy these
 # files into the worktree for runtime use — git will ignore them.
@@ -52,6 +54,8 @@ cat > "$GIT_DIR/info/sparse-checkout" <<'PATTERNS'
 !plans/**
 !templates/**
 !scripts/wf-*.sh
+!scripts/version-map.txt
+!scripts/v*/wf-*.sh
 PATTERNS
 
 # Apply the patterns. This sets the skip-worktree bit on excluded files so git

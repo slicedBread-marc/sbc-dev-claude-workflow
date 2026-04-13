@@ -343,19 +343,17 @@ assert_eq "missing findings.md → clean" "clean" "$route"
 # ══════════════════════════════════════════════════════════════════════
 section "Plan port (wf-plan-port.sh)"
 
-out=$("$SCRIPT_DIR/wf-plan-port.sh" "PLN-001-e2e-smoke-test")
+# Library source keeps the {{project_slug}} placeholder — install.sh bakes
+# it in at deploy time. Simulate that here via sed before running.
+assert_contains "source has slug placeholder" "{{project_slug}}-pln" "$(cat "$SCRIPT_DIR/wf-plan-port.sh")"
+
+mkdir -p scripts
+sed 's|{{project_slug}}|sbc|g' "$SCRIPT_DIR/wf-plan-port.sh" > scripts/wf-plan-port.sh
+chmod +x scripts/wf-plan-port.sh
+
+out=$(scripts/wf-plan-port.sh "PLN-001-e2e-smoke-test")
 assert_contains "port derived from ID" "FEATURE_PORT=8101" "$out"
-assert_contains "compose project name (fallback slug)" "COMPOSE_PROJECT_NAME=wf-pln001" "$out"
-
-out=$(PROJECT_SLUG=sbc "$SCRIPT_DIR/wf-plan-port.sh" "PLN-001-e2e-smoke-test")
-assert_contains "compose project name (env slug)" "COMPOSE_PROJECT_NAME=sbc-pln001" "$out"
-
-cat > claude-workflow.yml <<'YML'
-project_slug: "acme"
-YML
-out=$("$SCRIPT_DIR/wf-plan-port.sh" "PLN-001-e2e-smoke-test")
-assert_contains "compose project name (yml slug)" "COMPOSE_PROJECT_NAME=acme-pln001" "$out"
-rm -f claude-workflow.yml
+assert_contains "compose project name (templated slug)" "COMPOSE_PROJECT_NAME=sbc-pln001" "$out"
 
 # ══════════════════════════════════════════════════════════════════════
 # 6. PLAN-REF (worktree context)
