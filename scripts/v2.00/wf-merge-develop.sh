@@ -33,11 +33,11 @@ fi
 # before merging so they can't cause dirty-tree failures or conflicts.
 if ! git config core.sparseCheckout 2>/dev/null | grep -q true; then
   needs_sync=false
-  for path in .claude/workflow.md .claude/workflow-version; do
-    if [ -f "$path" ]; then
-      git checkout develop -- "$path" 2>/dev/null && needs_sync=true || true
-    fi
-  done
+  # Do NOT sync .claude/workflow-version — it's the plan's immovable WF stamp
+  # and must not change mid-flight. Dispatcher routes on this value.
+  if [ -f ".claude/workflow.md" ]; then
+    git checkout develop -- ".claude/workflow.md" 2>/dev/null && needs_sync=true || true
+  fi
   git checkout develop -- .claude/skills/ 2>/dev/null && needs_sync=true || true
   git checkout develop -- plans/ 2>/dev/null && needs_sync=true || true
   git checkout develop -- bugs/ 2>/dev/null && needs_sync=true || true
@@ -48,7 +48,7 @@ if ! git config core.sparseCheckout 2>/dev/null | grep -q true; then
     [ -f "$f" ] && git checkout develop -- "$f" 2>/dev/null && needs_sync=true || true
   done
   if $needs_sync; then
-    git add .claude/workflow.md .claude/workflow-version .claude/skills/ plans/ bugs/ briefs/ templates/ scripts/wf-exec.sh scripts/wf-prune-versions.sh scripts/version-map.txt scripts/v*/wf-*.sh 2>/dev/null || true
+    git add .claude/workflow.md .claude/skills/ plans/ bugs/ briefs/ templates/ scripts/wf-exec.sh scripts/wf-prune-versions.sh scripts/version-map.txt scripts/v*/wf-*.sh 2>/dev/null || true
     if ! git diff --cached --quiet 2>/dev/null; then
       git commit -m "chore: sync workflow infra from develop"
       echo "Pre-synced workflow infra to develop's version."

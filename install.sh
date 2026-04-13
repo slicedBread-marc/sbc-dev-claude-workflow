@@ -340,9 +340,12 @@ if git -C "$TARGET_DIR" rev-parse --git-dir &>/dev/null; then
 
                 mkdir -p "$wt_path/.claude"
                 [ -f "$TARGET_ABS/.claude/workflow.md" ] && cp "$TARGET_ABS/.claude/workflow.md" "$wt_path/.claude/workflow.md"
-                [ -f "$TARGET_ABS/.claude/workflow-version" ] && cp "$TARGET_ABS/.claude/workflow-version" "$wt_path/.claude/workflow-version"
+                # Stamp worktree's workflow-version to its PLAN's WF (or 0.00 if empty) —
+                # NOT develop's version. Otherwise the dispatcher resolves to a folder
+                # (e.g., v2.00) that was never propagated into the worktree.
+                echo "${wt_wf:-0.00}" > "$wt_path/.claude/workflow-version"
 
-                echo -e "  ${GREEN}Updated $(basename "$wt_path") (scripts/${wt_folder:-none})${NC}"
+                echo -e "  ${GREEN}Updated $(basename "$wt_path") (scripts/${wt_folder:-none}, WF=${wt_wf:-0.00})${NC}"
                 ((WT_COUNT++)) || true
             fi
             wt_path="" wt_branch=""
