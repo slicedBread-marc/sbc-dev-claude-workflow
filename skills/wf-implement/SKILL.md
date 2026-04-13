@@ -312,7 +312,7 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
 | 8100+ | Feature branches (8100 + plan ID) |
 | 8080 | Default local dev |
 
-Project name: `sbc-pln<id>` (e.g., `sbc-pln004`)
+Project name: `{{project_slug}}-pln<id>` (e.g., `{{project_slug}}-pln004`)
 
 ## Rules
 

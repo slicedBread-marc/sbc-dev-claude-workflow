@@ -1,6 +1,6 @@
 ---
 name: wf-bug
-description: File a new bug report. Creates a bug folder in bugs/open/ with a structured report and optional file attachment. Use when the user wants to report a bug, quick-fire a known issue, or import a flag from SBC.
+description: File a new bug report. Creates a bug folder in bugs/open/ with a structured report and optional file attachment. Use when the user wants to report a bug, quick-fire a known issue, or import a flag from the live product.
 user_invocable: true
 model: sonnet
 ---

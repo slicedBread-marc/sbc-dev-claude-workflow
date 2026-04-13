@@ -41,6 +41,25 @@ CONVENTIONS_NOTE=$(get_config "conventions_note")
 LOCAL_START=$(get_config "local_start_command")
 LOCAL_DEPLOY=$(get_config "local_deploy_command")
 LOCAL_STOP=$(get_config "local_stop_command")
+PROJECT_SLUG=$(get_config "project_slug")
+PRODUCTION_LOGS_URL=$(get_config "production_logs_url")
+PRODUCTION_URL=$(get_config "production_url")
+
+# project_slug is required as of workflow v1.33.0 — it namespaces Docker
+# compose projects so multiple clients can coexist on one Docker daemon.
+if [ -z "$PROJECT_SLUG" ]; then
+    RED='\033[0;31m'
+    echo -e "${RED}ERROR: project_slug is required (introduced in workflow v1.33.0).${NC}"
+    echo ""
+    echo "Edit $CONFIG_FILE and set project_slug to a short identifier"
+    echo "unique to this project (e.g., the repo directory name):"
+    echo ""
+    echo "    project_slug: \"$(basename "$(cd "$TARGET_DIR" && pwd)")\""
+    echo ""
+    echo "This namespaces Docker compose projects (e.g., <slug>-pln004) so"
+    echo "multiple clients on one machine don't collide on container names."
+    exit 1
+fi
 
 # Read source_dirs as comma-separated string
 SOURCE_DIRS=$(grep -A 10 "^source_dirs:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - //' | sed 's/"//g' | tr '\n' ', ' | sed 's/,$//')
@@ -90,6 +109,9 @@ for f in "$SCRIPT_DIR/templates/plans/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/
             -e "s|{{namespace_convention}}|$NAMESPACE_CONV|g" \
             -e "s|{{conventions_note}}|$CONVENTIONS_NOTE|g" \
             -e "s|{{source_dirs}}|$SOURCE_DIRS|g" \
+            -e "s|{{project_slug}}|$PROJECT_SLUG|g" \
+            -e "s|{{production_logs_url}}|$PRODUCTION_LOGS_URL|g" \
+            -e "s|{{production_url}}|$PRODUCTION_URL|g" \
             "$f" > "$DEST"
         echo -e "${GREEN}  Installed $DEST${NC}"
     fi
@@ -111,6 +133,9 @@ for skill_dir in "$SCRIPT_DIR/skills"/*/; do
         -e "s|{{namespace_convention}}|$NAMESPACE_CONV|g" \
         -e "s|{{conventions_note}}|$CONVENTIONS_NOTE|g" \
         -e "s|{{source_dirs}}|$SOURCE_DIRS|g" \
+        -e "s|{{project_slug}}|$PROJECT_SLUG|g" \
+        -e "s|{{production_logs_url}}|$PRODUCTION_LOGS_URL|g" \
+        -e "s|{{production_url}}|$PRODUCTION_URL|g" \
         "$skill_dir/SKILL.md" > "$DEST_DIR/SKILL.md"
 
     echo -e "${GREEN}  Installed /$(basename "$skill_dir")${NC}"

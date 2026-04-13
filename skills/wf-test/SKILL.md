@@ -533,4 +533,4 @@ If you hit an error and need to stop early, **destroy the container first** befo
 | 8100+ | Feature branches (8100 + plan ID) |
 | 8080 | Default local dev |
 
-Project name: `sbc-pln<id>` (e.g., `sbc-pln004`)
+Project name: `{{project_slug}}-pln<id>` (e.g., `{{project_slug}}-pln004`)

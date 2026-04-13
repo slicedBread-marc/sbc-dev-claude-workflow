@@ -43,6 +43,19 @@ conventions_note: ""
 # Detect from: *.slnx, *.sln, *.csproj, package.json, pyproject.toml, go.mod in the root
 solution_file: ""
 
+# Project slug — short identifier used to namespace Docker compose projects
+# (e.g., "sbc-pln004"). Must be unique per client to avoid container collisions
+# between projects sharing a Docker daemon.
+# Detect from: directory name or repo name (e.g., "sbc" for /Users/marcblais/dev/sbc).
+project_slug: ""
+
+# Production deploy references — shown in /wf-deploy completion message.
+# Leave blank if the project has no production deployment / CI pipeline.
+#   production_logs_url: URL to deploy logs (e.g., GitHub Actions page)
+#   production_url:      URL of the live site
+production_logs_url: ""
+production_url: ""
+
 # Local dev environment — Docker-based auto-start on implement commits (optional).
 # If set, a 60-minute idle timer starts on every implement( commit and on manual start.
 # The container stops automatically when the timer expires.

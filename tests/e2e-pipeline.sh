@@ -345,7 +345,17 @@ section "Plan port (wf-plan-port.sh)"
 
 out=$("$SCRIPT_DIR/wf-plan-port.sh" "PLN-001-e2e-smoke-test")
 assert_contains "port derived from ID" "FEATURE_PORT=8101" "$out"
-assert_contains "compose project name" "COMPOSE_PROJECT_NAME=sbc-pln001" "$out"
+assert_contains "compose project name (fallback slug)" "COMPOSE_PROJECT_NAME=wf-pln001" "$out"
+
+out=$(PROJECT_SLUG=sbc "$SCRIPT_DIR/wf-plan-port.sh" "PLN-001-e2e-smoke-test")
+assert_contains "compose project name (env slug)" "COMPOSE_PROJECT_NAME=sbc-pln001" "$out"
+
+cat > claude-workflow.yml <<'YML'
+project_slug: "acme"
+YML
+out=$("$SCRIPT_DIR/wf-plan-port.sh" "PLN-001-e2e-smoke-test")
+assert_contains "compose project name (yml slug)" "COMPOSE_PROJECT_NAME=acme-pln001" "$out"
+rm -f claude-workflow.yml
 
 # ══════════════════════════════════════════════════════════════════════
 # 6. PLAN-REF (worktree context)

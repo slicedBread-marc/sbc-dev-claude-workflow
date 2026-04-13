@@ -12,7 +12,8 @@ Work in this repo is about building, improving, and maintaining that library, no
 
 ## Clients
 
-- `/Users/marcblais/dev/sbc/` — the only current client. It receives copies of skills and scripts via `deploy-all.sh`.
+- Deployment targets are listed in `deployments.txt` (one absolute path per line). Each receives copies of skills and scripts via `deploy-all.sh`.
+- To add a new client: append its path to `deployments.txt`, ensure its `claude-workflow.yml` sets a unique `project_slug` (prevents Docker compose collisions), then run `./deploy-all.sh`.
 
 ---
 
