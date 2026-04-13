@@ -94,6 +94,31 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
 
 ---
 
+## Migration notes check (after plan is selected)
+
+Before Phase 1 or Phase 2 runs, check for pending workflow-upgrade migration actions for this plan:
+
+```bash
+DEVELOP_ROOT=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')
+notes="$DEVELOP_ROOT/plans/MIGRATION-NOTES.md"
+if [ -f "$notes" ]; then
+  awk -v plan="PLN-NNN-<slug>" '
+    /^### / { printing = (index($0, plan) > 0) }
+    printing { print }
+  ' "$notes"
+fi
+```
+
+Substitute the actual plan name for `PLN-NNN-<slug>`. If the command prints anything, display it to the user verbatim and tell them:
+
+> This plan has pending migration actions from a workflow upgrade (see above). Complete them, then remove the plan's section from `plans/MIGRATION-NOTES.md` before resuming.
+
+Then STOP. Do NOT proceed to Phase 1 / Phase 2 until the user confirms the actions are complete.
+
+If the command prints nothing, continue to Phase 1 / Phase 2 as normal.
+
+---
+
 ## Phase 1: Setup (on `develop` branch)
 
 1. **Confirm you are on `develop`** — `scripts/wf-exec.sh wf-branch-check.sh develop true`

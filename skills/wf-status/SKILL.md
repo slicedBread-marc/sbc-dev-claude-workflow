@@ -21,6 +21,7 @@ Scripts exit 1 when empty — append || true to each so failures don't stop othe
 git branch --show-current
 cat .claude/workflow-version 2>/dev/null || true
 scripts/wf-prune-versions.sh --list 2>/dev/null || true
+ls plans/MIGRATION-NOTES.md 2>/dev/null || true
 cat plans/REGISTRY.md
 scripts/wf-exec.sh wf-list-replanning.sh 2>/dev/null || true
 scripts/wf-exec.sh wf-list-drafts.sh 2>/dev/null || true
@@ -36,6 +37,12 @@ Return raw output only. No commentary.")
 ```
 
 Use the agent's output to populate each section. If a script produced no output, the section is empty — omit it.
+
+If `plans/MIGRATION-NOTES.md` exists (the `ls` above printed a path), add this line directly under the `### Script folder:` line, before the pipeline sections:
+
+```
+### Pending migration actions — see plans/MIGRATION-NOTES.md
+```
 
 ## Output Format
 
