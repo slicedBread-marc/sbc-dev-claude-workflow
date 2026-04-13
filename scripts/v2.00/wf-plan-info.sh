@@ -5,10 +5,18 @@
 #   PLAN_ID=PLN-004
 #   PLAN_SLUG=deployment-date-footer
 #   PLAN_STATE=testing
+#   PLAN_PRIORITY=—
 #   PLAN_BRANCH=feature/PLN-004-deployment-date-footer
+#   PLAN_UPDATED=2026-04-12
+#   PLAN_WF=2.00
 #   PLAN_DIR=plans/PLN-004-deployment-date-footer
 #   PLAN_NAME=PLN-004-deployment-date-footer
 #   PLAN_GOAL="Add deployment date to footer"
+#
+# Registry row format (7 data columns, leading pipe makes awk field 1 empty):
+#   | ID | Slug | State | Priority | Branch | Updated | WF |
+#      $2   $3     $4       $5       $6       $7      $8
+# PLAN_WF empty means "no version stamped" — dispatcher routes to v1.x baseline.
 #
 # Accepts either a plan ID (PLN-004) or full plan name (PLN-004-deployment-date-footer).
 # Usage: eval "$(scripts/wf-plan-info.sh PLN-004)"
@@ -40,11 +48,14 @@ if [ -z "$row" ]; then
   exit 1
 fi
 
-# Parse columns
+# Parse columns (see header for layout)
 id=$(echo "$row" | awk -F'|' '{print $2}' | xargs)
 slug=$(echo "$row" | awk -F'|' '{print $3}' | xargs)
 state=$(echo "$row" | awk -F'|' '{print $4}' | xargs)
-branch=$(echo "$row" | awk -F'|' '{print $5}' | xargs)
+priority=$(echo "$row" | awk -F'|' '{print $5}' | xargs)
+branch=$(echo "$row" | awk -F'|' '{print $6}' | xargs)
+updated=$(echo "$row" | awk -F'|' '{print $7}' | xargs)
+wf=$(echo "$row" | awk -F'|' '{print $8}' | xargs)
 
 plan_dir="plans/${id}-${slug}"
 plan_name="${id}-${slug}"
@@ -58,7 +69,10 @@ fi
 echo "PLAN_ID=$id"
 echo "PLAN_SLUG=$slug"
 echo "PLAN_STATE=$state"
+echo "PLAN_PRIORITY=$priority"
 echo "PLAN_BRANCH=$branch"
+echo "PLAN_UPDATED=$updated"
+echo "PLAN_WF=$wf"
 echo "PLAN_DIR=$plan_dir"
 echo "PLAN_NAME=$plan_name"
 # Single-quote the goal to prevent eval breakage from semicolons, backticks, etc.

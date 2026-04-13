@@ -91,6 +91,25 @@ if [ -f "$REGISTRY_TEMPLATE" ] && [ ! -f "$REGISTRY_DEST" ]; then
     echo -e "${GREEN}  Seeded plans/REGISTRY.md from template${NC}"
 else
     echo -e "${YELLOW}  plans/REGISTRY.md already exists — skipping${NC}"
+    # v2.00 migration: ensure REGISTRY has the WF column. Row layout is
+    # "| ID | Slug | State | Priority | Branch | Updated | WF |" — 7 data
+    # columns means 8 pipes. Rows with 7 pipes lack WF; append an empty
+    # WF cell so the dispatcher routes them to v1.x (legacy baseline).
+    header_line=$(grep -nE '^\| ID \|' "$REGISTRY_DEST" | head -1 | cut -d: -f1 || true)
+    if [ -n "$header_line" ] && ! grep -qE '^\| ID \|.*\| WF \|' "$REGISTRY_DEST"; then
+        echo "  Migrating REGISTRY.md → adding WF column (legacy rows → v1.x)"
+        # Header + separator lines get " WF |" appended
+        awk 'BEGIN{OFS=""}
+             NR==FNR{if(/^\| ID \|/){hdr=NR}; if(hdr && NR==hdr+1){sep=NR}; next}
+             {
+               if(FNR==hdr){sub(/\|[[:space:]]*$/, "| WF |"); print; next}
+               if(FNR==sep){sub(/\|[[:space:]]*$/, "|-|"); print; next}
+               # Data rows start with "| PLN-" and end with " |"
+               if(/^\| PLN-/){sub(/\|[[:space:]]*$/, "|  |"); print; next}
+               print
+             }' "$REGISTRY_DEST" "$REGISTRY_DEST" > "$REGISTRY_DEST.tmp" && mv "$REGISTRY_DEST.tmp" "$REGISTRY_DEST"
+        echo -e "${GREEN}  REGISTRY.md migrated (WF column added)${NC}"
+    fi
 fi
 
 # Copy and templatize plan templates
@@ -290,7 +309,8 @@ if git -C "$TARGET_DIR" rev-parse --git-dir &>/dev/null; then
                 wt_wf=""
                 if [ -n "$wt_plan_id" ] && [ -f "$TARGET_ABS/plans/REGISTRY.md" ]; then
                     row=$(grep "^| ${wt_plan_id} " "$TARGET_ABS/plans/REGISTRY.md" | head -1 || true)
-                    [ -n "$row" ] && wt_wf=$(echo "$row" | awk -F'|' '{print $7}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                    # WF column is field $8 in 7-column registry (ID|Slug|State|Priority|Branch|Updated|WF)
+                    [ -n "$row" ] && wt_wf=$(echo "$row" | awk -F'|' '{print $8}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                 fi
                 wt_folder=$(resolve_script_folder "$wt_wf")
 

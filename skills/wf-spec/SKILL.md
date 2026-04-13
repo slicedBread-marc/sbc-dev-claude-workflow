@@ -199,11 +199,15 @@ Final response under 2000 characters.")
    ```
    Then run `scripts/wf-check-reboot-flag.sh` and append any output after your completion message.
 
-For new plans, also add the REGISTRY.md row in the same commit:
+For new plans, also add the REGISTRY.md row in the same commit. Stamp the WF column with the current workflow version so the dispatcher routes this plan to the matching script snapshot (see `scripts/version-map.txt`):
+```bash
+WF=$(cat .claude/workflow-version 2>/dev/null | tr -d '[:space:]')
 ```
-| PLN-NNN | <slug> | draft | — | YYYY-MM-DD |
+Then append (replacing WF with the stamped value):
 ```
-Then after review passes, update to `ready`.
+| PLN-NNN | <slug> | draft | — | — | YYYY-MM-DD | $WF |
+```
+Columns: `ID | Slug | State | Priority | Branch | Updated | WF`. Then after review passes, update state to `ready`.
 
 ---
 

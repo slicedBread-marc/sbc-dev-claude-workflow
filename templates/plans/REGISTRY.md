@@ -1,6 +1,6 @@
 # Plan Registry
 
-| ID | Slug | State | Branch | Updated |
-|-|-|-|-|-|
+| ID | Slug | State | Priority | Branch | Updated | WF |
+|-|-|-|-|-|-|-|
 
 <!-- Counter: 1 -->

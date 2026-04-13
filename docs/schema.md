@@ -44,15 +44,17 @@ When creating new artifacts, always write `schema_version: 4`.
 Single source of truth for plan state. Lives at `plans/REGISTRY.md` on develop.
 
 ```markdown
-| ID | Slug | State | Priority | Branch | Updated |
-|-|-|-|-|-|-|
-| PLN-001 | user-auth | complete | — | — | 2026-04-01 |
-| PLN-003 | payment-hook | active | urgent | feature/PLN-003-payment-hook | 2026-04-06 |
+| ID | Slug | State | Priority | Branch | Updated | WF |
+|-|-|-|-|-|-|-|
+| PLN-001 | user-auth | complete | — | — | 2026-04-01 | 1.33 |
+| PLN-003 | payment-hook | active | urgent | feature/PLN-003-payment-hook | 2026-04-06 | 2.00 |
 
 <!-- Counter: 4 -->
 ```
 
 The `Priority` column is optional per-plan. Default value is `—` (normal). Set to `urgent` to surface plans at the top of workable item menus. Use `scripts/wf-set-priority.sh <plan-id> urgent` to mark a plan urgent, or `scripts/wf-set-priority.sh <plan-id> —` to clear it.
+
+The `WF` column stamps the workflow version the plan was spec'd against. `scripts/wf-exec.sh` uses it to dispatch to the matching `scripts/v*/` snapshot (see `scripts/version-map.txt`), so a plan keeps running the scripts it was built against. Empty WF routes to `v1.x` (pre-v2.00 baseline).
 
 ### States
 

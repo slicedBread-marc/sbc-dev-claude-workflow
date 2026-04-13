@@ -45,11 +45,11 @@ elif [ $# -ge 1 ] && [[ "$1" =~ ^PLN-[0-9]+ ]]; then
   # Extract bare PLN-NNN from the arg (handles both PLN-041 and PLN-041-slug forms)
   plan_id=$(echo "$1" | grep -oE '^PLN-[0-9]+')
   if [ -f "$ROOT/plans/REGISTRY.md" ]; then
-    # Row format: | PLN-NNN | slug | state | branch | updated | WF |
+    # Row format: | PLN-NNN | slug | state | priority | branch | updated | WF |
+    # awk -F'|' fields:  $2    $3      $4       $5       $6       $7     $8
     row=$(grep "^| ${plan_id} " "$ROOT/plans/REGISTRY.md" | head -1 || true)
     if [ -n "$row" ]; then
-      # Extract column 6 (WF), trimmed
-      effective=$(echo "$row" | awk -F'|' '{print $7}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      effective=$(echo "$row" | awk -F'|' '{print $8}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     fi
   fi
 fi
