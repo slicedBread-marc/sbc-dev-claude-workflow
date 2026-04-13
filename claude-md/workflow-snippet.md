@@ -106,6 +106,14 @@ Reads REGISTRY.md, reports pipeline state, recommends next action.
 - **Auto-routes:** clean→`testing`, findings→`active`, escalated→`draft`
 - Writes flat checklist findings to `findings.md` on develop
 
+#### Tiered Test Gating (BRF-080)
+Feature-branch verify runs a **scoped** test suite, not the full suite. The scope is the union of:
+- `## Test Scope` bullets in the plan (planner-declared)
+- Auto-detected categories from `git diff develop..HEAD` via `testMappings`
+- Mandatory categories (`testScopeMandatory`) — always included
+
+Category names and filter substrings live in `claude-workflow.yml → testScopes`. `wf-release` runs the full suite with no filter — the aggregation guarantee that every test skipped on a feature branch runs before production. Missing/empty `## Test Scope` → full-suite fallback.
+
 ### Tester Role (`/wf-test`)
 - **Entry:** `grep "| testing |" REGISTRY.md`
 - Human acceptance testing in the feature worktree

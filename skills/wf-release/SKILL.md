@@ -43,6 +43,8 @@ release branch    → staging environment for E2E validation
    ```bash
    {{build_command}}
    {{test_command}}
+   # Full suite — no filter. Release aggregation guarantee (BRF-080):
+   # every test skipped on a feature branch by tiered gating MUST run here.
    ```
    If tests fail, inform the user of failures. The release branch stays as-is for fixes.
 8. **Display result**:

@@ -56,6 +56,18 @@ Maximize automated tests. Only mark a test as `Manual` when it genuinely cannot 
 | T2 | API | ... | `curl ...` or inline script |
 | T3 | Manual | [only if not automatable] | Manual — [what to observe] |
 
+## Test Scope
+_Read by `wf-verify` to decide which tests run on the feature branch. The actual scope is the union of: (1) categories declared here, (2) auto-detected categories from `git diff` file changes, and (3) mandatory smoke (always included). Leave blank only if the change truly affects nothing testable — verify falls back to the full suite._
+
+_Valid category names are defined in `claude-workflow.yml → testScopes`. Declare generously; auto-detect adds more at verify time._
+
+_Example:_
+```
+- unit
+- integration
+- e2e-lesson
+```
+
 ## E2E Scope
 _Optional. List e2e test file paths or patterns (one per line) that cover this plan. If blank, wf-test runs the full suite._
 

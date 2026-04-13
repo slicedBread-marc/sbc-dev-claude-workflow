@@ -67,3 +67,39 @@ production_url: ""
 local_start_command: ""
 local_deploy_command: ""
 local_stop_command: ""
+
+# Tiered test gating (BRF-080).
+# wf-verify reads testScopes to build a test-filter expression for feature-branch
+# runs; wf-release runs the full suite with no filter (aggregation guarantee).
+#
+# testScopes — map a category name to a list of test FullyQualifiedName substrings
+# (dotnet) or regex fragments (mocha/jest) understood by {{test_filter_flag}}.
+# Pick names that describe the change domain, not the test mechanism.
+#
+# testMappings — when files matching a glob change on the feature branch, the listed
+# scopes are added to the verify filter automatically. Planner-declared categories
+# (plan.md `## Test Scope`) and testScopeMandatory are always unioned in.
+#
+# Leave these blocks empty to disable tiered gating — verify falls back to the
+# full suite (backward-compatible behavior).
+testScopes: {}
+#   unit:
+#     - MyApp.Core.Tests
+#     - MyApp.Web.Tests
+#   integration:
+#     - MyApp.Web.Tests.AuthTests
+#   e2e-smoke:
+#     - MyApp.E2E.Tests.HomePageTests
+#   e2e-all:
+#     - MyApp.E2E.Tests
+
+testMappings: []
+#   - glob: "src/Core/**"
+#     scopes: [unit]
+#   - glob: "src/Web/**"
+#     scopes: [unit, integration]
+#   - glob: "tests/E2E/**"
+#     scopes: [e2e-all]
+
+testScopeMandatory: []
+#   - e2e-smoke
