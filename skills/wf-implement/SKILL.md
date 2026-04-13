@@ -11,13 +11,13 @@ model: haiku
 
 1. Run branch check (do not prompt the user):
    ```bash
-   scripts/wf-branch-check.sh develop true
+   scripts/wf-exec.sh wf-branch-check.sh develop true
    ```
 
 2. Spawn a **haiku subagent** to fetch and format the worklist:
 
 ```
-Agent(model: haiku, prompt: "Run `scripts/wf-list-implementable.sh` in the current directory.
+Agent(model: haiku, prompt: "Run `scripts/wf-exec.sh wf-list-implementable.sh` in the current directory.
 Output is tab-separated: <type>\t<plan-name>\t<goal>\t<priority>. Processing type has a 5th field: <claim-age>.
 Exit code 1 means no plans.
 
@@ -77,18 +77,18 @@ Wait for the user to pick a number. Then check the **Type** column for that row:
 
 **CRITICAL — resume/fix plans already have a worktree and branch.** Do NOT run Phase 1 for them. Do NOT run `git worktree add`, `wf-registry-update.sh ready active`, or create a new branch. Jump directly to Phase 2 step 9 (which claims the plan, cd's to the existing worktree, and merges develop).
 
-If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent to re-display the updated menu.
-If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
+If the user types `u <N>`: run `scripts/wf-exec.sh wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent to re-display the updated menu.
+If the user types `u <N>` for an already-urgent plan: run `scripts/wf-exec.sh wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
 
 If the user types `force <plan-id>`:
 ```bash
-scripts/wf-unclaim.sh <plan-id>
-scripts/wf-claim.sh <plan-id>
+scripts/wf-exec.sh wf-unclaim.sh <plan-id>
+scripts/wf-exec.sh wf-claim.sh <plan-id>
 ```
 Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry, and proceed to Phase 2.
 
 **If on a feature branch:**
-- Run `eval "$(scripts/wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME
+- Run `eval "$(scripts/wf-exec.sh wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME
 - Read the plan from `$PLAN_DIR/plan.md`
 - Continue Phase 2
 
@@ -96,18 +96,18 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
 
 ## Phase 1: Setup (on `develop` branch)
 
-1. **Confirm you are on `develop`** — `scripts/wf-branch-check.sh develop true`
-2. **Read the plan** — `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` then read `$PLAN_DIR/plan.md`
-3. **Goal check** — if `$PLAN_GOAL_MISSING` is `true`, ask the user: "This plan has no goal summary. Please provide a one-line goal describing what this achieves." Write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage the file, and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run `eval "$(scripts/wf-plan-info.sh $PLAN_NAME)"` to pick up the goal.
+1. **Confirm you are on `develop`** — `scripts/wf-exec.sh wf-branch-check.sh develop true`
+2. **Read the plan** — `eval "$(scripts/wf-exec.sh wf-plan-info.sh PLN-NNN)"` then read `$PLAN_DIR/plan.md`
+3. **Goal check** — if `$PLAN_GOAL_MISSING` is `true`, ask the user: "This plan has no goal summary. Please provide a one-line goal describing what this achieves." Write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage the file, and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run `eval "$(scripts/wf-exec.sh wf-plan-info.sh $PLAN_NAME)"` to pick up the goal.
 4. **Update REGISTRY.md** — lock the plan:
    ```bash
-   scripts/wf-registry-update.sh PLN-NNN ready active feature/PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN ready active feature/PLN-NNN-<slug>
    ```
 5. **Create feature branch and worktree:**
    ```bash
    mkdir -p feature-branches
    git worktree add -b feature/PLN-NNN-<slug> feature-branches/PLN-NNN-<slug> HEAD
-   scripts/wf-worktree-sparse.sh feature-branches/PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-worktree-sparse.sh feature-branches/PLN-NNN-<slug>
    ```
 6. **Write `.plan-ref` in the worktree:**
    ```bash
@@ -143,23 +143,23 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
    Workflow scripts may appear modified after a deploy — they are sparse-checkout excluded and **must NOT be committed**. The pathspec exclusions below handle this.
    ```bash
    DEVELOP_ROOT=$(pwd)
-   scripts/wf-claim.sh PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-claim.sh PLN-NNN-<slug>
    cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
    git branch --show-current
    git add -u -- ':(exclude)scripts/wf-*.sh' ':(exclude).claude/' ':(exclude)plans/' ':(exclude)templates/' 2>/dev/null; git diff --cached --quiet || git commit -m "implement(PLN-NNN-<slug>): wip before merge"
-   $DEVELOP_ROOT/scripts/wf-merge-develop.sh
+   $DEVELOP_ROOT/scripts/wf-exec.sh wf-merge-develop.sh
    ```
    Shell variables do NOT persist across bash calls — run these together so `DEVELOP_ROOT` and `cd` stay in scope. In any later bash call that needs develop paths, re-resolve: `DEVELOP_ROOT=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')`
 12. **Set the Docker project name and port:**
     ```bash
-    eval "$($DEVELOP_ROOT/scripts/wf-plan-port.sh PLN-NNN-<slug>)"
+    eval "$($DEVELOP_ROOT/scripts/wf-exec.sh wf-plan-port.sh PLN-NNN-<slug>)"
     ```
 13. **Read the plan** — from develop worktree: `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/plan.md`
 14. **Execute steps in order** — follow each step exactly as specified
     - After each step, commit and refresh the claim:
       ```bash
       git add src/ tests/ && git commit -m "implement(PLN-NNN-<slug>): step N — <desc>"
-      $DEVELOP_ROOT/scripts/wf-claim.sh PLN-NNN-<slug>
+      $DEVELOP_ROOT/scripts/wf-exec.sh wf-claim.sh PLN-NNN-<slug>
       ```
       Refreshing the claim on every commit means the claim age reflects time since last activity. Sessions that crash without committing will have their claims auto-expire (TTL: 2 hours).
     - **Config-driven randomness**: If a step introduces probabilistic or random behavior (e.g., a spawn chance, drop rate, trigger probability), store the controlling value in `appsettings.json` (or equivalent config) rather than as a hardcoded constant. This lets testers force or suppress the behavior via override values (e.g., `1.0` to always trigger, `0.0` to never trigger) without modifying source code.
@@ -167,7 +167,7 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
 16. **Log progress** — after each step, append to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/progress.md`: `[date] Step N — done / blocked (reason)`. **Never use relative paths** — `plans/` only exists on the develop worktree.
 17. **Deploy to local container for testing:**
     ```bash
-    $DEVELOP_ROOT/scripts/wf-docker-up.sh PLN-NNN-<slug>
+    $DEVELOP_ROOT/scripts/wf-exec.sh wf-docker-up.sh PLN-NNN-<slug>
     ```
 18. **Launch build and test agents in background:**
     ```
@@ -214,7 +214,7 @@ Then treat the plan as a `fix` entry (has unchecked findings) or `resume` entry,
     ```
 23. **Destroy the docker container:**
     ```bash
-    $DEVELOP_ROOT/scripts/wf-docker-down.sh PLN-NNN-<slug>
+    $DEVELOP_ROOT/scripts/wf-exec.sh wf-docker-down.sh PLN-NNN-<slug>
     ```
 
 ---
@@ -229,11 +229,11 @@ DEVELOP_ROOT=$(git worktree list | head -1 | awk '{print $1}')
 24. **Return to develop and release claim:**
     ```bash
     cd "$DEVELOP_ROOT"
-    scripts/wf-unclaim.sh PLN-NNN-<slug>
+    scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
     ```
 25. **Update REGISTRY.md** — change state from `active` to `verify`:
     ```bash
-    cd "$DEVELOP_ROOT" && scripts/wf-registry-update.sh PLN-NNN active verify
+    cd "$DEVELOP_ROOT" && scripts/wf-exec.sh wf-registry-update.sh PLN-NNN active verify
     ```
 26. **Commit on develop:**
     ```bash
@@ -250,7 +250,7 @@ DEVELOP_ROOT=$(git worktree list | head -1 | awk '{print $1}')
     If the verify agent finds issues, the plan will return to active (check /wf-status).
     If clean, it moves to testing for T4 human acceptance test.
     ```
-    Then run `scripts/wf-check-reboot-flag.sh` and append any output to the message above.
+    Then run `scripts/wf-exec.sh wf-check-reboot-flag.sh` and append any output to the message above.
 
 ---
 
@@ -266,10 +266,10 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    Workflow scripts may appear modified after a deploy — they are sparse-checkout excluded and **must NOT be committed**. The pathspec exclusions below handle this.
    ```bash
    DEVELOP_ROOT=$(pwd)
-   scripts/wf-claim.sh PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-claim.sh PLN-NNN-<slug>
    cd $DEVELOP_ROOT/feature-branches/PLN-NNN-<slug>
    git add -u -- ':(exclude)scripts/wf-*.sh' ':(exclude).claude/' ':(exclude)plans/' ':(exclude)templates/' 2>/dev/null; git diff --cached --quiet || git commit -m "implement(PLN-NNN-<slug>): wip before merge"
-   $DEVELOP_ROOT/scripts/wf-merge-develop.sh
+   $DEVELOP_ROOT/scripts/wf-exec.sh wf-merge-develop.sh
    ```
    Shell variables do NOT persist across bash calls — keep these together so `DEVELOP_ROOT` stays in scope. After this call, you are INSIDE the worktree — never `cd feature-branches/...` again.
 5. **Fix each unchecked finding** — address the issue, then check it off in `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/findings.md`:
@@ -281,7 +281,7 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    ```bash
    git add src/ tests/
    git commit -m "implement(PLN-NNN-<slug>): fix findings"
-   $DEVELOP_ROOT/scripts/wf-claim.sh PLN-NNN-<slug>
+   $DEVELOP_ROOT/scripts/wf-exec.sh wf-claim.sh PLN-NNN-<slug>
    # Then follow Phase 3 steps 23-26 (uses $DEVELOP_ROOT)
    ```
    This re-triggers the verify agent.

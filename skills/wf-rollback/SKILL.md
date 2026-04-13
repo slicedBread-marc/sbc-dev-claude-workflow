@@ -21,7 +21,7 @@ Rollback candidates are plans in `complete` or `active` state in REGISTRY.md.
 ## IMMEDIATE STARTUP — run these two commands in parallel before reading further
 
 ```bash
-scripts/wf-list-rollbacks.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-rollbacks.sh 2>/dev/null || true
 ```
 ```bash
 grep -E "\| (complete|active) \|" plans/REGISTRY.md
@@ -35,7 +35,7 @@ Show rollback candidates as a numbered table. Then tell the user: "Run `/model s
 
 ### 1. Identify the plan
 
-The user has already selected a plan. Run `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get its details.
+The user has already selected a plan. Run `eval "$(scripts/wf-exec.sh wf-plan-info.sh PLN-NNN)"` to get its details.
 
 ### 2. Read the rollback section
 
@@ -87,7 +87,7 @@ Update `plan.md`:
 
 Update REGISTRY.md — change the plan's state to `rolled-back` and commit:
 ```bash
-scripts/wf-registry-update.sh PLN-NNN <current-state> rolled-back -
+scripts/wf-exec.sh wf-registry-update.sh PLN-NNN <current-state> rolled-back -
 git add plans/PLN-NNN-<slug>/plan.md
 git commit -m "rollback(PLN-NNN-<slug>): <reason>"
 ```

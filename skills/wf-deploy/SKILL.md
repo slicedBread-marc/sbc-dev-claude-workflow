@@ -23,7 +23,7 @@ Before starting, confirm E2E passed on release:
 
 1. **Confirm you are on the `release` branch:**
    ```bash
-   scripts/wf-branch-check.sh release
+   scripts/wf-exec.sh wf-branch-check.sh release
    ```
 2. **Show recent release commits** so the user can confirm what's being promoted:
    ```bash
@@ -53,11 +53,11 @@ Before starting, confirm E2E passed on release:
    If tests fail, abort the deploy — do NOT proceed to registry updates. Inform user of failures and suggest fixing on the release branch, then re-running `/wf-release`.
 8. **Update REGISTRY.md** — for each plan that was on the release branch, verify state is `complete`. If not:
    ```bash
-   scripts/wf-registry-update.sh PLN-NNN testing complete -
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN testing complete -
    ```
 9. **Close linked bugs** — for each completed plan, check `plan.md` Goal for `**Bug:**` line:
    ```bash
-   scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
    ```
 10. **Commit plan and bug updates**:
     ```bash
@@ -130,7 +130,7 @@ Three commits are normal:
 
 If you need to resume after an interruption, tell the user which step to pick up at.
 
-On completion, run `scripts/wf-check-reboot-flag.sh` and append any output to your completion message.
+On completion, run `scripts/wf-exec.sh wf-check-reboot-flag.sh` and append any output to your completion message.
 
 ## Production deploy (separate step)
 

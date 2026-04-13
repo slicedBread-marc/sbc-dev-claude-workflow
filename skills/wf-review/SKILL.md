@@ -118,8 +118,8 @@ Append directly to `findings.md`:
 
 Ask the user whether this is a plan review or code review, and which plan to review. For code review:
 ```bash
-scripts/wf-list-active.sh  # plans in active state
-scripts/wf-list-verify.sh  # plans in verify state
+scripts/wf-exec.sh wf-list-active.sh  # plans in active state
+scripts/wf-exec.sh wf-list-verify.sh  # plans in verify state
 ```
 
 ## Committing work

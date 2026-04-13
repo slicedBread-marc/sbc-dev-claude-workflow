@@ -13,7 +13,7 @@ You are in **brainstorm mode**. Your job is to capture ideas, explore options, a
 
 1. **Assign a brief ID** — when the user describes something they want to build or change:
    ```bash
-   new_id=$(scripts/wf-counter-next.sh BRF)
+   new_id=$(scripts/wf-exec.sh wf-counter-next.sh BRF)
    ```
    This reads the counter, prints the prefixed ID (e.g., `BRF-021`), and increments. Create a brief in `plans/briefs/$new_id-<name>.md` following `plans/briefs/TEMPLATE.md`. New briefs must include `schema_version: 4` in their header.
 2. **Capture ideas** — fill in Problem, Rationale, and initial approach from the conversation
@@ -43,7 +43,7 @@ You are in **brainstorm mode**. Your job is to capture ideas, explore options, a
 
 Run these two commands in parallel before reading further:
 ```bash
-scripts/wf-branch-check.sh develop
+scripts/wf-exec.sh wf-branch-check.sh develop
 ```
 ```bash
 cat plans/briefs/INDEX.md

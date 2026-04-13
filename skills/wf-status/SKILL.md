@@ -21,15 +21,15 @@ Scripts exit 1 when empty — append || true to each so failures don't stop othe
 git branch --show-current
 cat .claude/workflow-version 2>/dev/null || true
 cat plans/REGISTRY.md
-scripts/wf-list-replanning.sh 2>/dev/null || true
-scripts/wf-list-drafts.sh 2>/dev/null || true
-scripts/wf-list-ready.sh 2>/dev/null || true
-scripts/wf-list-implementable.sh 2>/dev/null || true
-scripts/wf-list-verify.sh 2>/dev/null || true
-scripts/wf-list-testable.sh 2>/dev/null || true
-scripts/wf-list-findings.sh 2>/dev/null || true
-scripts/wf-list-briefs.sh 2>/dev/null || true
-scripts/wf-list-bugs.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-replanning.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-drafts.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-ready.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-implementable.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-verify.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-testable.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-findings.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-briefs.sh 2>/dev/null || true
+scripts/wf-exec.sh wf-list-bugs.sh 2>/dev/null || true
 
 Return raw output only. No commentary.")
 ```
@@ -84,7 +84,7 @@ Use the agent's output to populate each section. If a script produced no output,
 ## Recommended next action
 [Single clear recommendation]
 ```
-Then run `scripts/wf-check-reboot-flag.sh` and append any output after the status report.
+Then run `scripts/wf-exec.sh wf-check-reboot-flag.sh` and append any output after the status report.
 
 ### Priority
 
@@ -106,7 +106,7 @@ Use `wf-list-implementable.sh` output (tab-separated: `<type>\t<plan-name>\t<goa
 | wf-list-testable.sh | — | Ready to test | |
 | REGISTRY.md | `complete` | Done | count only |
 
-To check for ESCALATED findings: `scripts/wf-list-replanning.sh 2>/dev/null`
+To check for ESCALATED findings: `scripts/wf-exec.sh wf-list-replanning.sh 2>/dev/null`
 
 ## Priority order for recommendations
 

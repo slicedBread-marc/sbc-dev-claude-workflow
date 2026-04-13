@@ -13,8 +13,8 @@ You are the **autonomous verify agent**. You are triggered automatically when a 
 
 You receive a plan ID (e.g. `PLN-003`) as context. From this:
 
-1. **Look up the plan** — `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` → sets PLAN_SLUG, PLAN_STATE, PLAN_BRANCH, PLAN_DIR, PLAN_NAME
-2. **Claim the plan** — `scripts/wf-claim.sh $PLAN_NAME`
+1. **Look up the plan** — `eval "$(scripts/wf-exec.sh wf-plan-info.sh PLN-NNN)"` → sets PLAN_SLUG, PLAN_STATE, PLAN_BRANCH, PLAN_DIR, PLAN_NAME
+2. **Claim the plan** — `scripts/wf-exec.sh wf-claim.sh $PLAN_NAME`
 3. **Read the plan** — `$PLAN_DIR/plan.md` on develop
 4. **Read the code** — in the feature worktree at `feature-branches/$PLAN_NAME/`
 
@@ -147,36 +147,36 @@ Everything else is a code-level finding (no ESCALATED tag).
 After writing findings, determine the route and update REGISTRY:
 
 ```bash
-route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
+route=$(scripts/wf-exec.sh wf-findings-route.sh plans/PLN-NNN-<slug>)
 ```
 
 1. **`escalated`** → route to draft (includes `← PLAN-SCOPED` security findings):
    ```bash
-   scripts/wf-unclaim.sh PLN-NNN-<slug>
-   scripts/wf-registry-update.sh PLN-NNN verify draft \
+   scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN verify draft \
      --commit "verify(PLN-NNN-<slug>): escalated findings — needs replanning" \
      --add plans/PLN-NNN-<slug>/findings.md
    ```
 
 2. **`active`** → route to active:
    ```bash
-   scripts/wf-unclaim.sh PLN-NNN-<slug>
-   scripts/wf-registry-update.sh PLN-NNN verify active \
+   scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN verify active \
      --commit "verify(PLN-NNN-<slug>): N findings — back to active for fixes" \
      --add plans/PLN-NNN-<slug>/findings.md
    ```
 
 3. **`clean`** → route to testing:
    ```bash
-   scripts/wf-unclaim.sh PLN-NNN-<slug>
-   scripts/wf-registry-update.sh PLN-NNN verify testing \
+   scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN verify testing \
      --commit "verify(PLN-NNN-<slug>): clean — ready for human test" \
      --add plans/PLN-NNN-<slug>/findings.md
    ```
    The `--add` flag ensures findings and REGISTRY update commit atomically.
    Do NOT stage or commit `findings.md` separately before calling this.
 
-After each route, run `scripts/wf-check-reboot-flag.sh` and append any output to your completion message.
+After each route, run `scripts/wf-exec.sh wf-check-reboot-flag.sh` and append any output to your completion message.
 
 ### Broad-scope security bugs
 
@@ -184,8 +184,8 @@ After routing, if any `← BROAD-SCOPE` security findings exist, file an urgent 
 
 ```bash
 # For each BROAD-SCOPE finding:
-eval "$(scripts/wf-branch-check.sh develop true)"
-new_id=$(scripts/wf-counter-next.sh BUG)
+eval "$(scripts/wf-exec.sh wf-branch-check.sh develop true)"
+new_id=$(scripts/wf-exec.sh wf-counter-next.sh BUG)
 # Create bugs/open/BUG-NNN-<slug>/bug.md with:
 #   Severity: Critical
 #   Source: agent:wf-verify

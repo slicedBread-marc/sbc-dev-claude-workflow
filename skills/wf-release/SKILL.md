@@ -20,7 +20,7 @@ release branch    → staging environment for E2E validation
 
 1. **Confirm you are on the `release` branch:**
    ```bash
-   scripts/wf-branch-check.sh release
+   scripts/wf-exec.sh wf-branch-check.sh release
    ```
 2. **Check if release has unreleased commits:**
    ```bash
@@ -87,4 +87,4 @@ This skill creates one merge commit (`develop → release`) and one push. No oth
 
 If you need to resume after an interruption, tell the user which step to pick up at.
 
-On completion, run `scripts/wf-check-reboot-flag.sh` and append any output to your completion message.
+On completion, run `scripts/wf-exec.sh wf-check-reboot-flag.sh` and append any output to your completion message.

@@ -16,7 +16,7 @@ List recent completed plans:
 grep "| complete |" plans/REGISTRY.md | tail -5
 ```
 
-For each, get details: `eval "$(scripts/wf-plan-info.sh PLN-NNN)"`
+For each, get details: `eval "$(scripts/wf-exec.sh wf-plan-info.sh PLN-NNN)"`
 
 Show:
 ```

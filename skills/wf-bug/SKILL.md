@@ -37,12 +37,12 @@ bugs/closed/  → resolved by /wf-deploy when a plan completes
 
 1. **Check branch** — save current branch and switch to develop if needed:
    ```bash
-   eval "$(scripts/wf-branch-check.sh develop true)"
+   eval "$(scripts/wf-exec.sh wf-branch-check.sh develop true)"
    ```
    This sets CURRENT_BRANCH (original) and SWITCHED_FROM (if it switched).
 2. **Determine the next bug ID:**
    ```bash
-   new_id=$(scripts/wf-counter-next.sh BUG)
+   new_id=$(scripts/wf-exec.sh wf-counter-next.sh BUG)
    ```
 3. **Choose a slug** — kebab-case title (e.g. `login-crash-empty-password`). The folder will be `BUG-NNN-<slug>`.
 4. **Create the bug folder** — `bugs/open/BUG-NNN-<slug>/`

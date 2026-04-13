@@ -18,7 +18,7 @@ You are in **tester mode**. Your job is to guide a human through acceptance crit
 Spawn a **haiku subagent** to fetch and format the worklist:
 
 ```
-Agent(model: haiku, prompt: "Run `scripts/wf-list-testable.sh` in the current directory.
+Agent(model: haiku, prompt: "Run `scripts/wf-exec.sh wf-list-testable.sh` in the current directory.
 Output is tab-separated: <plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>.
 
 If exit code 1: check stderr for 'CLAIMED:' lines. If any, return them verbatim prefixed with 'CLAIMED_PLANS:'. Otherwise return 'NO_PLANS'.
@@ -35,21 +35,21 @@ Final response: ONLY the formatted table and footer line, or the CLAIMED_PLANS/N
 Display the subagent's output verbatim, then:
 
 - If output is `NO_PLANS`: say "No plans ready for testing. Run /wf-status to see pipeline state."
-- If output starts with `CLAIMED_PLANS:`: show the claimed plans and ask "These plans have stale claims from a previous session. Clear claims and continue?" On yes, run `scripts/wf-unclaim.sh <plan-name>` for each, then re-run the haiku subagent.
-- If the user types `u <N>`: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent to re-display the updated menu.
-- If the user types `u <N>` for an already-urgent plan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
+- If output starts with `CLAIMED_PLANS:`: show the claimed plans and ask "These plans have stale claims from a previous session. Clear claims and continue?" On yes, run `scripts/wf-exec.sh wf-unclaim.sh <plan-name>` for each, then re-run the haiku subagent.
+- If the user types `u <N>`: run `scripts/wf-exec.sh wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent to re-display the updated menu.
+- If the user types `u <N>` for an already-urgent plan: run `scripts/wf-exec.sh wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
 
 Tell the user: "Run `/model sonnet`, then pick a number."
 
 After user picks:
-1. `eval "$(scripts/wf-plan-info.sh PLN-NNN)"` to get plan details
+1. `eval "$(scripts/wf-exec.sh wf-plan-info.sh PLN-NNN)"` to get plan details
 2. If `$PLAN_GOAL_MISSING` is `true`, ask the user: "This plan has no goal summary. Please provide a one-line goal." Then write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run the eval to pick up the goal.
-3. `scripts/wf-claim.sh $PLAN_NAME`
+3. `scripts/wf-exec.sh wf-claim.sh $PLAN_NAME`
 4. `cd feature-branches/$PLAN_NAME/`
 5. Continue to testing
 
 **If on a feature branch:**
-1. `eval "$(scripts/wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME
+1. `eval "$(scripts/wf-exec.sh wf-plan-ref.sh)"` to get PLAN_ID, PLAN_DIR, PLAN_NAME
 2. Read the plan from `$PLAN_DIR/plan.md`
 3. Continue to testing
 
@@ -70,7 +70,7 @@ After user picks:
 2. **Check for prior test progress** — look for `../../plans/PLN-NNN-<slug>/test-progress.md`. If it exists, read it to get per-criterion results and build identifiers.
 3. **Deploy to local container and capture build identifier** (single bash call — already inside feature branch):
    ```bash
-   eval "$(../../scripts/wf-docker-up.sh)" && BUILD=$(git log -1 --format='%ad (%h)' --date=format:'%b %d %H:%M')
+   eval "$(../../scripts/wf-exec.sh wf-docker-up.sh)" && BUILD=$(git log -1 --format='%ad (%h)' --date=format:'%b %d %H:%M')
    ```
    This sets FEATURE_PORT, COMPOSE_PROJECT_NAME, and BUILD.
    Also read `guest_entry_path` from `claude-workflow.yml` (root of repo). If set, store it as `GUEST_ENTRY_PATH`.
@@ -78,7 +78,7 @@ After user picks:
    ```
    💡 Injectable parameters detected — modify these in appsettings.json to force or suppress behaviors:
       - "BonusRoundProbability": 0.9  →  set to 1.0 to always trigger, 0.0 to never trigger
-   After editing, restart the container: ../../scripts/wf-docker-up.sh
+   After editing, restart the container: ../../scripts/wf-exec.sh wf-docker-up.sh
    ```
    When presenting or walking through individual criteria, if a criterion tests behavior that appears controlled by one of these parameters, remind the user which parameter to set and to what value before testing that criterion.
 4. **Run e2e tests** (app is now running):
@@ -320,7 +320,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    ```
    **Merge release into feature branch** to ensure it's up-to-date (auto-resolves `.plan-ref` and `plans/` conflicts):
    ```bash
-   ../../scripts/wf-merge-release.sh
+   ../../scripts/wf-exec.sh wf-merge-release.sh
    ```
    If this fails with non-trivial conflicts, route back to builder (same as merge-blocked path below).
 
@@ -358,7 +358,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
        echo "MERGE FAILED: PR $PR_URL — see error above."
        echo "Routing back to builder."
    ```
-   - Destroy container: `../../scripts/wf-docker-down.sh $PLAN_NAME`
+   - Destroy container: `../../scripts/wf-exec.sh wf-docker-down.sh $PLAN_NAME`
    - Switch to project root
    - Write findings to `plans/$PLAN_NAME/findings.md`:
      ```markdown
@@ -368,7 +368,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
      ```
    - Route back to active:
      ```bash
-     scripts/wf-registry-update.sh $PLAN_NAME testing active --commit "test($PLAN_NAME): merge blocked — back to builder" --add plans/$PLAN_NAME/findings.md
+     scripts/wf-exec.sh wf-registry-update.sh $PLAN_NAME testing active --commit "test($PLAN_NAME): merge blocked — back to builder" --add plans/$PLAN_NAME/findings.md
      ```
    - Display: "PR merge failed. Routed back to builder (testing → active). Findings written."
    - **Stop here — do not continue with remaining steps.**
@@ -381,7 +381,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    ```
 2. Destroy container:
    ```bash
-   ../../scripts/wf-docker-down.sh $PLAN_NAME
+   ../../scripts/wf-exec.sh wf-docker-down.sh $PLAN_NAME
    ```
 
 Steps below run from **project root** — use absolute path `cd /absolute/path/to/project`:
@@ -400,7 +400,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
      echo "ERROR: Feature branch has conflicts with develop. Routing back to builder."
    ```
    - Write findings to `plans/$PLAN_NAME/findings.md` about the develop merge conflict
-   - Route back: `scripts/wf-registry-update.sh $PLAN_NAME testing active --commit "test($PLAN_NAME): develop merge conflict — back to builder" --add plans/$PLAN_NAME/findings.md`
+   - Route back: `scripts/wf-exec.sh wf-registry-update.sh $PLAN_NAME testing active --commit "test($PLAN_NAME): develop merge conflict — back to builder" --add plans/$PLAN_NAME/findings.md`
    - Display: "Develop merge conflict. PR was merged to release but develop merge failed. Routed back to builder."
    - **Stop here.**
 
@@ -419,12 +419,12 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```
 4. Release claim and update REGISTRY:
    ```bash
-   scripts/wf-unclaim.sh PLN-NNN-<slug>
-   scripts/wf-registry-update.sh PLN-NNN testing complete -
+   scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN testing complete -
    ```
 5. Close linked bugs (if plan Goal has `**Bug:** BUG-NNN`):
    ```bash
-   scripts/wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-bug-close.sh BUG-NNN PLN-NNN-<slug>
    ```
 6. Clean up feature branch and worktree:
    ```bash
@@ -446,7 +446,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    
    Next: Run /wf-release to merge to staging, then /wf-deploy to promote to main.
    ```
-   Then run `scripts/wf-check-reboot-flag.sh` and append any output to the message above.
+   Then run `scripts/wf-exec.sh wf-check-reboot-flag.sh` and append any output to the message above.
 
 ### If findings (failures)
 
@@ -459,7 +459,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```
 2. Destroy container (from worktree):
    ```bash
-   ../../scripts/wf-docker-down.sh $PLAN_NAME
+   ../../scripts/wf-exec.sh wf-docker-down.sh $PLAN_NAME
    ```
 
 Steps below run from **project root** — use absolute path `cd /absolute/path/to/project`:
@@ -482,19 +482,19 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    ```
 4. Release claim and determine route:
    ```bash
-   scripts/wf-unclaim.sh PLN-NNN-<slug>
-   route=$(scripts/wf-findings-route.sh plans/PLN-NNN-<slug>)
+   scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
+   route=$(scripts/wf-exec.sh wf-findings-route.sh plans/PLN-NNN-<slug>)
    ```
    - **`escalated`** → route to draft:
      ```bash
-     scripts/wf-registry-update.sh PLN-NNN testing draft
+     scripts/wf-exec.sh wf-registry-update.sh PLN-NNN testing draft
      git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
      git commit -m "test(PLN-NNN-<slug>): escalated findings — needs replanning"
      ```
      Display: "N escalated findings require design decisions. Run /wf-spec."
    - **`active`** → route to draft (Opus reviews all findings before sending to builder):
      ```bash
-     scripts/wf-registry-update.sh PLN-NNN testing draft
+     scripts/wf-exec.sh wf-registry-update.sh PLN-NNN testing draft
      git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
      git commit -m "test(PLN-NNN-<slug>): N findings from human test — routing to spec"
      ```
@@ -506,7 +506,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 
 Always destroy the container before leaving the worktree — on pass, fail, or early abort. From the worktree:
 ```bash
-../../scripts/wf-docker-down.sh $PLAN_NAME
+../../scripts/wf-exec.sh wf-docker-down.sh $PLAN_NAME
 ```
 If you hit an error and need to stop early, **destroy the container first** before routing back or displaying the error.
 

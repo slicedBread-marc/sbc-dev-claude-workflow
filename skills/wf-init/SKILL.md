@@ -98,7 +98,7 @@ Then show:
 
 Verify structure and branches:
 ```bash
-scripts/wf-branch-check.sh develop true
+scripts/wf-exec.sh wf-branch-check.sh develop true
 ```
 
 Then check these exist (create if missing):

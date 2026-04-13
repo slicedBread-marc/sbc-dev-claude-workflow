@@ -13,13 +13,13 @@ You are in **spec mode**. Your job is to convert decided briefs into precise, st
 
 1. Run branch check (do not prompt the user):
    ```bash
-   scripts/wf-branch-check.sh develop true
+   scripts/wf-exec.sh wf-branch-check.sh develop true
    ```
 
 2. Spawn a **haiku subagent** to fetch and format the worklist:
 
 ```
-Agent(model: haiku, prompt: "Run `scripts/wf-list-specable.sh` in the current directory.
+Agent(model: haiku, prompt: "Run `scripts/wf-exec.sh wf-list-specable.sh` in the current directory.
 Parse the tab-separated output (sections: # replanning, # bugs, # briefs).
 
 Format as TWO markdown tables:
@@ -47,10 +47,10 @@ Final response: ONLY the formatted tables and footer line. No commentary.")
 Display the subagent's output verbatim, then tell the user: "Run `/model opus`, then pick a number or describe new work."
 
 **Handling `u <N>` commands:**
-If the user types `u <N>` for a replan: run `scripts/wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent above to re-display the updated menu.
-If the user types `u <N>` for an already-urgent replan: run `scripts/wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
+If the user types `u <N>` for a replan: run `scripts/wf-exec.sh wf-set-priority.sh <plan-id> urgent`, then re-run the haiku subagent above to re-display the updated menu.
+If the user types `u <N>` for an already-urgent replan: run `scripts/wf-exec.sh wf-set-priority.sh <plan-id> —` to clear it, then re-run the subagent.
 
-- If they pick an escalated plan: **claim it** (`scripts/wf-claim.sh PLN-NNN-<slug>`), then go to [Replanning](#replanning)
+- If they pick an escalated plan: **claim it** (`scripts/wf-exec.sh wf-claim.sh PLN-NNN-<slug>`), then go to [Replanning](#replanning)
 - If they pick a bug: go to [Plan from bug](#plan-from-bug)
 - If they pick a brief: go to step 1 below (Read the brief)
 - If they describe new work: ask if it should become a brief first (route to `/wf-brainstorm`)
@@ -186,18 +186,18 @@ Final response under 2000 characters.")
 
 5. **State transition — update REGISTRY.md:**
    ```bash
-   scripts/wf-registry-update.sh PLN-NNN draft ready
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN draft ready
    ```
 
 6. **Release claim and commit:**
    ```bash
-   scripts/wf-unclaim.sh PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
    git add plans/PLN-NNN-<slug>/ plans/briefs/ bugs/
    # If any deferred criteria were consumed (rows removed from deferred-criteria.md):
    git add plans/deferred-criteria.md
    git commit -m "spec: PLN-NNN-<slug> — plan ready"
    ```
-   Then run `scripts/wf-check-reboot-flag.sh` and append any output after your completion message.
+   Then run `scripts/wf-exec.sh wf-check-reboot-flag.sh` and append any output after your completion message.
 
 For new plans, also add the REGISTRY.md row in the same commit. Stamp the WF column with the current workflow version so the dispatcher routes this plan to the matching script snapshot (see `scripts/version-map.txt`):
 ```bash
@@ -228,7 +228,7 @@ When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `fin
 6. **Run the review gate** — same as above
 7. **Update REGISTRY.md:**
    ```bash
-   scripts/wf-registry-update.sh PLN-NNN draft ready
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN draft ready
    ```
 8. **Commit:**
    ```
@@ -244,7 +244,7 @@ When the plan being created is a fix for a tracked bug:
 
 1. **Consume the bug:**
    ```bash
-   scripts/wf-bug-consume.sh BUG-NNN PLN-NNN-<slug>
+   scripts/wf-exec.sh wf-bug-consume.sh BUG-NNN PLN-NNN-<slug>
    ```
    This updates bug.md (Status→Triaged, Plan→linked) and moves open→triaged.
 2. **Link back in `plan.md`** — add to the Goal section: `> **Bug:** BUG-NNN — <title>`

@@ -11,7 +11,7 @@ You are in **stage mode**. Your job is to deploy the release branch to a local s
 
 ## What you do
 
-1. **Confirm you are on `release` branch** — `scripts/wf-branch-check.sh release`
+1. **Confirm you are on `release` branch** — `scripts/wf-exec.sh wf-branch-check.sh release`
 2. **Display status:**
    ```
    ✓ Release branch staging environment starting...
