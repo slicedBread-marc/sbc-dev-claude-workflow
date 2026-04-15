@@ -220,8 +220,8 @@ Entered from step 7 when the user picks `[a]`. Active only when `autoTestGrowth.
 ```bash
 CFG="$DEVELOP_ROOT/claude-workflow.yml"
 AUTO_TEST_MODEL=$(awk '/^  agentModel:/{print $2; exit}' "$CFG")
-AUTO_TEST_FALLBACK=$(awk '/^  fallbackToBacklog:/{print $2; exit}' "$CFG")
-AUTO_TEST_LOG=$(awk '/^  candidatesLog:/{print $2; exit}' "$CFG")
+AUTO_TEST_LOG_CANDIDATES=$(awk '/^  logCandidatesOnFail:/{print $2; exit}' "$CFG")
+AUTO_TEST_LOG=$(awk '/^  logFile:/{print $2; exit}' "$CFG")
 TEST_CMD=$(awk '/^test_command:/{sub(/^test_command: */,""); gsub(/^"|"$/,""); print; exit}' "$CFG")
 TEST_FILTER=$(awk '/^test_filter_flag:/{sub(/^test_filter_flag: */,""); gsub(/^"|"$/,""); print; exit}' "$CFG")
 NAMESPACE=$(awk '/^namespace_convention:/{sub(/^namespace_convention: */,""); gsub(/^"|"$/,""); print; exit}' "$CFG")
@@ -262,31 +262,52 @@ Do NOT modify production code. Tests only. Final response under 800 characters �
 
 **Handle the agent's response:**
 
-- **`EXISTS:<name>`** or **`PASS:<name>`** — mark the criterion PASS on the current build. Note the test name alongside the criterion in session memory (it surfaces in the test-progress.md "Notes" column on exit). Continue to the next criterion.
+- **`EXISTS:<name>`** or **`PASS:<name>`** — mark the criterion PASS on the current build. Append a row to the **Realized** section of `$DEVELOP_ROOT/$AUTO_TEST_LOG` (create file with headers if absent — see format below). Note the test name alongside the criterion in session memory (it surfaces in the test-progress.md "Notes" column on exit). Continue to the next criterion.
 - **`FAIL:<reason>`** —
-  - If `AUTO_TEST_FALLBACK=true`: append one row to `$DEVELOP_ROOT/$AUTO_TEST_LOG` (create with header if absent — see format below). Tell the user: "Auto-test couldn't produce a passing test: `<reason>`. Falling back to manual." Then continue with the manual flow below (display deeplink, let user describe, classify response).
+  - If `AUTO_TEST_LOG_CANDIDATES=true`: append a row to the **Candidates** section of `$DEVELOP_ROOT/$AUTO_TEST_LOG`. Tell the user: "Auto-test couldn't produce a passing test: `<reason>`. Falling back to manual." Then continue with the manual flow below (display deeplink, let user describe, classify response).
   - Else: silently fall through to the manual flow.
 
 Always sanity-check the tree after the agent exits: `git status --short` should be clean except for a possible new committed test. If it's dirty, the agent left junk — `git restore .` and treat as FAIL.
 
-### Candidates log format
+### Log format
 
-Path: `$AUTO_TEST_LOG` (default `plans/auto-test-candidates.md`), resolved relative to the develop worktree root.
+Path: `$AUTO_TEST_LOG` (default `plans/auto-test-log.md`), resolved relative to the develop worktree root.
 
-Header (create only if file is absent):
+**Realized entries prove what shape of criterion can be auto-tested** — wf-spec reads them during planning and wf-implement reads them for test-style reference. Every Realized entry is direct feedback that a future plan with a similar criterion should classify it as automated up front.
+
+**Candidate entries** are the agent-failed cases, reviewed by a human later.
+
+Header (create file only if absent — write both section headers at creation time so each always exists):
 
 ```markdown
-# Auto-test candidates
+# Auto-test log
 
-Criteria where the auto-test agent couldn't produce a passing test. Reviewed during spec work — convert to automated tests (if feasible), or keep them manual.
+Every `[a]` flag hit in `/wf-test` is appended here. `### Realized` entries are
+proofs — criteria that a past plan classified as manual but were successfully
+automated at test time. Treat each as a signal that a similar criterion in a
+future plan should be classified automated from the start.
 
-| Plan | Criterion | Reason | Flagged |
+## Realized
+
+| Plan | Criterion | Test | File | Date |
+|-|-|-|-|-|
+
+## Candidates
+
+Agent couldn't produce a passing test. Review during spec work — convert
+manually if feasible, or keep as human-tested.
+
+| Plan | Criterion | Reason | Date |
 |-|-|-|-|
 ```
 
-Row to append:
+Rows to append:
 
 ```
+# Realized (PASS or EXISTS)
+| PLN-NNN | <criterion text> | <test name> | <test file path> | YYYY-MM-DD |
+
+# Candidates (FAIL)
 | PLN-NNN | <criterion text> | <agent reason> | YYYY-MM-DD |
 ```
 
@@ -344,8 +365,8 @@ Last failure: #3 on build Apr 08 14:32 (f4e5d6c)
 git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
 # If any criteria were deferred this session:
 git add plans/deferred-criteria.md
-# If the auto-test agent logged any candidates this session:
-git add plans/auto-test-candidates.md
+# If the auto-test agent logged any outcomes this session:
+git add plans/auto-test-log.md
 ```
 
 **On complete (all pass on current build):** delete the progress file as part of cleanup:
@@ -354,8 +375,8 @@ rm -f plans/PLN-NNN-<slug>/test-progress.md
 git add plans/PLN-NNN-<slug>/test-progress.md
 # If any criteria were deferred this session:
 git add plans/deferred-criteria.md
-# If the auto-test agent logged any candidates this session:
-git add plans/auto-test-candidates.md
+# If the auto-test agent logged any outcomes this session:
+git add plans/auto-test-log.md
 ```
 (Include in the final completion commit.)
 

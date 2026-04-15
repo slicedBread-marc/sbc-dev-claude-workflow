@@ -22,7 +22,7 @@ git branch --show-current
 cat .claude/workflow-version 2>/dev/null || true
 scripts/wf-prune-versions.sh --list 2>/dev/null || true
 ls plans/MIGRATION-NOTES.md 2>/dev/null || true
-ls plans/auto-test-candidates.md 2>/dev/null || true
+ls plans/auto-test-log.md 2>/dev/null || true
 cat plans/REGISTRY.md
 scripts/wf-exec.sh wf-list-replanning.sh 2>/dev/null || true
 scripts/wf-exec.sh wf-list-drafts.sh 2>/dev/null || true
@@ -45,10 +45,10 @@ If `plans/MIGRATION-NOTES.md` exists (the `ls` above printed a path), add this l
 ### Pending migration actions — see plans/MIGRATION-NOTES.md
 ```
 
-If `plans/auto-test-candidates.md` exists (the `ls` above printed a path), add this line in the same banner area:
+If `plans/auto-test-log.md` exists (the `ls` above printed a path), add this line in the same banner area:
 
 ```
-### Auto-test candidates awaiting review — see plans/auto-test-candidates.md
+### Auto-test log active — see plans/auto-test-log.md (feedback for spec classification)
 ```
 
 ## Output Format

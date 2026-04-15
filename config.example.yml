@@ -110,14 +110,17 @@ testScopeMandatory: []
 # feature branch on pass. The test ships with the PR, so future plans that
 # touch the same area get the regression check for free.
 #
-# On fail (agent can't produce a passing test):
-#   - if fallbackToBacklog: log the criterion to candidatesLog for later
-#     conversion and fall back to manual testing for this run
-#   - otherwise: fall back to manual testing silently
+# Every outcome is appended to logFile (default plans/auto-test-log.md):
+#   - ### Realized — agent succeeded. wf-spec reads this during planning to
+#     catch criteria that should have been classified automated up front.
+#     wf-implement reads it for style reference when writing tests.
+#   - ### Candidates — agent couldn't produce a passing test. Manual fallback
+#     runs for this criterion; the candidate is reviewed later.
 #
-# Leave enabled: false to keep /wf-test purely manual.
+# The log is the feedback loop: every [a] you hit is a signal that the plan
+# missed an automation opportunity. Reviewing the log informs future specs.
 autoTestGrowth:
   enabled: false
   agentModel: sonnet
-  fallbackToBacklog: true
-  candidatesLog: plans/auto-test-candidates.md
+  logCandidatesOnFail: true
+  logFile: plans/auto-test-log.md

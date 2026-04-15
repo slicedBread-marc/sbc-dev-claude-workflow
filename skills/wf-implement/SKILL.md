@@ -188,7 +188,7 @@ If the command prints nothing, continue to Phase 1 / Phase 2 as normal.
       ```
       Refreshing the claim on every commit means the claim age reflects time since last activity. Sessions that crash without committing will have their claims auto-expire (TTL: 2 hours).
     - **Config-driven randomness**: If a step introduces probabilistic or random behavior (e.g., a spawn chance, drop rate, trigger probability), store the controlling value in `appsettings.json` (or equivalent config) rather than as a hardcoded constant. This lets testers force or suppress the behavior via override values (e.g., `1.0` to always trigger, `0.0` to never trigger) without modifying source code.
-15. **Write tests** — implement all tests listed in the Tests table
+15. **Write tests** — implement all tests listed in the Tests table. Before drafting a new test, if `$DEVELOP_ROOT/plans/auto-test-log.md` exists, skim its `### Realized` section for rows whose criterion or test file looks relevant. Use them as a style reference (naming, file location, assertion shape) to match house convention without reinvention.
 16. **Log progress** — after each step, append to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/progress.md`: `[date] Step N — done / blocked (reason)`. **Never use relative paths** — `plans/` only exists on the develop worktree.
 17. **Deploy to local container for testing:**
     ```bash
