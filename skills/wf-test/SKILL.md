@@ -180,21 +180,27 @@ After user picks:
    - **[all]**: Stamps the current build on all criteria. Works in all three states.
    - **[restart]**: Ignore prior progress, test all from #1, overwrite all rows with current build.
 
-7. **For each criterion being tested:**
-   - **One-time setup** (first criterion only): read auto-test config from the develop worktree's config file. If `AUTO_TEST_ENABLED` is blank or `false`, the mode menu below is suppressed and the flow behaves as pure-manual.
-     ```bash
-     DEVELOP_ROOT=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')
-     CFG="$DEVELOP_ROOT/claude-workflow.yml"
-     AUTO_TEST_ENABLED=$(awk '/^  enabled:/{print $2; exit}' "$CFG" 2>/dev/null)
-     ```
-   - Display the criterion clearly
-   - **Mode selection** (only when `AUTO_TEST_ENABLED=true`):
-     ```
-     [m] manual test   [a] auto test   [s] skip
-     ```
-     - `[a]` → go to [Auto-test mode](#auto-test-mode). When the agent returns PASS/EXISTS, mark the criterion PASS and continue to the next criterion (skip the manual flow below). On FAIL, fall through to the manual flow.
-     - `[s]` → mark SKIP and continue to next criterion.
-     - `[m]` (default) → continue with the manual flow below.
+6b. **Read auto-test config** (runs once, before entering the criterion loop). This determines whether the per-criterion mode menu is shown. Do NOT skip — if you're about to enter step 7 and haven't run this yet, run it now:
+   ```bash
+   DEVELOP_ROOT=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')
+   CFG="$DEVELOP_ROOT/claude-workflow.yml"
+   AUTO_TEST_ENABLED=$(awk '/^  enabled:/{print $2; exit}' "$CFG" 2>/dev/null)
+   ```
+   If `AUTO_TEST_ENABLED=true`, the menu in step 7 is **mandatory** on every criterion (fresh, resume, and sweep). If blank or `false`, skip the menu and go straight to the manual flow.
+
+7. **For each criterion being tested — MANDATORY sequence:**
+
+   **7.1 Display the criterion** (text, route, expected behavior).
+
+   **7.2 Mode menu** — only when `AUTO_TEST_ENABLED=true`. This is a hard gate: you MUST display this menu and wait for the user's response before showing the deeplink or asking "what do you see?". Applies equally to fresh, resume, and sweep flows — never skip because the criterion previously failed or passed.
+   ```
+   [m] manual test   [a] auto test   [s] skip
+   ```
+   - `[a]` (or natural phrasings like "auto", "run auto-test", "automate this") → go to [Auto-test mode](#auto-test-mode). On PASS/EXISTS mark PASS and continue to next criterion. On FAIL fall through to 7.3.
+   - `[s]` → mark SKIP and continue to next criterion.
+   - `[m]` (default) → continue with 7.3.
+
+   **7.3 Manual flow:**
    - **Prefer deeplinks**: If the criterion mentions a route (e.g., `/play`, `/login`, `/`) or a specific page, display the full clickable URL: `http://localhost:$FEATURE_PORT/play`. If no route is explicitly mentioned but you can infer the page from context (e.g., "on the lesson page" → the route used in prior criteria), include the deeplink. Only fall back to the base URL when no route can be determined.
    - If the user seems unclear about context (asks "what should I be seeing?" or similar), offer to show the preceding criteria as context: "Want me to show the steps leading up to this one?" Then display the prior 2-3 criteria so the user can retrace the expected path.
    - **Let the user describe what they see** — accept natural descriptions
