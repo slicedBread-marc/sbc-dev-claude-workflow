@@ -557,7 +557,7 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
 7. Clean up test progress and commit REGISTRY/bug changes:
    ```bash
    rm -f plans/PLN-NNN-<slug>/test-progress.md
-   git add plans/PLN-NNN-<slug>/test-progress.md bugs/ 2>/dev/null || true
+   git add plans/PLN-NNN-<slug>/test-progress.md plans/auto-test-log.md plans/deferred-criteria.md bugs/ 2>/dev/null || true
    git commit --allow-empty -m "test(PLN-NNN-<slug>): complete — merged to develop"
    ```
 8. Display:
@@ -611,14 +611,14 @@ Steps below run from **project root** — use absolute path `cd /absolute/path/t
    - **`escalated`** → route to draft:
      ```bash
      scripts/wf-exec.sh wf-registry-update.sh PLN-NNN testing draft
-     git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
+     git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md plans/auto-test-log.md plans/deferred-criteria.md 2>/dev/null || true
      git commit -m "test(PLN-NNN-<slug>): escalated findings — needs replanning"
      ```
      Display: "N escalated findings require design decisions. Run /wf-spec."
    - **`active`** → route to draft (Opus reviews all findings before sending to builder):
      ```bash
      scripts/wf-exec.sh wf-registry-update.sh PLN-NNN testing draft
-     git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
+     git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md plans/auto-test-log.md plans/deferred-criteria.md 2>/dev/null || true
      git commit -m "test(PLN-NNN-<slug>): N findings from human test — routing to spec"
      ```
      Display: "N findings written. Run /wf-spec to review and route to builder."
