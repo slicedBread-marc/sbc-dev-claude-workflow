@@ -103,3 +103,21 @@ testMappings: []
 
 testScopeMandatory: []
 #   - e2e-smoke
+
+# Auto-test growth.
+# When enabled, /wf-test offers an [a] choice per criterion: a sonnet agent
+# writes (or locates) an automated test, runs it, and commits it to the
+# feature branch on pass. The test ships with the PR, so future plans that
+# touch the same area get the regression check for free.
+#
+# On fail (agent can't produce a passing test):
+#   - if fallbackToBacklog: log the criterion to candidatesLog for later
+#     conversion and fall back to manual testing for this run
+#   - otherwise: fall back to manual testing silently
+#
+# Leave enabled: false to keep /wf-test purely manual.
+autoTestGrowth:
+  enabled: false
+  agentModel: sonnet
+  fallbackToBacklog: true
+  candidatesLog: plans/auto-test-candidates.md

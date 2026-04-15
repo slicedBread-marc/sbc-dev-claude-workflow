@@ -9,7 +9,9 @@ model: haiku
 
 You are in **tester mode**. Your job is to guide a human through acceptance criteria, verify the implementation works as expected, and create a PR if all tests pass.
 
-**You must NEVER edit source code.** This skill runs on haiku and is not authorized to make code changes. If you find issues, document them as findings and route back to the builder — never attempt fixes yourself.
+**You must NEVER edit source code directly.** This skill runs on haiku and is not authorized to make code changes. If you find issues, document them as findings and route back to the builder — never attempt fixes yourself.
+
+The one exception: in [Auto-test mode](#auto-test-mode), a sonnet subagent is authorized to write and commit **test code only** (never production code). The subagent is explicitly instructed on this boundary.
 
 ## Entry (simple)
 
@@ -179,7 +181,20 @@ After user picks:
    - **[restart]**: Ignore prior progress, test all from #1, overwrite all rows with current build.
 
 7. **For each criterion being tested:**
+   - **One-time setup** (first criterion only): read auto-test config from the develop worktree's config file. If `AUTO_TEST_ENABLED` is blank or `false`, the mode menu below is suppressed and the flow behaves as pure-manual.
+     ```bash
+     DEVELOP_ROOT=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')
+     CFG="$DEVELOP_ROOT/claude-workflow.yml"
+     AUTO_TEST_ENABLED=$(awk '/^  enabled:/{print $2; exit}' "$CFG" 2>/dev/null)
+     ```
    - Display the criterion clearly
+   - **Mode selection** (only when `AUTO_TEST_ENABLED=true`):
+     ```
+     [m] manual test   [a] auto test   [s] skip
+     ```
+     - `[a]` → go to [Auto-test mode](#auto-test-mode). When the agent returns PASS/EXISTS, mark the criterion PASS and continue to the next criterion (skip the manual flow below). On FAIL, fall through to the manual flow.
+     - `[s]` → mark SKIP and continue to next criterion.
+     - `[m]` (default) → continue with the manual flow below.
    - **Prefer deeplinks**: If the criterion mentions a route (e.g., `/play`, `/login`, `/`) or a specific page, display the full clickable URL: `http://localhost:$FEATURE_PORT/play`. If no route is explicitly mentioned but you can infer the page from context (e.g., "on the lesson page" → the route used in prior criteria), include the deeplink. Only fall back to the base URL when no route can be determined.
    - If the user seems unclear about context (asks "what should I be seeing?" or similar), offer to show the preceding criteria as context: "Want me to show the steps leading up to this one?" Then display the prior 2-3 criteria so the user can retrace the expected path.
    - **Let the user describe what they see** — accept natural descriptions
@@ -193,6 +208,89 @@ After user picks:
        **Do NOT stop testing.** Ask: "Want to add details, continue, pass the rest and file this as a separate bug, or stop?"
      - **Skip**: note it and continue. If the user's reason indicates the prerequisite feature doesn't exist yet (e.g. "not built", "not enforced", "system doesn't do this yet"), ask: "Want to defer this criterion? It will be saved to `plans/deferred-criteria.md` so it gets picked up when the prerequisite is built." If yes, go to [Deferring a criterion](#deferring-a-criterion).
      - **Scope reduction**: If the user says things like "mark the rest as passed", "skip this and pass", "can't test beyond this", "pass the rest", or otherwise asks to reduce scope — go to the **scope reduction** flow below. Do NOT create findings.
+
+### Auto-test mode
+
+Entered from step 7 when the user picks `[a]`. Active only when `autoTestGrowth.enabled: true` in `claude-workflow.yml`.
+
+**Why this exists:** instead of walking the user through a manual check, spawn a sonnet subagent that writes (or locates) a real automated test, runs it, and commits it on pass. The test ships with the PR and runs in every subsequent verify — that's how the automated base grows. If a future plan's change makes the assertion wrong, verify fails naturally and the user learns of it without ceremony.
+
+**Read config** (first `[a]` only — cache afterward):
+
+```bash
+CFG="$DEVELOP_ROOT/claude-workflow.yml"
+AUTO_TEST_MODEL=$(awk '/^  agentModel:/{print $2; exit}' "$CFG")
+AUTO_TEST_FALLBACK=$(awk '/^  fallbackToBacklog:/{print $2; exit}' "$CFG")
+AUTO_TEST_LOG=$(awk '/^  candidatesLog:/{print $2; exit}' "$CFG")
+TEST_CMD=$(awk '/^test_command:/{sub(/^test_command: */,""); gsub(/^"|"$/,""); print; exit}' "$CFG")
+TEST_FILTER=$(awk '/^test_filter_flag:/{sub(/^test_filter_flag: */,""); gsub(/^"|"$/,""); print; exit}' "$CFG")
+NAMESPACE=$(awk '/^namespace_convention:/{sub(/^namespace_convention: */,""); gsub(/^"|"$/,""); print; exit}' "$CFG")
+```
+
+**Build context and spawn the agent** (per criterion):
+
+```bash
+CHANGED_FILES=$(git diff --name-only develop...HEAD | head -50)
+PLAN_GOAL_BLOCK=$(awk '/^## Goal/{f=1;next} /^## /{f=0} f' "$DEVELOP_ROOT/plans/$PLAN_NAME/plan.md")
+```
+
+```
+Agent(model: $AUTO_TEST_MODEL, prompt: "
+Write or locate an automated test for this acceptance criterion.
+
+Criterion:
+  <criterion text>
+
+Plan goal:
+  $PLAN_GOAL_BLOCK
+
+Files changed on this branch (diff vs develop):
+  $CHANGED_FILES
+
+Project conventions:
+  - Test command: $TEST_CMD
+  - Single-test filter flag: $TEST_FILTER
+  - Namespace: $NAMESPACE
+
+Procedure:
+  1. Grep existing tests for something matching the criterion's intent. If one exists, run it via '$TEST_CMD $TEST_FILTER <name>'. On clean pass, output: EXISTS:<test name>
+  2. Otherwise write a new test in the test file that sits next to the production code that changed. Follow the project's existing test style and namespace convention. Run it. On pass, git add + commit with message 'test($PLAN_NAME): auto-test — <short criterion>'. Output: PASS:<test name>
+  3. After one honest fix attempt, if it still fails, leave the working tree clean (git restore anything you added) and output: FAIL:<reason under 300 chars>
+
+Do NOT modify production code. Tests only. Final response under 800 characters — one of EXISTS:/PASS:/FAIL: followed by the name or reason.")
+```
+
+**Handle the agent's response:**
+
+- **`EXISTS:<name>`** or **`PASS:<name>`** — mark the criterion PASS on the current build. Note the test name alongside the criterion in session memory (it surfaces in the test-progress.md "Notes" column on exit). Continue to the next criterion.
+- **`FAIL:<reason>`** —
+  - If `AUTO_TEST_FALLBACK=true`: append one row to `$DEVELOP_ROOT/$AUTO_TEST_LOG` (create with header if absent — see format below). Tell the user: "Auto-test couldn't produce a passing test: `<reason>`. Falling back to manual." Then continue with the manual flow below (display deeplink, let user describe, classify response).
+  - Else: silently fall through to the manual flow.
+
+Always sanity-check the tree after the agent exits: `git status --short` should be clean except for a possible new committed test. If it's dirty, the agent left junk — `git restore .` and treat as FAIL.
+
+### Candidates log format
+
+Path: `$AUTO_TEST_LOG` (default `plans/auto-test-candidates.md`), resolved relative to the develop worktree root.
+
+Header (create only if file is absent):
+
+```markdown
+# Auto-test candidates
+
+Criteria where the auto-test agent couldn't produce a passing test. Reviewed during spec work — convert to automated tests (if feasible), or keep them manual.
+
+| Plan | Criterion | Reason | Flagged |
+|-|-|-|-|
+```
+
+Row to append:
+
+```
+| PLN-NNN | <criterion text> | <agent reason> | YYYY-MM-DD |
+```
+
+Commit the log update as part of the normal test-exit commit (findings or completion path) — no separate commit.
 
 ### Completion gate
 
@@ -246,6 +344,8 @@ Last failure: #3 on build Apr 08 14:32 (f4e5d6c)
 git add plans/PLN-NNN-<slug>/findings.md plans/PLN-NNN-<slug>/test-progress.md
 # If any criteria were deferred this session:
 git add plans/deferred-criteria.md
+# If the auto-test agent logged any candidates this session:
+git add plans/auto-test-candidates.md
 ```
 
 **On complete (all pass on current build):** delete the progress file as part of cleanup:
@@ -254,6 +354,8 @@ rm -f plans/PLN-NNN-<slug>/test-progress.md
 git add plans/PLN-NNN-<slug>/test-progress.md
 # If any criteria were deferred this session:
 git add plans/deferred-criteria.md
+# If the auto-test agent logged any candidates this session:
+git add plans/auto-test-candidates.md
 ```
 (Include in the final completion commit.)
 
