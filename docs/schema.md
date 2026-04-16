@@ -19,7 +19,7 @@ All workflow artifacts (plans, bugs, briefs) carry a `schema_version` field in t
 - `.plan/` isolation on feature branches, `plans/` on develop only for pipeline stages
 - Plans still move between stage folders on develop
 
-### v4 (current)
+### v4 (legacy)
 - `schema_version: 4`
 - **Registry-based model** — plans never move. State is tracked in `plans/REGISTRY.md`.
 - **Counter embedded** in REGISTRY.md as `<!-- Counter: N -->` — no separate `.counter` file
@@ -27,6 +27,13 @@ All workflow artifacts (plans, bugs, briefs) carry a `schema_version` field in t
 - **No plan content on feature branches** — only a `.plan-ref` file containing the plan ID
 - **Verify agent** replaces manual wf-verify skill — triggered automatically on state change to `verify`
 - **Simplified findings** — flat checklists instead of FND-NNN tables with status columns
+
+### v5 (current)
+- `schema_version: 5`
+- **Tags column** in REGISTRY.md — comma-separated category tags per plan (e.g. `security,admin`)
+- **Deps column** in REGISTRY.md — comma-separated plan IDs that must be `complete` before this plan is workable (e.g. `PLN-045,PLN-073`)
+- **Goal stack** in `plan.md` — `### Goal History` table tracks goal overrides during fix cycles. When findings come back, wf-spec pushes a focused sub-goal; when resolved, the original goal is restored.
+- Allowed tags (extensible): `security`, `arcade`, `admin`, `lessons`, `ux`, `infra`, `e2e`, `bugfix`
 
 ## Skill Behaviour
 
@@ -36,18 +43,19 @@ All workflow artifacts (plans, bugs, briefs) carry a `schema_version` field in t
 | `2` | v2 | Folder location | `plans/{stage}/` | `plans/.counter` |
 | `3` | v3 | Folder location | `.plan/` | `plans/.counter` |
 | `4` | v4 | REGISTRY.md row | `.plan-ref` (ID only) | REGISTRY.md comment |
+| `5` | v5 | REGISTRY.md row + Tags/Deps | `.plan-ref` (ID only) | REGISTRY.md comment |
 
-When creating new artifacts, always write `schema_version: 4`.
+When creating new artifacts, always write `schema_version: 5`.
 
 ## REGISTRY.md
 
 Single source of truth for plan state. Lives at `plans/REGISTRY.md` on develop.
 
 ```markdown
-| ID | Slug | State | Priority | Branch | Updated | WF |
-|-|-|-|-|-|-|-|
-| PLN-001 | user-auth | complete | — | — | 2026-04-01 | 1.33 |
-| PLN-003 | payment-hook | active | urgent | feature/PLN-003-payment-hook | 2026-04-06 | 2.00 |
+| ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps |
+|-|-|-|-|-|-|-|-|-|
+| PLN-001 | user-auth | complete | — | — | 2026-04-01 | 1.33 | security | — |
+| PLN-003 | payment-hook | active | urgent | feature/PLN-003-payment-hook | 2026-04-06 | 2.00 | infra | PLN-001 |
 
 <!-- Counter: 4 -->
 ```
@@ -55,6 +63,10 @@ Single source of truth for plan state. Lives at `plans/REGISTRY.md` on develop.
 The `Priority` column is optional per-plan. Default value is `—` (normal). Set to `urgent` to surface plans at the top of workable item menus. Use `scripts/wf-set-priority.sh <plan-id> urgent` to mark a plan urgent, or `scripts/wf-set-priority.sh <plan-id> —` to clear it.
 
 The `WF` column stamps the workflow version the plan was spec'd against. `scripts/wf-exec.sh` uses it to dispatch to the matching `scripts/v*/` snapshot (see `scripts/version-map.txt`), so a plan keeps running the scripts it was built against. Empty WF routes to `v1.x` (pre-v2.00 baseline).
+
+The `Tags` column holds comma-separated category tags (no spaces). Default `—`. Allowed tags: `security`, `arcade`, `admin`, `lessons`, `ux`, `infra`, `e2e`, `bugfix`. Use `scripts/wf-set-tags.sh <plan-id> <tags>` to set.
+
+The `Deps` column holds comma-separated plan IDs that must reach `complete` state before this plan is workable. Default `—`. A plan with incomplete deps shows `[blocked]` in worklist menus. Use `scripts/wf-set-deps.sh <plan-id> <deps>` to set.
 
 ### States
 
@@ -94,6 +106,24 @@ Routing rules:
 - Any `ESCALATED` → state goes to `draft`
 - Any unchecked non-escalated → state goes to `active`
 - All checked or no findings → state advances
+
+## Goal Stack (v5)
+
+Plans track goal overrides during fix cycles via `### Goal History` in `plan.md`:
+
+```markdown
+## Goal
+Fix flicker on re-render after viewport resize (show-stopper from verify)
+
+### Goal History
+| Date | Previous Goal | Trigger | Resolution |
+|-|-|-|-|
+| 2026-04-16 | Fix bonus round to reactively suppress arcade games on mobile viewports | Verify: 2 findings (1 show-stopper) | — |
+```
+
+- **Push**: when findings return a plan to `draft`, wf-spec calls `wf-goal-push.sh` to archive the current goal and write a new one summarizing pending items. If a finding is a show-stopper, it becomes the goal's focus.
+- **Pop**: when replanning resolves all findings and the plan returns to `ready`, wf-spec calls `wf-goal-pop.sh` to restore the original goal and mark the history row resolved.
+- `wf-plan-info.sh` always reads the first non-empty line after `## Goal` — downstream consumers (wf-implement, wf-test, wf-status) see the active goal automatically.
 
 ## Counter
 

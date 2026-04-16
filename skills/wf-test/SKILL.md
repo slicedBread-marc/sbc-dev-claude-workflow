@@ -21,13 +21,14 @@ Spawn a **haiku subagent** to fetch and format the worklist:
 
 ```
 Agent(model: haiku, prompt: "Run `scripts/wf-exec.sh wf-list-testable.sh` in the current directory.
-Output is tab-separated: <plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>.
+Output is tab-separated: <plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>. If a 6th field exists starting with 'blocked:', it contains comma-separated blocking plan IDs.
 
 If exit code 1: check stderr for 'CLAIMED:' lines. If any, return them verbatim prefixed with 'CLAIMED_PLANS:'. Otherwise return 'NO_PLANS'.
 
 If exit code 0: format as a numbered markdown table, urgent first:
-| # | Priority | Plan | Goal |
-|-|-|-|-|
+| # | Priority | Plan | Goal | Status |
+|-|-|-|-|-|
+For plans with a 'blocked:' field, show Status as '[blocked by PLN-NNN]'. Otherwise Status is '—'.
 
 After the table add one line: Mark a plan urgent: \`u <number>\`
 

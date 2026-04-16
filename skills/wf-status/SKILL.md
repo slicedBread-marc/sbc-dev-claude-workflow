@@ -69,6 +69,9 @@ If `plans/auto-test-log.md` exists (the `ls` above printed a path), add this lin
 - PLN-003 — payment-hook (2 open findings)
 - [urgent] PLN-007 — fast-checkout (1 open finding)
 
+### Blocked
+- PLN-009 — api-gateway [blocked by PLN-003]
+
 ### In progress
 - PLN-008 — notifications — claimed 14m ago
 
@@ -77,6 +80,7 @@ If `plans/auto-test-log.md` exists (the `ls` above printed a path), add this lin
 
 ### Ready to test
 - PLN-006 — user-prefs — state: testing (awaiting human acceptance test)
+- PLN-010 — search-index — state: testing [blocked by PLN-008]
 
 ### Drafts
 - PLN-007 — analytics — state: draft
@@ -92,8 +96,11 @@ If `plans/auto-test-log.md` exists (the `ls` above printed a path), add this lin
 - BUG-001 (High) — Login crashes [open]
 - BUG-002 (Critical) — Payment timeout → PLN-005 [triaged]
 
-### Done
-- N completed plans
+### Done (by tag)
+- **security**: 5 plans
+- **arcade**: 4 plans
+- **admin**: 3 plans
+- **uncategorized**: 2 plans
 
 ---
 
@@ -117,10 +124,11 @@ Use `wf-list-implementable.sh` output (tab-separated: `<type>\t<plan-name>\t<goa
 | wf-list-ready.sh | — | Ready to build | |
 | wf-list-implementable.sh | `fix` | Ready to fix | active, unclaimed, has open findings |
 | wf-list-implementable.sh | `resume` | Ready to fix | active, unclaimed, no findings — stalled |
+| wf-list-implementable.sh | `blocked` | Blocked | deps not all complete — show `[blocked by PLN-NNN]` |
 | wf-list-implementable.sh | `processing` | In progress | active, claimed — show claim age |
 | wf-list-verify.sh | — | Verifying (agent) | automated |
-| wf-list-testable.sh | — | Ready to test | |
-| REGISTRY.md | `complete` | Done | count only |
+| wf-list-testable.sh | — | Ready to test | append `[blocked by PLN-NNN]` if 6th field starts with `blocked:` |
+| REGISTRY.md | `complete` | Done (by tag) | group counts by Tags column ($9); untagged → "uncategorized" |
 
 To check for ESCALATED findings: `scripts/wf-exec.sh wf-list-replanning.sh 2>/dev/null`
 

@@ -21,7 +21,7 @@ Feature branches contain **no plan content** — only a `.plan-ref` file with th
 # [Feature Name]
 
 > **ID:** PLN-NNN
-> **schema_version:** 4
+> **schema_version:** 5
 > **Created:** YYYY-MM-DD
 > **Bug:** BUG-NNN — <title> _(optional, only if fixing a bug)_
 > **Brief:** briefs/<brief-name>.md _(optional, only if from a brief)_
@@ -30,6 +30,10 @@ Feature branches contain **no plan content** — only a `.plan-ref` file with th
 One-line summary of what this achieves.
 
 Why it matters and any additional context (optional paragraph).
+
+### Goal History
+<!-- Managed by wf-spec via wf-goal-push.sh / wf-goal-pop.sh. Do not edit manually. -->
+<!-- | Date | Previous Goal | Trigger | Resolution | -->
 
 ## Prerequisites
 - What must be true before implementation starts (merged PRs, running services, etc.)

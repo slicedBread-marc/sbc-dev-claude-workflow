@@ -105,10 +105,17 @@ If the user picks a bug BUG-NNN:
     Goal: <one-line summary>
     Confirm or edit?
     ```
-    Do not proceed to step 5 until the user confirms or provides a revised goal. This line will be extracted by scripts (`wf-plan-info.sh`) and displayed in `wf-implement`, `wf-test`, and PR descriptions — it must be concrete, not a placeholder.
+    Do not proceed to step 4c until the user confirms or provides a revised goal. This line will be extracted by scripts (`wf-plan-info.sh`) and displayed in `wf-implement`, `wf-test`, and PR descriptions — it must be concrete, not a placeholder.
+4c. **Assign tags** — after the goal is confirmed, prompt the user for category tags:
+    ```
+    Tags (comma-separated): security, arcade, admin, lessons, ux, infra, e2e, bugfix
+    Current: <suggested based on slug/goal>
+    Confirm or edit?
+    ```
+    Suggest tags based on the plan content (e.g., a plan fixing auth → `security`, a plan for arcade games → `arcade`). Multiple tags allowed. Store for use when writing the registry row.
 5. **Create the plan folder** — `plans/PLN-NNN-<slug>/` with three files following `templates/plans/TEMPLATE.md`:
    - Folder is always `plans/PLN-NNN-<slug>/` (e.g. `plans/PLN-041-user-auth/`)
-   - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 4`
+   - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 5`
    - **Goal** — use the confirmed one-liner from step 4b as the first line under `## Goal`. Follow with an optional context paragraph.
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty (no table header needed — findings are appended as flat checklists)
@@ -213,9 +220,9 @@ WF=$(cat .claude/workflow-version 2>/dev/null | tr -d '[:space:]')
 ```
 Then append (replacing WF with the stamped value):
 ```
-| PLN-NNN | <slug> | draft | — | — | YYYY-MM-DD | $WF |
+| PLN-NNN | <slug> | draft | — | — | YYYY-MM-DD | $WF | <tags> | — |
 ```
-Columns: `ID | Slug | State | Priority | Branch | Updated | WF`. Then after review passes, update state to `ready`.
+Columns: `ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps`. Use the tags confirmed in step 4c. Deps defaults to `—`. Then after review passes, update state to `ready`.
 
 ---
 
@@ -227,6 +234,12 @@ When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `fin
 - **Behavior** (code fix) — bugs found during human testing, routed here for Opus review before sending to builder
 
 1. **Read `plan.md` and `findings.md`** from `plans/PLN-NNN-<slug>/` — understand the full plan and all findings
+1b. **Push a sub-goal** — summarize the pending findings as the active goal. If any finding is a show-stopper (critical/ESCALATED), make it the focus of the goal. Run:
+    ```bash
+    scripts/wf-exec.sh wf-goal-push.sh PLN-NNN "<findings summary goal>" "<trigger description>"
+    ```
+    Example goal: "Fix show-stopper: auth bypass on /api/settings (+ 2 behavior findings)"
+    Example trigger: "Verify: 3 findings (1 ESCALATED)"
 2. **Triage findings:**
    - **ESCALATED findings** — present to the user and discuss how to resolve. Write amendments as needed.
    - **Behavior findings** — review each finding. Add implementation guidance to `findings.md` (append a line under the finding with context, root cause hints, or file pointers). If a behavior finding reveals a spec gap, write an amendment.
@@ -234,6 +247,10 @@ When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `fin
 4. **Update Design Decisions** — add any new decisions to `plan.md`
 5. **Address findings** — for each `ESCALATED` item in `findings.md`, check it off if resolved by the amendment. Leave behavior findings unchecked (T3 will handle them).
 6. **Run the review gate** — same as above
+6b. **Pop the sub-goal** — restore the original goal now that findings are addressed:
+    ```bash
+    scripts/wf-exec.sh wf-goal-pop.sh PLN-NNN
+    ```
 7. **Update REGISTRY.md:**
    ```bash
    scripts/wf-exec.sh wf-registry-update.sh PLN-NNN draft ready

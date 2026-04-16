@@ -110,4 +110,4 @@ All artifacts (plans, bugs, briefs) use a **global shared counter** embedded in 
 - IDs are type-prefixed: `PLN-NNN`, `BUG-NNN`, `BRF-NNN`.
 - Numbers are globally unique across all types.
 
-**Schema version:** `4` (see `docs/schema.md`). Registry-based model — plans never move, state in REGISTRY.md, `.plan-ref` on feature branches.
+**Schema version:** `5` (see `docs/schema.md`). Registry-based model — plans never move, state in REGISTRY.md, `.plan-ref` on feature branches. v5 adds Tags and Deps columns to REGISTRY.md plus goal stack in plan.md.

@@ -7,6 +7,7 @@
 #   type = "resume"     — state: active, no unchecked findings
 #   type = "fix"        — state: active, has unchecked findings
 #   type = "processing" — state: active, claimed by another session (< 2h old claim file)
+#   type = "blocked"    — deps not all complete (appends blocking plan IDs)
 #   priority = "urgent" or "—" (normal)
 #
 # Urgent items are output first. Exit 0 if any found, exit 1 if none.
@@ -19,6 +20,26 @@ found=0
 urgent_lines=()
 normal_lines=()
 processing_lines=()
+blocked_lines=()
+
+# Helper: check if a plan's deps are all complete
+check_deps_blocked() {
+  local deps_raw="$1"
+  [ -n "$deps_raw" ] && [ "$deps_raw" != "—" ] || return 1
+  local blocking=""
+  local IFS=','
+  for dep_id in $deps_raw; do
+    dep_id=$(echo "$dep_id" | xargs)
+    local dep_state
+    dep_state=$(grep "| $dep_id |" "$REGISTRY" 2>/dev/null | awk -F'|' '{print $4}' | xargs || true)
+    if [ "$dep_state" != "complete" ]; then
+      [ -n "$blocking" ] && blocking="$blocking,$dep_id" || blocking="$dep_id"
+    fi
+  done
+  [ -n "$blocking" ] || return 1
+  echo "$blocking"
+  return 0
+}
 
 while IFS='|' read -r _ id slug state priority branch _rest; do
   id=$(echo "$id" | xargs)
@@ -36,6 +57,15 @@ while IFS='|' read -r _ id slug state priority branch _rest; do
 
   goal=$(grep -A 1 "^## Goal" "$plan_dir/plan.md" 2>/dev/null | tail -1 | sed 's/^[[:space:]]*//' || true)
   plan_name="${id}-${slug}"
+
+  # Check deps (field 10 in the original row)
+  row_full=$(grep "| $id |" "$REGISTRY" | head -1)
+  deps_raw=$(echo "$row_full" | awk -F'|' '{print $10}' | xargs)
+  blocking=$(check_deps_blocked "$deps_raw" 2>/dev/null) && {
+    blocked_lines+=("$(printf "blocked\t%s\t%s\t%s\t%s" "$plan_name" "$goal" "$priority" "$blocking")")
+    found=1
+    continue
+  }
 
   if [ "$state" = "ready" ]; then
     line=$(printf "new\t%s\t%s\t%s" "$plan_name" "$goal" "$priority")
@@ -73,9 +103,10 @@ while IFS='|' read -r _ id slug state priority branch _rest; do
   fi
 done < <(grep "^|" "$REGISTRY" | tail -n +3)
 
-# Output urgent items first, then normal, then processing
+# Output urgent items first, then normal, then processing, then blocked
 for line in "${urgent_lines[@]+"${urgent_lines[@]}"}"; do printf "%s\n" "$line"; done
 for line in "${normal_lines[@]+"${normal_lines[@]}"}"; do printf "%s\n" "$line"; done
 for line in "${processing_lines[@]+"${processing_lines[@]}"}"; do printf "%s\n" "$line"; done
+for line in "${blocked_lines[@]+"${blocked_lines[@]}"}"; do printf "%s\n" "$line"; done
 
 exit $((1 - found))

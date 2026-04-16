@@ -4,6 +4,7 @@
 # Eligible = state: testing
 #
 # Format per line (stdout): <plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>
+# Blocked plans output with extra field: <plan-name>\t<worktree>\t<branch>\t<goal>\t<priority>\tblocked:<deps>
 # Stderr summary: TESTABLE: N, TOTAL: N
 #
 # Exit 0 if any testable found, exit 1 if none.
@@ -53,7 +54,26 @@ while IFS='|' read -r _ id slug state priority branch _rest; do
   worktree="feature-branches/${plan_name}"
   [ -d "$worktree" ] || worktree=""
 
-  printf "%s\t%s\t%s\t%s\t%s\n" "$plan_name" "$worktree" "$branch" "$goal" "$priority"
+  # Check deps (field 10)
+  row_full=$(grep "| $id |" "$REGISTRY" | head -1)
+  deps_raw=$(echo "$row_full" | awk -F'|' '{print $10}' | xargs)
+  blocking=""
+  if [ -n "$deps_raw" ] && [ "$deps_raw" != "—" ]; then
+    IFS=',' read -ra dep_list <<< "$deps_raw"
+    for dep_id in "${dep_list[@]}"; do
+      dep_id=$(echo "$dep_id" | xargs)
+      dep_state=$(grep "| $dep_id |" "$REGISTRY" 2>/dev/null | awk -F'|' '{print $4}' | xargs || true)
+      if [ "$dep_state" != "complete" ]; then
+        [ -n "$blocking" ] && blocking="$blocking,$dep_id" || blocking="$dep_id"
+      fi
+    done
+  fi
+
+  if [ -n "$blocking" ]; then
+    printf "%s\t%s\t%s\t%s\t%s\tblocked:%s\n" "$plan_name" "$worktree" "$branch" "$goal" "$priority" "$blocking"
+  else
+    printf "%s\t%s\t%s\t%s\t%s\n" "$plan_name" "$worktree" "$branch" "$goal" "$priority"
+  fi
   testable=$((testable + 1))
 done < <(grep "^|" "$REGISTRY" | tail -n +3)
 

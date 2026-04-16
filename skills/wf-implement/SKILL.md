@@ -18,7 +18,7 @@ model: haiku
 
 ```
 Agent(model: haiku, prompt: "Run `scripts/wf-exec.sh wf-list-implementable.sh` in the current directory.
-Output is tab-separated: <type>\t<plan-name>\t<goal>\t<priority>. Processing type has a 5th field: <claim-age>.
+Output is tab-separated: <type>\t<plan-name>\t<goal>\t<priority>. Processing type has a 5th field: <claim-age>. Blocked type has a 5th field: <blocking-plan-ids>.
 Exit code 1 means no plans.
 
 You MUST format output as markdown tables using pipe syntax. Do NOT use paragraphs, bullet lists, or plain text.
@@ -29,13 +29,19 @@ Table 1 — Ready to implement (types: new/resume/fix, numbered, urgent first):
 |-|-|-|-|-|
 | 1 | urgent | PLN-001-example | new | Example goal |
 
-Table 2 — In progress (types: processing only, no row numbers):
+Table 2 — Blocked (type: blocked, no row numbers):
+
+| Plan | Goal | Blocked by |
+|-|-|-|
+| PLN-009-api-gateway | Example goal | PLN-003 |
+
+Table 3 — In progress (types: processing only, no row numbers):
 
 | Priority | Plan | Goal | Claimed |
 |-|-|-|-|
 | — | PLN-002-example | Example goal | 15m ago |
 
-Omit Table 2 if no processing items. After the tables add:
+Omit Table 2 if no blocked items. Omit Table 3 if no processing items. After the tables add:
 Mark a plan urgent: \`u <number>\`
 Force-take a stale claim: \`force <plan-id>\` (e.g. \`force PLN-022-lesson-deeplink-urls\`)
 
