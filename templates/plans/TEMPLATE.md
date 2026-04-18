@@ -82,6 +82,7 @@ Structured checks for the **verifier** session to execute after implementation.
 - [ ] `{{build_command}}` — no errors or new warnings
 - [ ] `{{test_command}}` — all tests pass, including new tests from this plan
 - [ ] No unrelated test regressions
+- [ ] Accessibility: any new routes covered by accessibility assertions in E2E tests
 
 ### Human Test Criteria
 
