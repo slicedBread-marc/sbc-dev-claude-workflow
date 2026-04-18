@@ -82,7 +82,7 @@ TESTABLE: $testable
 TOTAL: $total
 EOF
 
-if [ "$testable" -eq 0 ] && [ "${#claimed_plans[@]}" -gt 0 ]; then
+if [ "${#claimed_plans[@]}" -gt 0 ]; then
   echo "CLAIMED:" >&2
   for entry in "${claimed_plans[@]}"; do
     plan="${entry%%:*}"
@@ -90,7 +90,9 @@ if [ "$testable" -eq 0 ] && [ "${#claimed_plans[@]}" -gt 0 ]; then
     mins=$(( age / 60 ))
     echo "  $plan (claimed ${mins}m ago)" >&2
   done
-  echo "Run: scripts/wf-unclaim.sh <plan-name> to release stale claims" >&2
+  if [ "$testable" -eq 0 ]; then
+    echo "Run: scripts/wf-unclaim.sh <plan-name> to release stale claims" >&2
+  fi
 fi
 
 exit $((testable > 0 ? 0 : 1))

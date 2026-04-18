@@ -32,7 +32,14 @@ For plans with a 'blocked:' field, show Status as '[blocked by PLN-NNN]'. Otherw
 
 After the table add one line: Mark a plan urgent: \`u <number>\`
 
-Final response: ONLY the formatted table and footer line, or the CLAIMED_PLANS/NO_PLANS signal. No commentary.")
+Then check stderr for 'CLAIMED:' lines. If any, append a separator line and list them:
+```
+────────────────────────────────────────
+⏳ In progress (claimed by another terminal):
+  PLN-NNN-slug (claimed Nm ago)
+```
+
+Final response: ONLY the formatted table, footer line, and any claimed-plans notice. No commentary.")
 ```
 
 Display the subagent's output verbatim, then:
