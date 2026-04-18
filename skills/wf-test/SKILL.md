@@ -454,6 +454,29 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    ```
    If this fails with non-trivial conflicts, route back to builder (same as merge-blocked path below).
 
+   **Post-merge build validation** — catch semantically broken merges that git auto-resolved without conflict markers:
+   ```bash
+   if ! ../../scripts/wf-exec.sh wf-build-check.sh; then
+     echo "BUILD FAILED after merging release. The merge likely combined incompatible code."
+     echo "Routing back to builder to resolve."
+   ```
+   - Write findings to `plans/$PLAN_NAME/findings.md`:
+     ```markdown
+     ## Build Failure After Release Merge — YYYY-MM-DD
+     
+     - [ ] **Behavior**: Build fails after merging origin/release into feature branch. Git auto-resolved the merge without conflict markers, but the result doesn't compile. Review the merge commit and fix the broken file(s).
+     ```
+   - Route back to active:
+     ```bash
+     scripts/wf-exec.sh wf-registry-update.sh $PLAN_NAME testing active --commit "test($PLAN_NAME): build broken after release merge — back to builder" --add plans/$PLAN_NAME/findings.md
+     ```
+   - Destroy container: `../../scripts/wf-exec.sh wf-docker-down.sh $PLAN_NAME`
+   - Display: "Build failed after merging release. Routed back to builder (testing → active). Findings written."
+   - **Stop here — do not continue with remaining steps.**
+   ```bash
+   fi
+   ```
+
    Push to remote. If push fails, display the error and **stop** — ask the user to resolve manually.
    ```bash
    git push -u origin "$CURRENT_BRANCH"
