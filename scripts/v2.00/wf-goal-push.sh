@@ -39,31 +39,32 @@ today=$(date +%Y-%m-%d)
 
 # Ensure ### Goal History section exists
 if ! grep -q "^### Goal History" "$plan_file"; then
-  # Insert after the goal paragraph (before next ## section)
-  # Find the line number of the next ## after ## Goal
+  # Insert before the next ## section after ## Goal
   goal_line=$(grep -n "^## Goal" "$plan_file" | head -1 | cut -d: -f1)
   next_section=$(awk -v start="$((goal_line + 1))" 'NR > start && /^## / { print NR; exit }' "$plan_file")
   if [ -n "$next_section" ]; then
     insert_at=$((next_section - 1))
   else
-    # No next section — append before EOF
     insert_at=$(wc -l < "$plan_file")
   fi
-  sed -i '' "${insert_at}a\\
-\\
-### Goal History\\
-| Date | Previous Goal | Trigger | Resolution |\\
-|-|-|-|-|" "$plan_file"
+  awk -v n="$insert_at" '
+    NR == n { print; print ""; print "### Goal History"; print "| Date | Previous Goal | Trigger | Resolution |"; print "|-|-|-|-|"; next }
+    { print }
+  ' "$plan_file" > "$plan_file.tmp" && mv "$plan_file.tmp" "$plan_file"
 fi
 
-# Append history row
-sed -i '' "/^|-|-|-|-|/a\\
-| $today | $current_goal | $trigger | — |" "$plan_file"
+# Append history row after the separator line
+awk -v row="| $today | $current_goal | $trigger | — |" '
+  { print }
+  /^\|-\|-\|-\|-\|/ && !done { print row; done=1 }
+' "$plan_file" > "$plan_file.tmp" && mv "$plan_file.tmp" "$plan_file"
 
 # Replace the current goal line with the new goal
-# The goal is the first non-empty line after "## Goal"
 goal_line_num=$(grep -n "^## Goal" "$plan_file" | head -1 | cut -d: -f1)
 content_line=$((goal_line_num + 1))
-sed -i '' "${content_line}s#.*#$new_goal#" "$plan_file"
+awk -v n="$content_line" -v goal="$new_goal" '
+  NR == n { print goal; next }
+  { print }
+' "$plan_file" > "$plan_file.tmp" && mv "$plan_file.tmp" "$plan_file"
 
 echo "Goal pushed: '$current_goal' → '$new_goal' (trigger: $trigger)"

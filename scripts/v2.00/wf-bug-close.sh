@@ -37,11 +37,15 @@ today=$(date +%Y-%m-%d)
 if [ -f "$bug_dir/bug.md" ]; then
   sed -i '' 's/Status:\*\* Triaged/Status:** Closed/' "$bug_dir/bug.md"
   # Add closed date after Status line
-  sed -i '' "/Status:\*\* Closed/a\\
-> **Closed:** $today" "$bug_dir/bug.md"
-  # Add note
-  sed -i '' "/^## Notes/a\\
-Fixed by plan: $plan_name" "$bug_dir/bug.md"
+  awk -v line="> **Closed:** $today" '
+    { print }
+    /Status:\*\* Closed/ && !done1 { print line; done1=1 }
+  ' "$bug_dir/bug.md" > "$bug_dir/bug.md.tmp" && mv "$bug_dir/bug.md.tmp" "$bug_dir/bug.md"
+  # Add note after ## Notes heading
+  awk -v line="Fixed by plan: $plan_name" '
+    { print }
+    /^## Notes/ && !done2 { print line; done2=1 }
+  ' "$bug_dir/bug.md" > "$bug_dir/bug.md.tmp" && mv "$bug_dir/bug.md.tmp" "$bug_dir/bug.md"
 fi
 
 # Move to closed
