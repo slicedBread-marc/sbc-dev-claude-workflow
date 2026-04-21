@@ -267,18 +267,27 @@ Project conventions:
   - Namespace: $NAMESPACE
 
 Procedure:
-  1. Grep existing tests for something matching the criterion's intent. If one exists, run it via '$TEST_CMD $TEST_FILTER <name>'. On clean pass, output: EXISTS:<test name>
-  2. Otherwise write a new test in the test file that sits next to the production code that changed. Follow the project's existing test style and namespace convention. Run it. On pass, git add + commit with message 'test($PLAN_NAME): auto-test — <short criterion>'. Output: PASS:<test name>
-  3. After one honest fix attempt, if it still fails, leave the working tree clean (git restore anything you added) and output: FAIL:<reason under 300 chars>
+  1. Grep existing tests for something matching the criterion's intent. If one exists, run it via '$TEST_CMD $TEST_FILTER <name>'. On a clean pass, output: EXISTS:<test name>|<test file path>
+     - If the existing test fails when run, DO NOT output EXISTS. Treat the run as the failing attempt and continue to step 2 (write a fresh test) OR if you're confident the existing test is authoritative and its failure reflects a real bug, skip to step 3.
+  2. Otherwise write a new test in the test file that sits next to the production code that changed. Follow the project's existing test style and namespace convention. Run it. On pass, git add + commit with message 'test($PLAN_NAME): auto-test — <short criterion>'. Output: PASS:<test name>|<test file path>
+  3. After one honest fix attempt, if it still fails, leave the working tree clean (git restore anything you added) and output: FAIL:<short English sentence under 200 chars — e.g. "assertion on status code failed: got 500 expected 400">
+     - Do NOT output a bare test name or file path as a FAIL reason. The reason is a human-readable explanation of *why* auto-testing did not produce a green test.
 
-Do NOT modify production code. Tests only. Final response under 800 characters — one of EXISTS:/PASS:/FAIL: followed by the name or reason.")
+Output contract (exactly one line):
+  EXISTS:<test name>|<file path>
+  PASS:<test name>|<file path>
+  FAIL:<reason>
+
+Do NOT modify production code. Tests only. Final response under 800 characters — one of EXISTS:/PASS:/FAIL: following the contract above.")
 ```
 
 **Handle the agent's response:**
 
-- **`EXISTS:<name>`** or **`PASS:<name>`** — mark the criterion PASS on the current build. Append a row to the **Realized** section of `$DEVELOP_ROOT/$AUTO_TEST_LOG` (create file with headers if absent — see format below). Note the test name alongside the criterion in session memory (it surfaces in the test-progress.md "Notes" column on exit). Continue to the next criterion.
+Parse the line against the contract: prefix is `EXISTS:`, `PASS:`, or `FAIL:`. For EXISTS/PASS, split the payload on `|` into `<test name>` and `<file path>`. For FAIL, the payload is a single reason string — if it happens to look like a test identifier or contains `|`, reject it and fall through to manual (do NOT log it as a Candidate).
+
+- **`EXISTS:<name>|<file>`** or **`PASS:<name>|<file>`** — mark the criterion PASS on the current build. Append a row to the **Realized** section of `$DEVELOP_ROOT/$AUTO_TEST_LOG` (create file with headers if absent — see format below) using 5 columns: Plan, Criterion, Test, File, Date. Note the test name alongside the criterion in session memory (it surfaces in the test-progress.md "Notes" column on exit). Continue to the next criterion.
 - **`FAIL:<reason>`** —
-  - If `AUTO_TEST_LOG_CANDIDATES=true`: append a row to the **Candidates** section of `$DEVELOP_ROOT/$AUTO_TEST_LOG`. Tell the user: "Auto-test couldn't produce a passing test: `<reason>`. Falling back to manual." Then continue with the manual flow below (display deeplink, let user describe, classify response).
+  - If `AUTO_TEST_LOG_CANDIDATES=true`: append a row to the **Candidates** section of `$DEVELOP_ROOT/$AUTO_TEST_LOG` using **exactly 4 columns**: Plan, Criterion, Reason, Date. Do NOT copy the 5-column Realized format. If the reason contains a `|` character, replace it with `/` before writing to preserve the column count. Tell the user: "Auto-test couldn't produce a passing test: `<reason>`. Falling back to manual." Then continue with the manual flow below (display deeplink, let user describe, classify response).
   - Else: silently fall through to the manual flow.
 
 Always sanity-check the tree after the agent exits: `git status --short` should be clean except for a possible new committed test. If it's dirty, the agent left junk — `git restore .` and treat as FAIL.
@@ -315,15 +324,27 @@ manually if feasible, or keep as human-tested.
 |-|-|-|-|
 ```
 
-Rows to append:
+Rows to append (column count is load-bearing — do not cross-paste):
 
 ```
-# Realized (PASS or EXISTS)
+# Realized — 5 columns (PASS or EXISTS)
 | PLN-NNN | <criterion text> | <test name> | <test file path> | YYYY-MM-DD |
 
-# Candidates (FAIL)
-| PLN-NNN | <criterion text> | <agent reason> | YYYY-MM-DD |
+# Candidates — 4 columns (FAIL)
+| PLN-NNN | <criterion text> | <reason (short English sentence, no pipes, no bare test names)> | YYYY-MM-DD |
 ```
+
+Concrete example rows:
+
+```
+# Realized
+| PLN-081 | Reset link → clean address bar | Handoff_SetsCookieAndRedirects | tests/SBC.Core.Tests/PasswordResetHandoffTests.cs | 2026-04-18 |
+
+# Candidates
+| PLN-035 | Mobile viewport: arcade game never appears | Agent wrote BonusRound_TryPick_ReturnNull_WhenMobile but viewport detection is server-side and the test returned null-or-service-missing; unable to assert client-side auto-skip. | 2026-04-18 |
+```
+
+Validation before committing: the Candidates section must have exactly 4 pipe-separated fields per row (plus the leading/trailing pipes). If you just wrote a 5-column row into Candidates, stop and fix it before the exit commit.
 
 Commit the log update as part of the normal test-exit commit (findings or completion path) — no separate commit.
 
