@@ -201,12 +201,30 @@ After user picks:
    **7.1 Display the criterion** (text, route, expected behavior).
 
    **7.2 Mode menu** — only when `AUTO_TEST_ENABLED=true`. This is a hard gate: you MUST display this menu and wait for the user's response before showing the deeplink or asking "what do you see?". Applies equally to fresh, resume, and sweep flows — never skip because the criterion previously failed or passed.
+
+   **Pattern-based default** — before displaying the menu, check whether the criterion text matches a recurring auto-testable shape from `plans/auto-test-log.md` (Realized section). If it does, present `[a]` as the default (bolded in the menu, and accept an empty response as `[a]`). Recurring shapes:
+   - Cookie attributes (HttpOnly, Secure, SameSite, Path, expiry)
+   - HTML meta tag presence/absence (Referer, CSP, viewport)
+   - "No console errors" / "no X log entries"
+   - Form validation returning a specific status code
+   - Route redirects based on auth state (302 + Location)
+   - Dialog open/close, visible border, field presence after click
+   - Admin table filter / pagination / layout consistency
+   - Element presence on direct URL load vs client-side nav
+
+   Otherwise default to `[m]`.
+
+   Fresh-start example (pattern match):
    ```
-   [m] manual test   [a] auto test   [s] skip
+   [m] manual test   [**a**] auto test   [s] skip   (pattern suggests auto-test)
    ```
-   - `[a]` (or natural phrasings like "auto", "run auto-test", "automate this") → go to [Auto-test mode](#auto-test-mode). On PASS/EXISTS mark PASS and continue to next criterion. On FAIL fall through to 7.3.
+   Fresh-start example (no match):
+   ```
+   [**m**] manual test   [a] auto test   [s] skip
+   ```
+   - `[a]` (or natural phrasings like "auto", "run auto-test", "automate this", or an empty response when `[a]` is the default) → go to [Auto-test mode](#auto-test-mode). On PASS/EXISTS mark PASS and continue to next criterion. On FAIL fall through to 7.3.
    - `[s]` → mark SKIP and continue to next criterion.
-   - `[m]` (default) → continue with 7.3.
+   - `[m]` (or empty response when `[m]` is the default) → continue with 7.3.
 
    **7.3 Manual flow:**
    - **Prefer deeplinks**: If the criterion mentions a route (e.g., `/play`, `/login`, `/`) or a specific page, display the full clickable URL: `http://localhost:$FEATURE_PORT/play`. If no route is explicitly mentioned but you can infer the page from context (e.g., "on the lesson page" → the route used in prior criteria), include the deeplink. Only fall back to the base URL when no route can be determined.
