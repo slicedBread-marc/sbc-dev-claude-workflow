@@ -125,6 +125,21 @@ If the user picks a bug BUG-NNN:
    - Class/method/component names and signatures
    - Acceptance criteria (test command, observable behavior)
 7. **Define tests** — fill in the Tests table with specific test IDs, types, descriptions, and commands. **Maximize automation:** API responses, data correctness, markup structure, auth gates, redirects, and status codes are all automatable (unit tests, integration tests, curl commands, scripts). Only use `Manual` type for things that genuinely require human eyes — visual rendering, subjective UX, complex multi-step physical interactions.
+
+   **Default-automated patterns** — past plans have repeatedly shipped these classes of criteria as automated tests (see `plans/auto-test-log.md` Realized section for proofs). If a criterion you're drafting fits one of these shapes, put it in the Tests table (not Human Test Criteria) from the start:
+
+   | Pattern | Example criterion | Test shape |
+   |-|-|-|
+   | Cookie attributes on a response | "PwdResetHandoff cookie is HttpOnly, Secure, SameSite=Lax, ~15m expiry" | Unit test asserting `Set-Cookie` header flags |
+   | HTML meta tag presence/absence | "No Referer meta tag on /account/reset-password" | Response inspection / static HTML assertion |
+   | "No console errors" / "no X log entries" | "No Authorization failed entries on /apps/lessons load" | Auth layout absence test, or log capture assertion |
+   | Form validation → specific status code | "POST invalid LessonLength returns 400" | Integration test on the endpoint |
+   | Route redirect by auth state | "Unauthenticated /apps/lessons → /login" | Integration test asserting 302 + Location |
+   | Dialog open / close / field presence | "Clicking CREATE USER opens dialog with Roles field visible" | E2E / component test |
+   | Admin table filter / pagination / layout | "Filter by GameType shows only matching rows" | Service test + DOM/E2E assertion |
+   | Element presence on direct URL vs client nav | "Footer shows build date on direct load AND after client-side nav" | Two E2E tests, one per entry mode |
+
+   Only escape to Human Test Criteria when the check genuinely requires human judgment (subjective animation feel, visual polish, cross-device ergonomics).
 7a. **Fill `## E2E Scope`** — list the e2e test file paths or glob patterns that cover this plan's changes (one per line, no backticks). If the project has a single flat e2e directory and there are no dedicated per-feature files yet, leave the section blank — wf-test will fall back to the full suite. Only populate this if you can identify specific test files that exercise the affected routes or behaviors.
 7b. **Fill `## Test Scope`** — list category names (one per bullet) the planner knows are relevant. Leave blank only if the change truly affects nothing testable (e.g., doc-only). Prefer declaring generously; auto-detect unions in more categories at verify time. Valid category names live in `claude-workflow.yml → testScopes`.
 7c. **Consult the auto-test log** — if `plans/auto-test-log.md` exists, read its `### Realized` section. Those rows prove what shape of criterion past plans successfully converted to automated tests at `/wf-test` time. **Before citing a row, verify the referenced test file still exists** (`test -f <File column>`) — rolled-back plans may leave stale rows. For each criterion you're drafting, ask: *does any live Realized row describe a similar intent* (e.g., "redirects after valid login", "button disables while submitting", "validation error shows on empty field")? If yes, flag it to the user before proceeding to step 8:
