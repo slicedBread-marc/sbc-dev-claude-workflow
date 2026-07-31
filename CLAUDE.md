@@ -34,6 +34,21 @@ The workflow is designed to run across 4 terminal sessions, each with a dedicate
 
 Each terminal runs `/wf-init` once per session to establish its role. `/wf-next` auto-routes to the correct skill based on `TERMINAL_ROLE`.
 
+### Orchestrated mode (one terminal)
+
+The four-terminal layout above is the **manual** mode. With the orchestrator enabled, a daemon dispatches those same skills as unattended workers by REGISTRY state, and the human works a single terminal:
+
+| Surface | Purpose |
+|-|-|
+| `wf-orchestrate.sh --daemon` | Continuous dispatch (its own terminal; never returns) |
+| `wf-orchestrate.sh <ID>` | Drive one bug/brief/plan end to end — the hook for an external project |
+| `/wf-board` | What's in flight: workers, gates, pipeline, events |
+| `/wf-attend` | Drain the queue of decisions the orchestrator refused to make |
+
+Routing is deterministic bash — the orchestrator never calls a model. Ships **disabled**; see `docs/orchestrator.md`.
+
+Each client also gets a generated `WORKFLOW.md` at its project root (from `templates/WORKFLOW.md`) — the entry-point contract for any agent or script that lands in that repo cold: pipeline shape, hooks that fire automatically, and the `wf-orchestrate.sh` exit codes.
+
 ---
 
 ### Design Principles

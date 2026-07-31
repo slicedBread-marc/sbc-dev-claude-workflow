@@ -1,6 +1,8 @@
 # claude-workflow
 
-A structured SDLC workflow for Claude Code. Provides skills that guide work through a multi-terminal pipeline: brainstorm, plan, implement, verify (auto), test — orchestrated by a status dashboard.
+A structured SDLC workflow for Claude Code. Skills guide work through a pipeline — brainstorm, plan, implement, verify, test — with state tracked in a registry rather than in your head.
+
+Run it **manually** across four terminals, or turn on the **orchestrator** and run it from one: a daemon dispatches the same skills as unattended workers by pipeline state, and parks the decisions a machine shouldn't make into a queue you drain when convenient.
 
 ## Quick Start
 
@@ -69,8 +71,46 @@ draft → ready → active → verify ──[agent]──→ testing → complet
 | `/wf-implement` | sonnet | Build from plan, fix findings |
 | `wf-verify` | sonnet | Autonomous verify agent (triggered by state change) |
 | `/wf-test` | haiku | Human acceptance testing |
+| `/wf-board` | haiku | Live orchestrator view — workers, gates, events |
+| `/wf-attend` | haiku | Drain the gate queue |
+| `/wf-orchestrate` | haiku | Drive one item end to end, or manage the daemon |
 
-## Multi-Terminal Workflow
+## Orchestrated Workflow (one terminal)
+
+```bash
+scripts/wf-exec.sh wf-orchestrate.sh --sweep --dry-run   # preview first, always
+scripts/wf-exec.sh wf-orchestrate.sh --daemon            # continuous dispatch
+scripts/wf-exec.sh wf-orchestrate.sh BUG-094             # drive one item end to end
+scripts/wf-exec.sh wf-board.sh --watch                   # live view
+```
+
+The daemon reads `REGISTRY.md` and launches a headless worker per actionable
+plan — spec on opus, implement and verify on sonnet, test on haiku. **Routing is
+pure bash; the orchestrator never calls a model.** Only workers cost tokens.
+
+When a worker hits something a machine shouldn't decide — approving a spec, an
+acceptance criterion that needs human eyes, a failed push — it opens a **gate**
+and exits cleanly instead of guessing. `/wf-attend` walks that queue.
+
+Ships **disabled** (`orchestrator.enabled: false`): workers run with
+`--dangerously-skip-permissions`, so enabling it is a deliberate decision. Caps
+on concurrency, per-plan attempts, and hourly spawns are the guardrails.
+
+Full design: [`docs/orchestrator.md`](docs/orchestrator.md).
+
+### Driving it from another project
+
+Each installed client gets a generated `WORKFLOW.md` at its root describing the
+entry points for an agent arriving cold. The contract is the exit code:
+
+| Code | Meaning |
+|-|-|
+| 0 | Reached the target state |
+| 20 | Blocked on a human — gate details in `--json`. **Never auto-retry** |
+| 30 | Worker ran, state unchanged |
+| 1 | Error |
+
+## Multi-Terminal Workflow (manual mode)
 
 ```
 T1: Intake (sonnet)                T2: Planner (opus)

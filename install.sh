@@ -194,6 +194,16 @@ for pattern in ".claude/verify-*.log" ".claude/verify-*.pid"; do
     fi
 done
 
+# Orchestrator runtime dirs — gates, worker logs, events.log, locks.
+# All runtime state, none of it belongs in git.
+mkdir -p "$TARGET_DIR/.claude/orchestrator/gates" \
+         "$TARGET_DIR/.claude/orchestrator/logs" \
+         "$TARGET_DIR/.claude/orchestrator/attempts"
+if ! grep -qF ".claude/orchestrator/" "$GITIGNORE" 2>/dev/null; then
+    echo ".claude/orchestrator/" >> "$GITIGNORE"
+fi
+echo -e "${GREEN}  Created .claude/orchestrator/ (gitignored)${NC}"
+
 # Install post-commit hook
 HOOK="$TARGET_DIR/.git/hooks/post-commit"
 if [ ! -f "$HOOK" ]; then
@@ -262,6 +272,16 @@ done
 WORKFLOW_VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 echo "$WORKFLOW_VERSION" > "$TARGET_DIR/.claude/workflow-version"
 echo -e "${GREEN}  Stamped workflow version $WORKFLOW_VERSION → .claude/workflow-version${NC}"
+
+# WORKFLOW.md at the project root — the entry-point contract for anyone (or
+# anything) that lands in this repo without prior context: how work enters the
+# pipeline, which hooks fire automatically, and the wf-orchestrate.sh exit codes
+# an external process needs in order to drive a plan.
+# Regenerated on every install so it can't drift from the installed version.
+sed -e "s|{{project_slug}}|$PROJECT_SLUG|g" \
+    -e "s|{{workflow_version}}|$WORKFLOW_VERSION|g" \
+    "$SCRIPT_DIR/templates/WORKFLOW.md" > "$TARGET_DIR/WORKFLOW.md"
+echo -e "${GREEN}  Installed WORKFLOW.md (project-root entry point)${NC}"
 
 # ── Propagate to feature worktrees ───────────────────────────────────────────
 # Resolve a worktree's plan WF stamp → script_folder using the same algorithm

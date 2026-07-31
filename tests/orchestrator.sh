@@ -515,6 +515,30 @@ assert_eq "wf-attend forbids deciding for the user" "true" \
 assert_eq "wf-orchestrate refuses to self-enable" "true" \
   "$(grep -qi 'do \*\*not\*\* flip it to `true`' "$LIB_ROOT/skills/wf-orchestrate/SKILL.md" && echo true || echo false)"
 
+section "Deployed entry-point contract"
+
+WF_TMPL="$LIB_ROOT/templates/WORKFLOW.md"
+assert_ok "templates/WORKFLOW.md exists" test -f "$WF_TMPL"
+assert_eq "install.sh generates it into the client root" "true" \
+  "$(grep -q 'templates/WORKFLOW.md" > "$TARGET_DIR/WORKFLOW.md"' "$LIB_ROOT/install.sh" && echo true || echo false)"
+assert_eq "install.sh substitutes both placeholders" "true" \
+  "$(grep -q '{{workflow_version}}' "$LIB_ROOT/install.sh" && grep -q '{{project_slug}}' "$LIB_ROOT/install.sh" && echo true || echo false)"
+
+# An external agent reads this file to learn how to drive the pipeline; every
+# exit code must be documented or the contract is unusable.
+for code in '`0`' '`20`' '`30`' '`1`'; do
+  assert_eq "WORKFLOW.md documents exit $code" "true" \
+    "$(grep -qF "| $code |" "$WF_TMPL" && echo true || echo false)"
+done
+assert_eq "WORKFLOW.md warns against retrying on 20" "true" \
+  "$(grep -qi 'do not retry' "$WF_TMPL" && echo true || echo false)"
+assert_eq "WORKFLOW.md lists the git hooks" "true" \
+  "$(grep -q 'post-commit' "$WF_TMPL" && echo true || echo false)"
+assert_eq "WORKFLOW.md tells callers to use wf-exec.sh" "true" \
+  "$(grep -q 'scripts/wf-exec.sh' "$WF_TMPL" && echo true || echo false)"
+assert_eq "install.sh gitignores orchestrator runtime state" "true" \
+  "$(grep -q '.claude/orchestrator/' "$LIB_ROOT/install.sh" && echo true || echo false)"
+
 section "No BSD-only in-place sed"
 
 # `sed -i ''` is macOS-only; it fails outright on GNU sed, so any of these

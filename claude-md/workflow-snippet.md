@@ -1,3 +1,25 @@
+> **`WORKFLOW.md` in the project root is the entry-point contract** — how work
+> enters the pipeline, which git hooks fire automatically, and the
+> `wf-orchestrate.sh` exit codes an external process needs to drive a plan.
+> Read it before automating anything against this repo.
+
+## Running the pipeline from one terminal
+
+The orchestrator dispatches unattended workers by REGISTRY state, so the four
+terminal roles below become optional rather than mandatory:
+
+```bash
+scripts/wf-exec.sh wf-orchestrate.sh --sweep --dry-run   # preview — always do this first
+scripts/wf-exec.sh wf-orchestrate.sh --daemon            # continuous dispatch
+scripts/wf-exec.sh wf-orchestrate.sh BUG-094             # drive one item end to end
+```
+
+`/wf-board` shows what's in flight. `/wf-attend` drains the queue of decisions
+the orchestrator refused to make on its own (spec approval, manual acceptance
+criteria, deploys). It ships **disabled** — workers run with
+`--dangerously-skip-permissions`, so enabling it is a deliberate human decision
+made in `claude-workflow.yml`.
+
 ## Workflow Setup
 
 If `claude-workflow.yml` exists in the project root but has blank values, detect them from the project before using any workflow skill:

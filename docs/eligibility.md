@@ -3,6 +3,8 @@
 Canonical reference for what makes an artifact eligible at each workflow stage.
 All eligibility is determined by `plans/REGISTRY.md` state. Scripts in `scripts/wf-list-*.sh` implement these rules.
 
+**The orchestrator does not reimplement any of this.** `wf-orchestrate.sh` parses the same list scripts a human terminal does, then applies its own *additional* skip rules on top — see [orchestrator.md](orchestrator.md#skip-rules). An artifact eligible here may still not be dispatched, because a gate is open on it, its role is at `max_concurrent`, it's over its attempt budget, or the hourly spawn budget is spent. Eligibility and dispatchability are different questions; this file only answers the first.
+
 ---
 
 ## wf-spec (T2 — Planner)
