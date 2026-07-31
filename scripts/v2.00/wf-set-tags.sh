@@ -12,6 +12,9 @@
 
 set -euo pipefail
 
+# shellcheck source=wf-lock.sh
+source "$(dirname "$0")/wf-lock.sh"
+
 REGISTRY="plans/REGISTRY.md"
 ALLOWED_TAGS="security arcade admin lessons ux infra e2e bugfix"
 
@@ -49,6 +52,9 @@ if [ "$tags" != "—" ]; then
   done
 fi
 
+# Read-modify-write from here down.
+wf_lock_acquire registry
+
 # The row has 9 pipes (10 fields including leading empty).
 # We need to replace field 9 (Tags). If the row only has 8 fields (v4 format),
 # we need to append the Tags and Deps columns.
@@ -58,14 +64,19 @@ pipe_count=$(echo "$row" | tr -cd '|' | wc -c | xargs)
 if [ "$pipe_count" -lt 10 ]; then
   # v4 row — append Tags and Deps columns
   # Current: | ... | WF |  →  | ... | WF | Tags | Deps |
-  sed -i '' "/| $plan_id |/s#|[[:space:]]*\$# | $tags | — |#" "$REGISTRY"
-else
-  # v5 row — update Tags column in place
-  # Replace field 9 using awk
-  awk -F'|' -v id="$plan_id" -v newtags=" $tags " '
-    $2 ~ id { $9 = newtags }
+  awk -F'|' -v id="$plan_id" -v tags="$tags" '
+    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    trim($2) == id { sub(/[ \t]*$/, "", $0); print $0 " " tags " | — |"; next }
     { print }
-  ' OFS='|' "$REGISTRY" > "$REGISTRY.tmp" && mv "$REGISTRY.tmp" "$REGISTRY"
+  ' "$REGISTRY" > "$REGISTRY.tmp" && mv "$REGISTRY.tmp" "$REGISTRY"
+else
+  # v5 row — update the Tags column ($9) in place.
+  # Exact ID match: `$2 ~ id` also matches PLN-041 when asked for PLN-04.
+  awk -F'|' -v OFS='|' -v id="$plan_id" -v newtags=" $tags " '
+    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    trim($2) == id { $9 = newtags }
+    { print }
+  ' "$REGISTRY" > "$REGISTRY.tmp" && mv "$REGISTRY.tmp" "$REGISTRY"
 fi
 
 echo "$plan_id: tags → $tags"

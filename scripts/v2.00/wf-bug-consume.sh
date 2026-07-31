@@ -34,8 +34,12 @@ bug_slug=$(basename "$bug_dir")
 
 # Update bug.md
 if [ -f "$bug_dir/bug.md" ]; then
-  sed -i '' 's/Status:\*\* Open/Status:** Triaged/' "$bug_dir/bug.md"
-  sed -i '' "s|Plan:\*\* .*|Plan:** $plan_id|" "$bug_dir/bug.md"
+  # awk into a tempfile — `sed -i ''` is macOS-only
+  awk -v pid="$plan_id" '
+    { sub(/Status:\*\* Open/, "Status:** Triaged")
+      sub(/Plan:\*\* .*/, "Plan:** " pid)
+      print }
+  ' "$bug_dir/bug.md" > "$bug_dir/bug.md.tmp" && mv "$bug_dir/bug.md.tmp" "$bug_dir/bug.md"
 fi
 
 # Move to triaged

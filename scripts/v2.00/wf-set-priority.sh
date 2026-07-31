@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+# shellcheck source=wf-lock.sh
+source "$(dirname "$0")/wf-lock.sh"
+
 REGISTRY="plans/REGISTRY.md"
 
 raw_id="${1:-}"
@@ -25,13 +28,20 @@ fi
 
 [ -f "$REGISTRY" ] || { echo "Error: $REGISTRY not found" >&2; exit 1; }
 
+wf_lock_acquire registry
+
 if ! grep -q "^| $plan_id |" "$REGISTRY"; then
   echo "Error: $plan_id not found in registry" >&2
   exit 1
 fi
 
-# Replace the priority column (4th column: | id | slug | state | <priority> | branch | date |)
-sed -i '' "/^| $plan_id |/s#\(| $plan_id |[^|]*|[^|]*|\)[^|]*|#\1 $priority |#" "$REGISTRY"
+# Replace the Priority column ($5). Exact ID match on $2 — a `~` regex match
+# would also hit PLN-041 when asked for PLN-04.
+awk -F'|' -v OFS='|' -v id="$plan_id" -v pri="$priority" '
+  function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+  trim($2) == id { $5 = " " pri " " }
+  { print }
+' "$REGISTRY" > "$REGISTRY.tmp" && mv "$REGISTRY.tmp" "$REGISTRY"
 
 if grep -q "^| $plan_id |.*| $priority |" "$REGISTRY"; then
   echo "$plan_id: priority → $priority"

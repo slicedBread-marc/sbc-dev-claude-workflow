@@ -35,7 +35,9 @@ today=$(date +%Y-%m-%d)
 
 # Update bug.md
 if [ -f "$bug_dir/bug.md" ]; then
-  sed -i '' 's/Status:\*\* Triaged/Status:** Closed/' "$bug_dir/bug.md"
+  # awk into a tempfile — `sed -i ''` is macOS-only
+  awk '{ sub(/Status:\*\* Triaged/, "Status:** Closed"); print }' \
+    "$bug_dir/bug.md" > "$bug_dir/bug.md.tmp" && mv "$bug_dir/bug.md.tmp" "$bug_dir/bug.md"
   # Add closed date after Status line
   awk -v line="> **Closed:** $today" '
     { print }

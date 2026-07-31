@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+# shellcheck source=wf-lock.sh
+source "$(dirname "$0")/wf-lock.sh"
+
 raw_id="${1:-}"
 new_goal="${2:-}"
 trigger="${3:-}"
@@ -30,6 +33,9 @@ slug=$(echo "$row" | awk -F'|' '{print $3}' | xargs)
 plan_dir="plans/${plan_id}-${slug}"
 plan_file="$plan_dir/plan.md"
 [ -f "$plan_file" ] || { echo "Error: $plan_file not found" >&2; exit 1; }
+
+# Plan-scoped, not the global registry lock — this only rewrites plan.md.
+wf_lock_acquire "plan-$plan_id"
 
 # Read current goal (first non-empty line after ## Goal)
 current_goal=$(grep -A 1 "^## Goal" "$plan_file" | tail -1 | sed 's/^[[:space:]]*//')

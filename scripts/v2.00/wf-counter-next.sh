@@ -13,10 +13,16 @@
 
 set -euo pipefail
 
+# shellcheck source=wf-lock.sh
+source "$(dirname "$0")/wf-lock.sh"
+
 REGISTRY="plans/REGISTRY.md"
 prefix="${1:-}"
 
 [ -f "$REGISTRY" ] || { echo "Error: $REGISTRY not found" >&2; exit 1; }
+
+# Read-then-write: without the lock two concurrent callers hand out the same ID.
+wf_lock_acquire registry
 
 # Extract current counter
 current=$(grep -oE 'Counter: [0-9]+' "$REGISTRY" | grep -oE '[0-9]+')
@@ -27,8 +33,10 @@ fi
 
 next=$((current + 1))
 
-# Update counter in place
-sed -i '' "s/<!-- Counter: $current -->/<!-- Counter: $next -->/" "$REGISTRY"
+# Update counter (awk into a tempfile — `sed -i ''` is macOS-only)
+awk -v cur="$current" -v nxt="$next" '
+  { sub("<!-- Counter: " cur " -->", "<!-- Counter: " nxt " -->"); print }
+' "$REGISTRY" > "$REGISTRY.tmp" && mv "$REGISTRY.tmp" "$REGISTRY"
 
 # Output the ID
 if [ -n "$prefix" ]; then

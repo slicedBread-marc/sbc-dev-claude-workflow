@@ -4,8 +4,11 @@
 # If branch is provided, updates the Branch column too.
 # If branch is "-", clears the Branch column to "—".
 #
-# --commit "msg"   Atomically: acquire lock → update → git add → git commit → release lock.
+# --commit "msg"   Atomically: update → git add → git commit, all under the lock.
 # --add file ...   Extra files to stage (in addition to REGISTRY.md). Only with --commit.
+#
+# The `registry` lock is held for the whole run, not just for --commit — any
+# read-modify-write of REGISTRY.md races once more than one worker is live.
 #
 # Examples:
 #   wf-registry-update.sh PLN-004 ready active feature/PLN-004-slug
@@ -18,9 +21,10 @@
 
 set -euo pipefail
 
+# shellcheck source=wf-lock.sh
+source "$(dirname "$0")/wf-lock.sh"
+
 REGISTRY="plans/REGISTRY.md"
-LOCKDIR="${TMPDIR:-/tmp}/wf-registry.lock"
-LOCK_TIMEOUT=30
 
 # --- Parse arguments ---
 raw_id="${1:-}"
@@ -70,39 +74,8 @@ fi
 
 today=$(date +%Y-%m-%d)
 
-# --- Lockfile helpers (mkdir is atomic on POSIX) ---
-acquire_lock() {
-  local elapsed=0
-  while ! mkdir "$LOCKDIR" 2>/dev/null; do
-    # Check for stale lock (older than 60s)
-    if [ -f "$LOCKDIR/pid" ]; then
-      local lock_pid
-      lock_pid=$(cat "$LOCKDIR/pid" 2>/dev/null || echo "")
-      if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
-        echo "registry-lock: removing stale lock (PID $lock_pid dead)" >&2
-        rm -rf "$LOCKDIR"
-        continue
-      fi
-    fi
-    if [ "$elapsed" -ge "$LOCK_TIMEOUT" ]; then
-      echo "Error: could not acquire registry lock after ${LOCK_TIMEOUT}s" >&2
-      exit 1
-    fi
-    sleep 1
-    elapsed=$((elapsed + 1))
-  done
-  echo $$ > "$LOCKDIR/pid"
-  trap release_lock EXIT
-}
-
-release_lock() {
-  rm -rf "$LOCKDIR"
-}
-
-# --- Main ---
-if [ -n "$commit_msg" ]; then
-  acquire_lock
-fi
+# --- Everything below mutates the registry: take the lock first ---
+wf_lock_acquire registry
 
 # Verify the plan exists in the expected state
 if ! grep -q "^| $plan_id |.*| $from_state |" "$REGISTRY"; then
@@ -110,18 +83,21 @@ if ! grep -q "^| $plan_id |.*| $from_state |" "$REGISTRY"; then
   exit 1
 fi
 
-if [ -n "$branch" ]; then
-  if [ "$branch" = "-" ]; then
-    # Clear branch to em-dash — preserve priority column (col 4)
-    sed -i '' "/^| $plan_id |/s#| $from_state |\([^|]*\)|[^|]*|[^|]*|#| $to_state |\1| — | $today |#" "$REGISTRY"
-  else
-    # Update branch — preserve priority column (col 4)
-    sed -i '' "/^| $plan_id |/s#| $from_state |\([^|]*\)|[^|]*|[^|]*|#| $to_state |\1| $branch | $today |#" "$REGISTRY"
-  fi
-else
-  # Update state and date only — preserve priority (col 4) and branch (col 5)
-  sed -i '' "/^| $plan_id |/s#| $from_state |\([^|]*\)|\([^|]*\)|[^|]*|#| $to_state |\1|\2| $today |#" "$REGISTRY"
-fi
+# Rewrite the row by column index rather than by regex surgery.
+#   | ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps |
+#     $2    $3     $4       $5        $6       $7      $8    $9    $10
+# awk into a tempfile — `sed -i ''` is macOS-only and breaks anywhere else.
+awk -F'|' -v OFS='|' \
+    -v id="$plan_id" -v to="$to_state" -v br="$branch" -v today="$today" '
+  function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+  trim($2) == id {
+    $4 = " " to " "
+    if (br == "-")      $6 = " — "
+    else if (br != "")  $6 = " " br " "
+    $7 = " " today " "
+  }
+  { print }
+' "$REGISTRY" > "$REGISTRY.tmp" && mv "$REGISTRY.tmp" "$REGISTRY"
 
 # Verify the update worked
 if grep -q "^| $plan_id |.*| $to_state |" "$REGISTRY"; then
@@ -145,7 +121,7 @@ if [ "$to_state" = "active" ]; then
   fi
 fi
 
-# --- Atomic commit (under lock) ---
+# --- Atomic commit (still under the lock) ---
 if [ -n "$commit_msg" ]; then
   for f in "${add_files[@]+"${add_files[@]}"}"; do
     git add "$f"

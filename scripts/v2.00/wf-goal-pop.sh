@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+# shellcheck source=wf-lock.sh
+source "$(dirname "$0")/wf-lock.sh"
+
 raw_id="${1:-}"
 
 plan_id=$(echo "$raw_id" | grep -oE 'PLN-[0-9]+')
@@ -28,6 +31,10 @@ slug=$(echo "$row" | awk -F'|' '{print $3}' | xargs)
 plan_dir="plans/${plan_id}-${slug}"
 plan_file="$plan_dir/plan.md"
 [ -f "$plan_file" ] || { echo "Error: $plan_file not found" >&2; exit 1; }
+
+# Plan-scoped, not the global registry lock — this only rewrites plan.md, so
+# two workers on different plans need not wait on each other.
+wf_lock_acquire "plan-$plan_id"
 
 # Find the most recent unresolved row (Resolution = —)
 # Goal History rows: | Date | Previous Goal | Trigger | — |
@@ -49,12 +56,18 @@ fi
 
 today=$(date +%Y-%m-%d)
 
-# Mark the history row as resolved
-sed -i '' "${line_num}s#| — |[[:space:]]*\$#| Resolved $today |#" "$plan_file"
+# Mark the history row as resolved (awk into a tempfile — `sed -i ''` is macOS-only)
+awk -v n="$line_num" -v today="$today" '
+  NR == n { sub(/\|[ \t]*—[ \t]*\|[ \t]*$/, "| Resolved " today " |"); }
+  { print }
+' "$plan_file" > "$plan_file.tmp" && mv "$plan_file.tmp" "$plan_file"
 
 # Replace the current goal line with the restored goal
 goal_line_num=$(grep -n "^## Goal" "$plan_file" | head -1 | cut -d: -f1)
 content_line=$((goal_line_num + 1))
-sed -i '' "${content_line}s#.*#$previous_goal#" "$plan_file"
+awk -v n="$content_line" -v goal="$previous_goal" '
+  NR == n { print goal; next }
+  { print }
+' "$plan_file" > "$plan_file.tmp" && mv "$plan_file.tmp" "$plan_file"
 
 echo "Goal restored: '$previous_goal' (resolved $(date +%Y-%m-%d))"
