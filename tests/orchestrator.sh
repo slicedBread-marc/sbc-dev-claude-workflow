@@ -476,6 +476,45 @@ echo "999999" > "$ORCH/logs/PLN-036-dup-implement.pid"  # dead PID
 rc=0; "$SCRIPT_DIR/wf-spawn.sh" implement PLN-036-dup --dry-run >/dev/null 2>&1 || rc=$?
 assert_eq "a dead pidfile does not block a respawn" "0" "$rc"
 
+section "Board"
+
+"$SCRIPT_DIR/wf-gate-open.sh" PLN-022-ccc manual-test "does /play feel smooth?" >/dev/null 2>&1
+echo $$ > "$ORCH/logs/PLN-021-bbb-verify.pid"
+board=$("$SCRIPT_DIR/wf-board.sh" --plain 2>/dev/null)
+
+assert_eq "board renders without error" "0" "$?"
+assert_eq "running worker shown with its role" "true" \
+  "$(printf '%s' "$board" | grep -q 'verify .*PLN-021-bbb' && echo true || echo false)"
+assert_eq "open gate shown" "true" \
+  "$(printf '%s' "$board" | grep -q 'manual-test .*PLN-022' && echo true || echo false)"
+assert_eq "pipeline counts rendered" "true" \
+  "$(printf '%s' "$board" | grep -qE '^  (draft|ready|verify|testing) +[0-9]+' && echo true || echo false)"
+assert_eq "recent events rendered" "true" \
+  "$(printf '%s' "$board" | grep -q 'RECENT' && echo true || echo false)"
+assert_eq "board spawns nothing" "0" \
+  "$(printf '%s' "$board" | grep -c 'would spawn' | xargs)"
+
+# A dead pidfile must not be reported as a running worker.
+echo "999999" > "$ORCH/logs/PLN-099-dead-implement.pid"
+board=$("$SCRIPT_DIR/wf-board.sh" --plain 2>/dev/null)
+assert_eq "dead worker is not listed as running" "false" \
+  "$(printf '%s' "$board" | grep -q 'PLN-099-dead' && echo true || echo false)"
+rm -f "$ORCH/logs/PLN-021-bbb-verify.pid" "$ORCH/logs/PLN-099-dead-implement.pid"
+"$SCRIPT_DIR/wf-gate-close.sh" PLN-022 done >/dev/null 2>&1
+
+section "Skills wired up"
+
+for s in wf-board wf-attend wf-orchestrate; do
+  assert_ok "$s/SKILL.md exists" test -f "$LIB_ROOT/skills/$s/SKILL.md"
+  assert_eq "$s declares frontmatter name" "true" \
+    "$(grep -q "^name: $s\$" "$LIB_ROOT/skills/$s/SKILL.md" && echo true || echo false)"
+done
+# The two rules that keep an autonomous pipeline honest.
+assert_eq "wf-attend forbids deciding for the user" "true" \
+  "$(grep -qi 'never approve, pass, or reject on the user' "$LIB_ROOT/skills/wf-attend/SKILL.md" && echo true || echo false)"
+assert_eq "wf-orchestrate refuses to self-enable" "true" \
+  "$(grep -qi 'do \*\*not\*\* flip it to `true`' "$LIB_ROOT/skills/wf-orchestrate/SKILL.md" && echo true || echo false)"
+
 section "No BSD-only in-place sed"
 
 # `sed -i ''` is macOS-only; it fails outright on GNU sed, so any of these
