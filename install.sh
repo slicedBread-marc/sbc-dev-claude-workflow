@@ -64,6 +64,15 @@ fi
 # Read source_dirs as comma-separated string
 SOURCE_DIRS=$(grep -A 10 "^source_dirs:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - //' | sed 's/"//g' | tr '\n' ', ' | sed 's/,$//')
 
+# Backfill the orchestrator block for clients installed before it existed.
+# Without this the orchestrator silently runs on hardcoded defaults and there
+# is nothing in the config to discover — including no visible `enabled` flag
+# to turn it on. Appended verbatim from config.example.yml, never overwritten.
+if ! grep -q "^orchestrator:" "$CONFIG_FILE" 2>/dev/null; then
+    awk '/^# ── Orchestrator ─/,0' "$SCRIPT_DIR/config.example.yml" >> "$CONFIG_FILE"
+    echo -e "${GREEN}  Added orchestrator: block to $CONFIG_FILE (disabled by default)${NC}"
+fi
+
 echo "Configuration:"
 echo "  Build:       $BUILD_CMD"
 echo "  Test:        $TEST_CMD"
