@@ -7,6 +7,31 @@ model: haiku
 
 # Implementer Role
 
+## Unattended mode
+
+If `WF_UNATTENDED=1` is set in your environment, you were launched by the orchestrator and **there is no human reading your output**. A question asked here hangs the pipeline.
+
+Rules, in force for the whole session:
+
+1. If your instructions name a plan, skip the entry menu entirely and work that plan. Determine its Type (`new` / `resume` / `fix`) from `wf-list-implementable.sh` output for that plan and follow the matching phase path.
+2. Prompts marked **[AUTO]** below resolve to their stated default.
+3. Prompts marked **[GATE]** must never be guessed. Park and exit cleanly:
+   ```bash
+   scripts/wf-exec.sh wf-gate-open.sh <PLN-ID> <gate-name> "<question>" --skill wf-implement
+   ```
+4. **Never guess.** Anything not in the table is a [GATE] with gate name `needs-input`.
+
+| Where | Prompt | Mode | Unattended behavior |
+|-|-|-|-|
+| Entry | Plan selection menu | [AUTO] | Use the plan named in your instructions |
+| Entry | Plan Type is `processing` | [AUTO] | Another session owns it — exit 0 without doing anything |
+| Migration notes | Pending MIGRATION-NOTES actions | **[GATE]** | `migration` — question is the notes text verbatim |
+| Phase 2 step 3 | Goal missing (`$PLAN_GOAL_MISSING`) | **[GATE]** | `goal-missing` — the goal is what the tester and PR description quote; do not invent it |
+| Phase 3 | Plan ambiguous mid-implementation | [AUTO] | Note it in `progress.md` and continue with the most conservative reading. Only [GATE] (`needs-input`) if you cannot proceed at all |
+| Any | Escalation to spec | [AUTO] | Follow the normal escalation path — write ESCALATED findings and set state to `draft`. This is a state transition, not a question |
+
+Exiting to `verify` is unchanged: it is a normal state transition, and the verify agent already runs unattended.
+
 ## IMMEDIATE STARTUP — run in parallel before reading further
 
 1. Run branch check (do not prompt the user):
@@ -121,6 +146,8 @@ Substitute the actual plan name for `PLN-NNN-<slug>`. If the command prints anyt
 
 Then STOP. Do NOT proceed to Phase 1 / Phase 2 until the user confirms the actions are complete.
 
+Under `WF_UNATTENDED=1` this is a **[GATE]** — open gate `migration` with the notes text as the question, then exit 0.
+
 If the command prints nothing, continue to Phase 1 / Phase 2 as normal.
 
 ---
@@ -129,7 +156,7 @@ If the command prints nothing, continue to Phase 1 / Phase 2 as normal.
 
 1. **Confirm you are on `develop`** — `scripts/wf-exec.sh wf-branch-check.sh develop true`
 2. **Read the plan** — `eval "$(scripts/wf-exec.sh wf-plan-info.sh PLN-NNN)"` then read `$PLAN_DIR/plan.md`
-3. **Goal check** — if `$PLAN_GOAL_MISSING` is `true`, ask the user: "This plan has no goal summary. Please provide a one-line goal describing what this achieves." Write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage the file, and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run `eval "$(scripts/wf-exec.sh wf-plan-info.sh $PLAN_NAME)"` to pick up the goal.
+3. **Goal check** — if `$PLAN_GOAL_MISSING` is `true`: under `WF_UNATTENDED=1` this is a **[GATE]** — open gate `goal-missing` and exit 0. Otherwise ask the user: "This plan has no goal summary. Please provide a one-line goal describing what this achieves." Write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage the file, and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run `eval "$(scripts/wf-exec.sh wf-plan-info.sh $PLAN_NAME)"` to pick up the goal.
 4. **Update REGISTRY.md** — lock the plan:
    ```bash
    scripts/wf-exec.sh wf-registry-update.sh PLN-NNN ready active feature/PLN-NNN-<slug>

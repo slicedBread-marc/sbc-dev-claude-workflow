@@ -210,6 +210,87 @@ assert_ok "priority on the short ID" "$SCRIPT_DIR/wf-set-priority.sh" PLN-1 urge
 assert_eq "PLN-1 got the priority" "urgent" "$(registry_col PLN-1 5)"
 assert_eq "PLN-11 priority NOT overwritten by the PLN-1 write" "—" "$(registry_col PLN-11 5)"
 
+section "Config reader"
+
+cat > claude-workflow.yml << 'YML'
+project_slug: "demo"
+orchestrator:
+  enabled: true
+  sweep_interval: 45
+  max_concurrent:
+    implement: 2
+    spec: 1
+  models:
+    spec: opus
+    implement: sonnet
+YML
+
+cfg() { bash -c "source '$SCRIPT_DIR/wf-orch-lib.sh'; wf_cfg $1 ${2:-}"; }
+assert_eq "top-level scalar"        "demo"   "$(cfg project_slug NONE)"
+assert_eq "nested scalar"           "45"     "$(cfg orchestrator.sweep_interval 60)"
+assert_eq "two levels deep"         "2"      "$(cfg orchestrator.max_concurrent.implement 1)"
+assert_eq "sibling subtree not confused" "opus" "$(cfg orchestrator.models.spec haiku)"
+assert_eq "missing key falls back"  "haiku"  "$(cfg orchestrator.models.test haiku)"
+assert_eq "missing branch falls back" "5"    "$(cfg orchestrator.nope.nope 5)"
+
+section "Gates"
+
+assert_fails "no gates open initially" "$SCRIPT_DIR/wf-list-gates.sh"
+
+# The question deliberately carries an apostrophe and a semicolon — gate files
+# are eval'd, and unquoted values are exactly what BUG-094 was.
+assert_ok "open a gate" "$SCRIPT_DIR/wf-gate-open.sh" PLN-010-alpha spec-approval \
+  "It's 8 steps; approve?" --context plans/PLN-010-alpha/plan.md --skill wf-spec
+assert_ok "probe finds the open gate" "$SCRIPT_DIR/wf-list-gates.sh" PLN-010
+assert_fails "probe misses an ungated plan" "$SCRIPT_DIR/wf-list-gates.sh" PLN-011
+
+gate_row=$("$SCRIPT_DIR/wf-list-gates.sh" PLN-010 2>/dev/null)
+assert_eq "gate name in probe output" "spec-approval" "$(printf '%s' "$gate_row" | cut -f2)"
+assert_eq "question survives quotes and semicolons" "It's 8 steps; approve?" \
+  "$(printf '%s' "$gate_row" | cut -f4)"
+assert_eq "context recorded" "plans/PLN-010-alpha/plan.md" "$(printf '%s' "$gate_row" | cut -f5)"
+
+# Re-opening the same gate must not reset queue position.
+opened_first=$(printf '%s' "$gate_row" | cut -f3)
+sleep 1
+"$SCRIPT_DIR/wf-gate-open.sh" PLN-010 spec-approval "different wording" >/dev/null 2>&1
+opened_again=$("$SCRIPT_DIR/wf-list-gates.sh" PLN-010 2>/dev/null | cut -f3)
+assert_eq "re-opening the same gate keeps the original timestamp" "$opened_first" "$opened_again"
+
+# Queue is FIFO by open time.
+"$SCRIPT_DIR/wf-gate-open.sh" PLN-011-beta manual-test "does /play feel smooth?" >/dev/null 2>&1
+assert_eq "queue is oldest-first" "PLN-010" "$("$SCRIPT_DIR/wf-list-gates.sh" 2>/dev/null | head -1 | cut -f1)"
+assert_eq "both gates listed" "2" "$("$SCRIPT_DIR/wf-list-gates.sh" 2>/dev/null | wc -l | xargs)"
+
+assert_ok "close a gate" "$SCRIPT_DIR/wf-gate-close.sh" PLN-010 approved
+assert_fails "closed gate no longer probes open" "$SCRIPT_DIR/wf-list-gates.sh" PLN-010
+assert_ok "closing an already-closed gate is a no-op" "$SCRIPT_DIR/wf-gate-close.sh" PLN-010
+assert_fails "a bad artifact id is rejected" "$SCRIPT_DIR/wf-gate-open.sh" NOPE-1 x "y"
+
+section "Events"
+
+log_for() { "$SCRIPT_DIR/wf-event.sh" --for "$1" 2>/dev/null; }
+assert_eq "gate-open logged" "1" "$(log_for PLN-010 | awk -F'\t' '$2 == "gate-open"' | wc -l | xargs)"
+assert_eq "gate-close logged" "1" "$(log_for PLN-010 | awk -F'\t' '$2 == "gate-close"' | wc -l | xargs)"
+assert_eq "--for filters by artifact" "1" "$(log_for PLN-011 | wc -l | xargs)"
+"$SCRIPT_DIR/wf-event.sh" spawn PLN-011 "implement (sonnet) pid 999" >/dev/null
+assert_eq "arbitrary events append" "2" "$(log_for PLN-011 | wc -l | xargs)"
+
+section "Skill unattended contracts"
+
+SKILLS="$LIB_ROOT/skills"
+for s in wf-spec wf-implement wf-test; do
+  assert_eq "$s declares an Unattended mode section" "1" \
+    "$(grep -c '^## Unattended mode' "$SKILLS/$s/SKILL.md" | xargs)"
+  assert_eq "$s tells the worker to open a gate" "true" \
+    "$(grep -q 'wf-gate-open.sh' "$SKILLS/$s/SKILL.md" && echo true || echo false)"
+  assert_eq "$s forbids guessing" "true" \
+    "$(grep -qi 'never guess' "$SKILLS/$s/SKILL.md" && echo true || echo false)"
+done
+# The one gate that must never become [AUTO].
+assert_eq "wf-spec keeps approval as a hard gate" "true" \
+  "$(grep -q 'spec-approval' "$SKILLS/wf-spec/SKILL.md" && echo true || echo false)"
+
 section "No BSD-only in-place sed"
 
 # `sed -i ''` is macOS-only; it fails outright on GNU sed, so any of these

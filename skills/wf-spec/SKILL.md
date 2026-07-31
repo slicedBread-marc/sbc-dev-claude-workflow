@@ -9,6 +9,32 @@ model: haiku
 
 You are in **spec mode**. Your job is to convert decided briefs into precise, step-by-step implementation plans that another Claude session can execute without judgment calls.
 
+## Unattended mode
+
+If `WF_UNATTENDED=1` is set in your environment, you were launched by the orchestrator and **there is no human reading your output**. A question asked here hangs the pipeline.
+
+Rules, in force for the whole session:
+
+1. If your instructions name an artifact (`PLN-NNN`, `BUG-NNN`, `BRF-NNN`), skip the selection menu entirely and work that artifact.
+2. Prompts marked **[AUTO]** below resolve to their stated default. Take it and move on.
+3. Prompts marked **[GATE]** below must never be guessed. Park the work instead:
+   ```bash
+   scripts/wf-exec.sh wf-gate-open.sh <ID> <gate-name> "<question>" --context <path> --skill wf-spec
+   ```
+   Then **exit cleanly** without changing REGISTRY state. The dispatcher skips gated artifacts; `/wf-attend` will bring a human to it.
+4. **Never guess.** If you are about to ask something that isn't in the table, treat it as a [GATE] — use gate name `needs-input`.
+
+| Step | Prompt | Mode | Unattended behavior |
+|-|-|-|-|
+| Entry | Work selection menu | [AUTO] | Use the artifact named in your instructions |
+| 1 | Deferred criteria to include | [AUTO] | Include none — do not widen scope unattended |
+| 4b | Goal confirmation | [AUTO] | Accept your own draft if it is concrete and specific. If you cannot write a concrete goal from the source artifact, [GATE] `goal-missing` |
+| 4c | Tag assignment | [AUTO] | Assign from the allowlist based on slug, goal, and touched paths |
+| 7c | Auto-test promotion (y/n) | [AUTO] | **Yes** — promote. Maximizing automation is the standing direction; this overrides "never auto-promote" in step 7c |
+| Review gate | Plan approval | **[GATE]** | `spec-approval` — a human decides what gets built. Question: the goal plus step/test counts. Context: the plan.md path |
+
+The review gate is the hard stop. A spec may be written unattended; it may not be **approved** unattended.
+
 ## IMMEDIATE STARTUP — run in parallel before reading further
 
 1. Run branch check (do not prompt the user):
@@ -149,7 +175,7 @@ If the user picks a bug BUG-NNN:
     Consider classifying this as automated (Tests table + Build & Tests checklist)
     instead of Human Test Criteria. Promote? (y/n)
     ```
-    If yes, add the test to the Tests table (step 7) and skip adding it under Human Test Criteria. If no, proceed normally. **Never auto-promote — always ask.** If the log doesn't exist or has no relevant matches, skip this step silently.
+    If yes, add the test to the Tests table (step 7) and skip adding it under Human Test Criteria. If no, proceed normally. **Never auto-promote — always ask** (except under `WF_UNATTENDED=1`, where this is an [AUTO] yes — see [Unattended mode](#unattended-mode)). If the log doesn't exist or has no relevant matches, skip this step silently.
 8. **Fill verification checklist** — the verify agent needs to know exactly what to check. For `### Human Test Criteria`, split into two subsections:
    - `#### Chrome-Assisted` — objectively verifiable behavior (navigations, clicks, form submissions, error states, persistence). Each criterion starts with a route: `- [ ] /login — redirects to /dashboard after valid credentials`
    - `#### Manual` — subjective or visual checks that need human eyes (layout, animation, UX feel). Each criterion starts with a route: `- [ ] /play — animation feels smooth and natural`
@@ -186,6 +212,17 @@ Bad agent tasks (do these yourself):
 ---
 
 ## Exit (complex) — Review Gate
+
+**[GATE] under `WF_UNATTENDED=1`.** Commit the drafted plan (state stays `draft`), then park and exit:
+
+```bash
+git add plans/PLN-NNN-<slug>/ && git commit -m "spec(PLN-NNN-<slug>): draft plan — awaiting approval"
+scripts/wf-exec.sh wf-gate-open.sh PLN-NNN spec-approval \
+  "<goal> — N steps, N automated tests, N manual criteria. Approve?" \
+  --context plans/PLN-NNN-<slug>/plan.md --skill wf-spec
+```
+
+Do **not** run the review agent, do **not** write the registry row's state as `ready`, and do **not** proceed past this point. `/wf-attend` runs the review with a human present.
 
 When the user approves the plan (says "looks good", "approved", "ready", etc.):
 

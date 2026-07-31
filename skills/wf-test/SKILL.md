@@ -11,6 +11,42 @@ You are in **tester mode**. Your job is to guide a human through acceptance crit
 
 **You must NEVER edit source code directly.** This skill runs on haiku and is not authorized to make code changes. If you find issues, document them as findings and route back to the builder — never attempt fixes yourself.
 
+## Unattended mode
+
+If `WF_UNATTENDED=1` is set in your environment, you were launched by the orchestrator and **there is no human at the keyboard**. Nobody can look at a screen and tell you what they see.
+
+Your job changes shape: **clear everything that can be cleared without eyes, then park once with only what's left.** Do not gate on the first Manual criterion you encounter — that would send the plan back to a human for one item at a time.
+
+Order of work:
+
+1. If your instructions name a plan, skip the selection menu and work that plan.
+2. Run the automated suites and e2e scope as normal.
+3. Work every `#### Chrome-Assisted` criterion — these are scripted navigations and assertions, so run them and record PASS/FAIL yourself.
+4. For every criterion where the mode menu applies, take `[a]` (auto-test) whenever the criterion matches a recurring auto-testable shape. On auto-test FAIL, record it as a Candidate as normal — do **not** fall through to the manual flow.
+5. Only then, if any `#### Manual` criteria (or auto-test fallbacks) remain untested, **[GATE]** once with all of them listed:
+   ```bash
+   scripts/wf-exec.sh wf-gate-open.sh <PLN-ID> manual-test \
+     "N criteria need human eyes: <one-line list>" \
+     --context plans/<plan-name>/plan.md --skill wf-test
+   ```
+   Commit whatever results you recorded first, then exit 0. State stays `testing`.
+
+| Where | Prompt | Mode | Unattended behavior |
+|-|-|-|-|
+| Entry | Plan selection menu | [AUTO] | Use the plan named in your instructions |
+| Step 2 | Goal missing | **[GATE]** | `goal-missing` |
+| Step 7.2 | Mode menu | [AUTO] | `[a]` when the criterion matches a recurring shape, otherwise defer it to the `manual-test` gate |
+| Step 7.3 | "What do you see?" | [AUTO] | Chrome-Assisted: determine it yourself. `#### Manual`: defer to the gate |
+| Step 7.3 | FAIL classification | [AUTO] | Write the finding and route to spec as normal — that is a state transition, not a question |
+| Step 7.3 | Deferring a criterion | [AUTO] | Do not defer anything unattended; leave it for the gate |
+| Completion | "All criteria pass — proceed?" | [AUTO] | Proceed when every criterion is PASS on the current build |
+| Exit | `git push` failed | **[GATE]** | `merge-failed` — question is the git error verbatim |
+| Exit | `gh pr merge` failed | [AUTO] | Already routes to the builder on its own — follow that path, don't gate |
+
+**Never guess.** You have no eyes on the running app beyond what Chrome and the test suites report. If a criterion's outcome is not something you established from a test result, a Chrome observation, or a build log, it is **not** a PASS — defer it to the `manual-test` gate. Recording an unverified PASS is worse than recording nothing, because it ships. Anything you are about to ask that isn't in the table above is a [GATE] with gate name `needs-input`.
+
+Everything else (creating the PR, writing findings, routing back to the builder) is a normal state transition and proceeds without asking.
+
 The one exception: in [Auto-test mode](#auto-test-mode), a sonnet subagent is authorized to write and commit **test code only** (never production code). The subagent is explicitly instructed on this boundary.
 
 ## Entry (simple)
@@ -53,7 +89,7 @@ Tell the user: "Run `/model sonnet`, then pick a number."
 
 After user picks:
 1. `eval "$(scripts/wf-exec.sh wf-plan-info.sh PLN-NNN)"` to get plan details
-2. If `$PLAN_GOAL_MISSING` is `true`, ask the user: "This plan has no goal summary. Please provide a one-line goal." Then write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run the eval to pick up the goal.
+2. If `$PLAN_GOAL_MISSING` is `true`: under `WF_UNATTENDED=1` this is a **[GATE]** — open gate `goal-missing` and exit 0. Otherwise ask the user: "This plan has no goal summary. Please provide a one-line goal." Then write their answer as the first line under `## Goal` in `$PLAN_DIR/plan.md`, stage and commit: `git add $PLAN_DIR/plan.md && git commit -m "spec($PLAN_NAME): add missing goal"`. Re-run the eval to pick up the goal.
 3. `scripts/wf-exec.sh wf-claim.sh $PLAN_NAME`
 4. `cd feature-branches/$PLAN_NAME/`
 5. Continue to testing
@@ -372,6 +408,8 @@ Commit the log update as part of the normal test-exit commit (findings or comple
 
 ### Completion confirmation
 
+Under `WF_UNATTENDED=1` this is **[AUTO] `[c]`omplete** — when every criterion is PASS on the current build, proceed straight to the exit path.
+
 When all criteria show PASS on the current build, **do not proceed to the exit path automatically**. First prompt the user:
 
 ```
@@ -523,7 +561,7 @@ All steps below run from the **worktree** (`feature-branches/PLN-NNN-<slug>/`) u
    fi
    ```
 
-   Push to remote. If push fails, display the error and **stop** — ask the user to resolve manually.
+   Push to remote. If push fails, display the error and **stop** — ask the user to resolve manually. Under `WF_UNATTENDED=1` this is a **[GATE]** — open gate `merge-failed` with the error verbatim as the question, then exit 0.
    ```bash
    git push -u origin "$CURRENT_BRANCH"
    ```
