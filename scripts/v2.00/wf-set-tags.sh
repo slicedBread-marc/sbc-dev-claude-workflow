@@ -27,6 +27,11 @@ fi
 
 [ -f "$REGISTRY" ] || { echo "Error: $REGISTRY not found" >&2; exit 1; }
 
+# Normalize: strip all whitespace so the registry never holds "a, b" (comma-space).
+if [ "$tags" != "—" ]; then
+  tags=$(printf '%s' "$tags" | tr -d '[:space:]')
+fi
+
 if ! grep -q "| $plan_id |" "$REGISTRY"; then
   echo "Error: $plan_id not found in registry" >&2
   exit 1

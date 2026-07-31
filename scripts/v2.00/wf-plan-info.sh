@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # wf-plan-info.sh <plan-id-or-name>
 # Looks up a plan in REGISTRY.md and outputs key=value pairs.
-# Output (eval-friendly):
-#   PLAN_ID=PLN-004
-#   PLAN_SLUG=deployment-date-footer
-#   PLAN_STATE=testing
-#   PLAN_PRIORITY=—
-#   PLAN_BRANCH=feature/PLN-004-deployment-date-footer
-#   PLAN_UPDATED=2026-04-12
-#   PLAN_WF=2.00
-#   PLAN_DIR=plans/PLN-004-deployment-date-footer
-#   PLAN_NAME=PLN-004-deployment-date-footer
-#   PLAN_GOAL="Add deployment date to footer"
+# Output (eval-friendly — every value is single-quoted):
+#   PLAN_ID='PLN-004'
+#   PLAN_SLUG='deployment-date-footer'
+#   PLAN_STATE='testing'
+#   PLAN_PRIORITY='—'
+#   PLAN_BRANCH='feature/PLN-004-deployment-date-footer'
+#   PLAN_UPDATED='2026-04-12'
+#   PLAN_WF='2.00'
+#   PLAN_DIR='plans/PLN-004-deployment-date-footer'
+#   PLAN_NAME='PLN-004-deployment-date-footer'
+#   PLAN_GOAL='Add deployment date to footer'
 #
 # Registry row format (9 data columns, leading pipe makes awk field 1 empty):
 #   | ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps |
@@ -88,22 +88,26 @@ if [ "$deps" != "—" ] && [ -n "$deps" ]; then
   done
 fi
 
-echo "PLAN_ID=$id"
-echo "PLAN_SLUG=$slug"
-echo "PLAN_STATE=$state"
-echo "PLAN_PRIORITY=$priority"
-echo "PLAN_BRANCH=$branch"
-echo "PLAN_UPDATED=$updated"
-echo "PLAN_WF=$wf"
-echo "PLAN_TAGS=$tags"
-echo "PLAN_DEPS=$deps"
-echo "PLAN_BLOCKED=$blocked"
-echo "PLAN_BLOCKING=$blocking"
-echo "PLAN_DIR=$plan_dir"
-echo "PLAN_NAME=$plan_name"
-# Single-quote the goal to prevent eval breakage from semicolons, backticks, etc.
-escaped_goal=$(printf '%s' "$goal" | sed "s/'/'\\\\''/g")
-echo "PLAN_GOAL='$escaped_goal'"
+# Every value is single-quoted so eval survives spaces, semicolons, backticks, etc.
+# (a Tags value like "infra, hosting" word-splits under eval when emitted bare).
+emit() {
+  printf "%s='%s'\n" "$1" "$(printf '%s' "$2" | sed "s/'/'\\\\''/g")"
+}
+
+emit PLAN_ID "$id"
+emit PLAN_SLUG "$slug"
+emit PLAN_STATE "$state"
+emit PLAN_PRIORITY "$priority"
+emit PLAN_BRANCH "$branch"
+emit PLAN_UPDATED "$updated"
+emit PLAN_WF "$wf"
+emit PLAN_TAGS "$tags"
+emit PLAN_DEPS "$deps"
+emit PLAN_BLOCKED "$blocked"
+emit PLAN_BLOCKING "$blocking"
+emit PLAN_DIR "$plan_dir"
+emit PLAN_NAME "$plan_name"
+emit PLAN_GOAL "$goal"
 if [ -z "$goal" ]; then
   echo "PLAN_GOAL_MISSING=true"
 else

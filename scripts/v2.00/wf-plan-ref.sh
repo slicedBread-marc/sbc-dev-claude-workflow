@@ -39,6 +39,7 @@ fi
 
 plan_name=$(basename "$plan_dir")
 
-echo "PLAN_ID=$plan_id"
-echo "PLAN_DIR=$plan_dir"
-echo "PLAN_NAME=$plan_name"
+# Single-quoted so eval survives spaces or shell metacharacters in the plan slug.
+printf "PLAN_ID='%s'\n" "$plan_id"
+printf "PLAN_DIR='%s'\n" "$plan_dir"
+printf "PLAN_NAME='%s'\n" "$plan_name"
