@@ -291,6 +291,191 @@ done
 assert_eq "wf-spec keeps approval as a hard gate" "true" \
   "$(grep -q 'spec-approval' "$SKILLS/wf-spec/SKILL.md" && echo true || echo false)"
 
+section "Dispatcher — selection logic (dry run)"
+
+# Enable the orchestrator for the remaining sections.
+cat > claude-workflow.yml << 'YML'
+project_slug: "demo"
+orchestrator:
+  enabled: true
+  sweep_interval: 1
+  max_concurrent:
+    spec: 1
+    implement: 2
+    verify: 2
+    test: 1
+  models:
+    spec: opus
+    implement: sonnet
+    verify: sonnet
+    test: haiku
+  max_attempts_per_plan: 2
+  max_spawns_per_hour: 20
+YML
+
+ORCH="$(git rev-parse --show-toplevel)/.claude/orchestrator"
+rm -rf "$ORCH"; mkdir -p "$ORCH/gates" "$ORCH/logs" "$ORCH/attempts"
+
+# Clean slate: one plan per actionable state.
+cat > plans/REGISTRY.md << 'SEED'
+# Plan Registry
+
+| ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps |
+|-|-|-|-|-|-|-|-|-|
+
+<!-- Counter: 50 -->
+SEED
+for spec in "PLN-020 aaa ready" "PLN-021 bbb verify" "PLN-022 ccc testing" "PLN-023 ddd active"; do
+  # shellcheck disable=SC2086
+  set -- $spec
+  registry_add_row "$1" "$2" "$3"
+done
+
+orch() { "$SCRIPT_DIR/wf-orchestrate.sh" "$@"; }
+
+plan=$(orch --sweep --dry-run 2>/dev/null)
+assert_eq "verify plan selected"    "true" "$(printf '%s' "$plan" | grep -q 'verify PLN-021-bbb'    && echo true || echo false)"
+assert_eq "testing plan selected"   "true" "$(printf '%s' "$plan" | grep -q 'test PLN-022-ccc'      && echo true || echo false)"
+assert_eq "ready plan selected"     "true" "$(printf '%s' "$plan" | grep -q 'implement PLN-020-aaa' && echo true || echo false)"
+assert_eq "active plan selected"    "true" "$(printf '%s' "$plan" | grep -q 'implement PLN-023-ddd' && echo true || echo false)"
+# Furthest-along work is dispatched first so WIP does not pile up.
+assert_eq "verify dispatched before implement" "true" \
+  "$([ "$(printf '%s' "$plan" | grep -n 'verify PLN-021' | cut -d: -f1)" -lt \
+       "$(printf '%s' "$plan" | grep -n 'implement PLN-020' | cut -d: -f1)" ] && echo true || echo false)"
+
+# A gate must take the plan out of the running entirely.
+"$SCRIPT_DIR/wf-gate-open.sh" PLN-020 spec-approval "approve?" >/dev/null 2>&1
+plan=$(orch --sweep --dry-run 2>/dev/null)
+assert_eq "gated plan is skipped" "false" \
+  "$(printf '%s' "$plan" | grep -q 'implement PLN-020-aaa' && echo true || echo false)"
+assert_eq "ungated plans still dispatch" "true" \
+  "$(printf '%s' "$plan" | grep -q 'implement PLN-023-ddd' && echo true || echo false)"
+"$SCRIPT_DIR/wf-gate-close.sh" PLN-020 approved >/dev/null 2>&1
+
+# Unmet deps must block dispatch.
+registry_add_row PLN-024 eee ready
+"$SCRIPT_DIR/wf-set-deps.sh" PLN-024 PLN-023 >/dev/null 2>&1
+plan=$(orch --sweep --dry-run 2>/dev/null)
+assert_eq "dep-blocked plan is skipped" "false" \
+  "$(printf '%s' "$plan" | grep -q 'implement PLN-024-eee' && echo true || echo false)"
+
+# max_concurrent must cap a role. implement:2 with three eligible plans.
+registry_add_row PLN-025 fff ready
+"$SCRIPT_DIR/wf-set-deps.sh" PLN-024 — >/dev/null 2>&1
+plan=$(orch --sweep --dry-run 2>/dev/null)
+assert_eq "implement capped at max_concurrent 2" "2" \
+  "$(printf '%s' "$plan" | grep -c 'would spawn: implement' | xargs)"
+
+# Disabled by default is the safety posture that matters most.
+sed 's/enabled: true/enabled: false/' claude-workflow.yml > cfg.tmp && mv cfg.tmp claude-workflow.yml
+assert_fails "sweep refuses to run when disabled" orch --sweep
+assert_ok "--force overrides disabled" orch --sweep --dry-run --force
+sed 's/enabled: false/enabled: true/' claude-workflow.yml > cfg.tmp && mv cfg.tmp claude-workflow.yml
+
+section "Dispatcher — spawning (stub claude)"
+
+# A stub `claude` first on PATH: records its invocation and simulates the state
+# transition a real worker would make. Exercises the whole spawn path for zero
+# tokens. STUB_MODE picks the behavior being simulated.
+STUB_BIN="$TEST_DIR/stubbin"
+mkdir -p "$STUB_BIN"
+cat > "$STUB_BIN/claude" << STUB
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$TEST_DIR/stub-argv.log"
+printf 'role=%s artifact=%s unattended=%s\n' "\${WF_ROLE:-}" "\${WF_ARTIFACT:-}" "\${WF_UNATTENDED:-}" >> "$TEST_DIR/stub-env.log"
+S="$SCRIPT_DIR"
+id=\$(printf '%s' "\${WF_ARTIFACT:-}" | grep -oE '^(PLN|BUG|BRF)-[0-9]+')
+case "\${STUB_MODE:-advance}" in
+  advance)
+    case "\${WF_ROLE:-}" in
+      spec)      "\$S/wf-registry-update.sh" "\$id" draft ready   >/dev/null 2>&1 ;;
+      implement) st=\$("\$S/wf-plan-info.sh" "\$id" 2>/dev/null | grep "^PLAN_STATE=" | sed "s/PLAN_STATE='//;s/'\$//")
+                 "\$S/wf-registry-update.sh" "\$id" "\$st" verify >/dev/null 2>&1 ;;
+      verify)    "\$S/wf-registry-update.sh" "\$id" verify testing  >/dev/null 2>&1 ;;
+      test)      "\$S/wf-registry-update.sh" "\$id" testing complete >/dev/null 2>&1 ;;
+    esac
+    ;;
+  gate)  "\$S/wf-gate-open.sh" "\$id" manual-test "2 criteria need eyes" >/dev/null 2>&1 ;;
+  noop)  : ;;
+  fail)  exit 7 ;;
+esac
+exit 0
+STUB
+chmod +x "$STUB_BIN/claude"
+export PATH="$STUB_BIN:$PATH"
+
+assert_eq "stub claude is first on PATH" "$STUB_BIN/claude" "$(command -v claude)"
+
+# --- drive-one, happy path: ready → implement → verify → test → complete
+registry_add_row PLN-030 happy ready
+rc=0; orch PLN-030 >/dev/null 2>&1 || rc=$?
+assert_eq "drive-one exits 0 on completion" "0" "$rc"
+assert_eq "plan reached complete" "complete" "$(registry_col PLN-030 4)"
+assert_eq "workers ran unattended" "true" \
+  "$(grep -q 'unattended=1' "$TEST_DIR/stub-env.log" && echo true || echo false)"
+# Seeded at `ready`, so spec is correctly skipped: implement → verify → test.
+assert_eq "the three post-spec roles each ran once" "3" \
+  "$(grep -cE 'role=(implement|verify|test) artifact=PLN-030' "$TEST_DIR/stub-env.log" | xargs)"
+assert_eq "spec did not run for an already-ready plan" "0" \
+  "$(grep -cE 'role=spec artifact=PLN-030' "$TEST_DIR/stub-env.log" | xargs)"
+assert_eq "model tier passed through for implement" "true" \
+  "$(grep -q -- '--model sonnet' "$TEST_DIR/stub-argv.log" && echo true || echo false)"
+
+# --- drive-one, --until stops early
+registry_add_row PLN-031 early ready
+rc=0; orch PLN-031 --until verify >/dev/null 2>&1 || rc=$?
+assert_eq "--until halts at the requested state" "0" "$rc"
+assert_eq "state is the requested one" "verify" "$(registry_col PLN-031 4)"
+
+# --- drive-one, blocked on a human → exit 20
+registry_add_row PLN-032 gated testing
+rc=0; STUB_MODE=gate orch PLN-032 >/dev/null 2>&1 || rc=$?
+assert_eq "drive-one exits 20 when a gate opens" "20" "$rc"
+assert_ok "the gate is queued for /wf-attend" "$SCRIPT_DIR/wf-list-gates.sh" PLN-032
+
+json=$(STUB_MODE=gate orch PLN-032 --json 2>/dev/null || true)
+assert_eq "--json reports blocked-on-human" "true" \
+  "$(printf '%s' "$json" | grep -q '"result": "blocked-on-human"' && echo true || echo false)"
+assert_eq "--json names the gate" "true" \
+  "$(printf '%s' "$json" | grep -q '"name": "manual-test"' && echo true || echo false)"
+"$SCRIPT_DIR/wf-gate-close.sh" PLN-032 done >/dev/null 2>&1
+
+# --- drive-one, worker ran but changed nothing → exit 30
+registry_add_row PLN-033 stalled ready
+rc=0; STUB_MODE=noop orch PLN-033 >/dev/null 2>&1 || rc=$?
+assert_eq "drive-one exits 30 when nothing moved" "30" "$rc"
+
+# --- drive-one, worker failed → exit 1
+registry_add_row PLN-034 broken ready
+rc=0; STUB_MODE=fail orch PLN-034 >/dev/null 2>&1 || rc=$?
+assert_eq "drive-one exits 1 on worker failure" "1" "$rc"
+
+# --- attempt budget parks a thrashing plan instead of looping forever
+registry_add_row PLN-035 thrash ready
+rm -f "$ORCH/attempts/PLN-035".*
+STUB_MODE=noop orch PLN-035 >/dev/null 2>&1 || true
+STUB_MODE=noop orch PLN-035 >/dev/null 2>&1 || true
+# Mark urgent so the sweep evaluates it before implement hits max_concurrent —
+# otherwise the cap short-circuits the loop and this plan is never reached.
+"$SCRIPT_DIR/wf-set-priority.sh" PLN-035 urgent >/dev/null 2>&1
+plan=$(orch --sweep --dry-run 2>/dev/null || true)
+assert_eq "the parked plan is not offered for dispatch" "false" \
+  "$(printf '%s' "$plan" | grep -q 'implement PLN-035-thrash' && echo true || echo false)"
+assert_ok "plan over its attempt budget is parked as 'stuck'" \
+  "$SCRIPT_DIR/wf-list-gates.sh" PLN-035
+assert_eq "the gate names the reason" "stuck" \
+  "$("$SCRIPT_DIR/wf-list-gates.sh" PLN-035 2>/dev/null | cut -f2)"
+
+# --- one worker per artifact+role, however many callers ask
+registry_add_row PLN-036 dup ready
+echo $$ > "$ORCH/logs/PLN-036-dup-implement.pid"   # pretend a worker is live
+rc=0; "$SCRIPT_DIR/wf-spawn.sh" implement PLN-036-dup >/dev/null 2>&1 || rc=$?
+assert_eq "second spawn for a live worker is refused (rc 2)" "2" "$rc"
+rm -f "$ORCH/logs/PLN-036-dup-implement.pid"
+echo "999999" > "$ORCH/logs/PLN-036-dup-implement.pid"  # dead PID
+rc=0; "$SCRIPT_DIR/wf-spawn.sh" implement PLN-036-dup --dry-run >/dev/null 2>&1 || rc=$?
+assert_eq "a dead pidfile does not block a respawn" "0" "$rc"
+
 section "No BSD-only in-place sed"
 
 # `sed -i ''` is macOS-only; it fails outright on GNU sed, so any of these

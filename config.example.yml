@@ -124,3 +124,47 @@ autoTestGrowth:
   agentModel: sonnet
   logCandidatesOnFail: true
   logFile: plans/auto-test-log.md
+
+# ── Orchestrator ────────────────────────────────────────────────────────────
+# Dispatches unattended workers by REGISTRY state so the pipeline runs from one
+# terminal instead of four. Routing is deterministic bash — only the workers
+# cost tokens.
+#
+#   scripts/wf-exec.sh wf-orchestrate.sh --daemon        continuous
+#   scripts/wf-exec.sh wf-orchestrate.sh --sweep         one pass
+#   scripts/wf-exec.sh wf-orchestrate.sh PLN-097         drive one plan
+#   scripts/wf-exec.sh wf-orchestrate.sh --sweep --dry-run   see the plan first
+#
+# Genuine judgment calls (spec approval, `#### Manual` criteria, release/deploy)
+# never run unattended — they park as gates and wait for /wf-attend.
+orchestrator:
+  # OFF by default. Run --sweep --dry-run a few times before turning this on:
+  # workers run with --dangerously-skip-permissions.
+  enabled: false
+
+  # Seconds between daemon sweeps.
+  sweep_interval: 60
+
+  # Live workers allowed per role. implement > 1 means concurrent worktrees;
+  # keep spec at 1 so two specs can't race on the same brief.
+  max_concurrent:
+    spec: 1
+    implement: 2
+    verify: 2
+    test: 1
+
+  # Model tier per role — the whole point is that grunt work runs cheap.
+  # spec gets the expensive model because planning is where judgment lives.
+  models:
+    spec: opus
+    implement: sonnet
+    verify: sonnet
+    test: haiku
+
+  # Loop breaker. A plan bouncing active⇄verify this many times parks as a
+  # `stuck` gate instead of burning tokens forever.
+  max_attempts_per_plan: 3
+
+  # Hard ceiling on worker launches per hour, across all roles. The backstop
+  # for a runaway pipeline.
+  max_spawns_per_hour: 20
