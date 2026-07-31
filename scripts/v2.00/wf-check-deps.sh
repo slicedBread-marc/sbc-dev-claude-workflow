@@ -23,7 +23,7 @@ fi
 
 [ -f "$REGISTRY" ] || { echo "CLEAR"; exit 0; }
 
-row=$(grep "| $plan_id |" "$REGISTRY" | head -1 || true)
+row=$(grep "^| $plan_id |" "$REGISTRY" | head -1 || true)
 [ -n "$row" ] || { echo "CLEAR"; exit 0; }
 
 deps=$(echo "$row" | awk -F'|' '{print $10}' | xargs)
@@ -33,7 +33,7 @@ blocking=""
 IFS=',' read -ra dep_list <<< "$deps"
 for dep_id in "${dep_list[@]}"; do
   dep_id=$(echo "$dep_id" | xargs)
-  dep_state=$(grep "| $dep_id |" "$REGISTRY" 2>/dev/null | awk -F'|' '{print $4}' | xargs || true)
+  dep_state=$(grep "^| $dep_id |" "$REGISTRY" 2>/dev/null | awk -F'|' '{print $4}' | xargs || true)
   if [ "$dep_state" != "complete" ]; then
     [ -n "$blocking" ] && blocking="$blocking,$dep_id" || blocking="$dep_id"
   fi

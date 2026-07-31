@@ -24,7 +24,7 @@ fi
 
 [ -f "$REGISTRY" ] || { echo "Error: $REGISTRY not found" >&2; exit 1; }
 
-if ! grep -q "| $plan_id |" "$REGISTRY"; then
+if ! grep -q "^| $plan_id |" "$REGISTRY"; then
   echo "Error: $plan_id not found in registry" >&2
   exit 1
 fi
@@ -34,7 +34,7 @@ if [ "$deps" != "—" ]; then
   IFS=',' read -ra dep_list <<< "$deps"
   for dep in "${dep_list[@]}"; do
     dep=$(echo "$dep" | xargs)
-    if ! grep -q "| $dep |" "$REGISTRY"; then
+    if ! grep -q "^| $dep |" "$REGISTRY"; then
       echo "Error: dependency '$dep' not found in registry" >&2
       exit 1
     fi
@@ -42,7 +42,7 @@ if [ "$deps" != "—" ]; then
 fi
 
 # Check if row has v5 columns (10+ pipes) or v4 (8 pipes)
-row=$(grep "| $plan_id |" "$REGISTRY" | head -1)
+row=$(grep "^| $plan_id |" "$REGISTRY" | head -1)
 pipe_count=$(echo "$row" | tr -cd '|' | wc -c | xargs)
 
 if [ "$pipe_count" -lt 10 ]; then

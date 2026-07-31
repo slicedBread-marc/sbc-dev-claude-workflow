@@ -31,7 +31,7 @@ check_deps_blocked() {
   for dep_id in $deps_raw; do
     dep_id=$(echo "$dep_id" | xargs)
     local dep_state
-    dep_state=$(grep "| $dep_id |" "$REGISTRY" 2>/dev/null | awk -F'|' '{print $4}' | xargs || true)
+    dep_state=$(grep "^| $dep_id |" "$REGISTRY" 2>/dev/null | awk -F'|' '{print $4}' | xargs || true)
     if [ "$dep_state" != "complete" ]; then
       [ -n "$blocking" ] && blocking="$blocking,$dep_id" || blocking="$dep_id"
     fi
@@ -59,7 +59,7 @@ while IFS='|' read -r _ id slug state priority branch _rest; do
   plan_name="${id}-${slug}"
 
   # Check deps (field 10 in the original row)
-  row_full=$(grep "| $id |" "$REGISTRY" | head -1)
+  row_full=$(grep "^| $id |" "$REGISTRY" | head -1)
   deps_raw=$(echo "$row_full" | awk -F'|' '{print $10}' | xargs)
   blocking=$(check_deps_blocked "$deps_raw" 2>/dev/null) && {
     blocked_lines+=("$(printf "blocked\t%s\t%s\t%s\t%s" "$plan_name" "$goal" "$priority" "$blocking")")

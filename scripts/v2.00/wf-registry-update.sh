@@ -105,7 +105,7 @@ if [ -n "$commit_msg" ]; then
 fi
 
 # Verify the plan exists in the expected state
-if ! grep -q "| $plan_id |.*| $from_state |" "$REGISTRY"; then
+if ! grep -q "^| $plan_id |.*| $from_state |" "$REGISTRY"; then
   echo "Error: $plan_id not found in state '$from_state'" >&2
   exit 1
 fi
@@ -113,18 +113,18 @@ fi
 if [ -n "$branch" ]; then
   if [ "$branch" = "-" ]; then
     # Clear branch to em-dash — preserve priority column (col 4)
-    sed -i '' "/$plan_id/s#| $from_state |\([^|]*\)|[^|]*|[^|]*|#| $to_state |\1| — | $today |#" "$REGISTRY"
+    sed -i '' "/^| $plan_id |/s#| $from_state |\([^|]*\)|[^|]*|[^|]*|#| $to_state |\1| — | $today |#" "$REGISTRY"
   else
     # Update branch — preserve priority column (col 4)
-    sed -i '' "/$plan_id/s#| $from_state |\([^|]*\)|[^|]*|[^|]*|#| $to_state |\1| $branch | $today |#" "$REGISTRY"
+    sed -i '' "/^| $plan_id |/s#| $from_state |\([^|]*\)|[^|]*|[^|]*|#| $to_state |\1| $branch | $today |#" "$REGISTRY"
   fi
 else
   # Update state and date only — preserve priority (col 4) and branch (col 5)
-  sed -i '' "/$plan_id/s#| $from_state |\([^|]*\)|\([^|]*\)|[^|]*|#| $to_state |\1|\2| $today |#" "$REGISTRY"
+  sed -i '' "/^| $plan_id |/s#| $from_state |\([^|]*\)|\([^|]*\)|[^|]*|#| $to_state |\1|\2| $today |#" "$REGISTRY"
 fi
 
 # Verify the update worked
-if grep -q "| $plan_id |.*| $to_state |" "$REGISTRY"; then
+if grep -q "^| $plan_id |.*| $to_state |" "$REGISTRY"; then
   echo "$plan_id: $from_state → $to_state"
 else
   echo "Error: update failed for $plan_id" >&2
@@ -133,7 +133,7 @@ fi
 
 # Auto-claim when entering active state
 if [ "$to_state" = "active" ]; then
-  slug=$(grep "| $plan_id |" "$REGISTRY" | head -1 | awk -F'|' '{print $3}' | xargs)
+  slug=$(grep "^| $plan_id |" "$REGISTRY" | head -1 | awk -F'|' '{print $3}' | xargs)
   claim_dir="plans/${plan_id}-${slug}"
   if [ -d "$claim_dir" ]; then
     _pid=$PPID

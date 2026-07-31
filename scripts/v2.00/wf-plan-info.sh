@@ -45,7 +45,7 @@ if [ -z "$plan_id" ]; then
 fi
 
 # Find the row
-row=$(grep "| $plan_id |" "$REGISTRY" | head -1)
+row=$(grep "^| $plan_id |" "$REGISTRY" | head -1)
 if [ -z "$row" ]; then
   echo "Error: $plan_id not found in $REGISTRY" >&2
   exit 1
@@ -80,7 +80,7 @@ if [ "$deps" != "—" ] && [ -n "$deps" ]; then
   IFS=',' read -ra dep_list <<< "$deps"
   for dep_id in "${dep_list[@]}"; do
     dep_id=$(echo "$dep_id" | xargs)
-    dep_state=$(grep "| $dep_id |" "$REGISTRY" 2>/dev/null | awk -F'|' '{print $4}' | xargs || true)
+    dep_state=$(grep "^| $dep_id |" "$REGISTRY" 2>/dev/null | awk -F'|' '{print $4}' | xargs || true)
     if [ "$dep_state" != "complete" ]; then
       blocked=true
       [ -n "$blocking" ] && blocking="$blocking,$dep_id" || blocking="$dep_id"

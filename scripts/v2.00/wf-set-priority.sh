@@ -25,15 +25,15 @@ fi
 
 [ -f "$REGISTRY" ] || { echo "Error: $REGISTRY not found" >&2; exit 1; }
 
-if ! grep -q "| $plan_id |" "$REGISTRY"; then
+if ! grep -q "^| $plan_id |" "$REGISTRY"; then
   echo "Error: $plan_id not found in registry" >&2
   exit 1
 fi
 
 # Replace the priority column (4th column: | id | slug | state | <priority> | branch | date |)
-sed -i '' "/$plan_id/s#\(| $plan_id |[^|]*|[^|]*|\)[^|]*|#\1 $priority |#" "$REGISTRY"
+sed -i '' "/^| $plan_id |/s#\(| $plan_id |[^|]*|[^|]*|\)[^|]*|#\1 $priority |#" "$REGISTRY"
 
-if grep -q "| $plan_id |.*| $priority |" "$REGISTRY"; then
+if grep -q "^| $plan_id |.*| $priority |" "$REGISTRY"; then
   echo "$plan_id: priority → $priority"
 else
   echo "Error: update failed for $plan_id" >&2

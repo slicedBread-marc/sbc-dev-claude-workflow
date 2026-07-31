@@ -32,7 +32,7 @@ if [ "$tags" != "—" ]; then
   tags=$(printf '%s' "$tags" | tr -d '[:space:]')
 fi
 
-if ! grep -q "| $plan_id |" "$REGISTRY"; then
+if ! grep -q "^| $plan_id |" "$REGISTRY"; then
   echo "Error: $plan_id not found in registry" >&2
   exit 1
 fi
@@ -52,7 +52,7 @@ fi
 # The row has 9 pipes (10 fields including leading empty).
 # We need to replace field 9 (Tags). If the row only has 8 fields (v4 format),
 # we need to append the Tags and Deps columns.
-row=$(grep "| $plan_id |" "$REGISTRY" | head -1)
+row=$(grep "^| $plan_id |" "$REGISTRY" | head -1)
 pipe_count=$(echo "$row" | tr -cd '|' | wc -c | xargs)
 
 if [ "$pipe_count" -lt 10 ]; then
