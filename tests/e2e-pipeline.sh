@@ -13,8 +13,15 @@
 set -euo pipefail
 
 # ── Paths ──────────────────────────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)/scripts"
-TEMPLATE_DIR="$(cd "$(dirname "$0")/.." && pwd)/templates"
+LIB_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+LIB_SCRIPTS="$LIB_ROOT/scripts"
+TEMPLATE_DIR="$LIB_ROOT/templates"
+# Scripts live in versioned folders (scripts/vN.NN/). Resolve the newest one
+# from version-map.txt — the last non-comment row — rather than hardcoding it,
+# so adding a version folder doesn't silently strand this test.
+SCRIPT_FOLDER=$(awk '{sub(/#.*/, "")} NF >= 2 {folder = $2} END {print folder}' "$LIB_SCRIPTS/version-map.txt")
+[ -n "$SCRIPT_FOLDER" ] || { echo "cannot resolve script folder from version-map.txt" >&2; exit 1; }
+SCRIPT_DIR="$LIB_SCRIPTS/$SCRIPT_FOLDER"
 TEST_DIR=""
 PASS=0
 FAIL=0
@@ -38,15 +45,19 @@ setup_repo() {
   # Create base structure
   mkdir -p plans/briefs bugs/open bugs/triaged bugs/closed feature-branches
 
-  # Seed REGISTRY.md
+  # Seed REGISTRY.md (schema v5 — 9 data columns)
   cat > plans/REGISTRY.md << 'SEED'
 # Plan Registry
 
-| ID | Slug | State | Branch | Updated |
-|-|-|-|-|-|
+| ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps |
+|-|-|-|-|-|-|-|-|-|
 
 <!-- Counter: 1 -->
 SEED
+
+  # Version stamp — wf-exec.sh falls back to this when a plan has no WF column.
+  mkdir -p .claude
+  cat "$LIB_ROOT/VERSION" > .claude/workflow-version
 
   # Seed briefs INDEX.md
   cat > plans/briefs/INDEX.md << 'BSEED'
@@ -126,6 +137,21 @@ section() {
   printf "\n── %s ──\n" "$1"
 }
 
+# registry_add_row <id> <slug> — insert a v5 draft row above the counter comment.
+# awk (not `sed -i ''`) so the test isn't macOS-only.
+registry_add_row() {
+  local id="$1" slug="$2"
+  awk -v row="| $id | $slug | draft | — | — | 2026-04-07 | ${SCRIPT_FOLDER#v} | — | — |" '
+    /<!-- Counter:/ && !done { print row; done = 1 }
+    { print }
+  ' plans/REGISTRY.md > plans/REGISTRY.tmp && mv plans/REGISTRY.tmp plans/REGISTRY.md
+}
+
+# registry_col <id> <field-number> — read one column of a plan's row.
+registry_col() {
+  grep "| $1 |" plans/REGISTRY.md | head -1 | awk -F'|' -v n="$2" '{print $n}' | xargs
+}
+
 # ── Setup ──────────────────────────────────────────────────────────────
 printf "Setting up test repo...\n"
 setup_repo
@@ -178,7 +204,7 @@ mkdir -p "$PLAN_DIR"
 
 cat > "$PLAN_DIR/plan.md" << 'PLAN'
 > **ID:** PLN-001
-> **schema_version:** 4
+> **schema_version:** 5
 
 ## Goal
 Add a data-version attribute to the HTML tag for build identification.
@@ -225,14 +251,12 @@ cat > "$PLAN_DIR/progress.md" << 'PROGRESS'
 PROGRESS
 
 # Add plan row to REGISTRY (draft state)
-sed -i '' '/<!-- Counter:/i\
-| PLN-001 | e2e-smoke-test | draft | — | 2026-04-07 |
-' plans/REGISTRY.md
+registry_add_row PLN-001 e2e-smoke-test
 
 git add -A && git commit -q -m "spec: PLN-001-e2e-smoke-test"
 
 # Verify draft state
-state=$(grep "PLN-001" plans/REGISTRY.md | awk -F'|' '{print $4}' | xargs)
+state=$(registry_col PLN-001 4)
 assert_eq "plan starts as draft" "draft" "$state"
 
 # 3a. draft → ready
@@ -258,8 +282,8 @@ BRANCH="feature/PLN-001-e2e-smoke-test"
 out=$("$SCRIPT_DIR/wf-registry-update.sh" PLN-001 ready active "$BRANCH")
 assert_contains "ready→active transition" "ready → active" "$out"
 
-# Verify branch was set
-branch_val=$(grep "PLN-001" plans/REGISTRY.md | awk -F'|' '{print $5}' | xargs)
+# Verify branch was set (v5 Branch is column 6 — Priority sits at 5)
+branch_val=$(registry_col PLN-001 6)
 assert_eq "branch set in registry" "$BRANCH" "$branch_val"
 
 # 3f. list-active shows our plan
@@ -292,7 +316,7 @@ out=$("$SCRIPT_DIR/wf-registry-update.sh" PLN-001 testing complete -)
 assert_contains "testing→complete transition" "testing → complete" "$out"
 
 # Verify branch cleared
-branch_val=$(grep "PLN-001" plans/REGISTRY.md | awk -F'|' '{print $5}' | xargs)
+branch_val=$(registry_col PLN-001 6)
 assert_eq "branch cleared on complete" "—" "$branch_val"
 
 # ══════════════════════════════════════════════════════════════════════
@@ -366,14 +390,13 @@ mkdir -p "$wt_dir"
 echo "PLN-001" > "$wt_dir/.plan-ref"
 
 # plan-ref looks for ../../plans/ relative to cwd
-(
-  cd "$wt_dir"
-  out=$("$SCRIPT_DIR/wf-plan-ref.sh")
-  # Can't use assert_* here (subshell), just check exit code
-  echo "$out" | grep -q "PLAN_ID=PLN-001" || { echo "  ✗ plan-ref PLAN_ID"; exit 1; }
-  echo "$out" | grep -q "PLAN_NAME=PLN-001-e2e-smoke-test" || { echo "  ✗ plan-ref PLAN_NAME"; exit 1; }
-)
-TOTAL=$((TOTAL + 1)); PASS=$((PASS + 1)); printf "  ✓ plan-ref resolves from worktree\n"
+# Consume via eval — the real call pattern. Grepping the raw text would be
+# wrong now that values are single-quoted.
+ref_out=$(cd "$wt_dir" && "$SCRIPT_DIR/wf-plan-ref.sh")
+ref_id=$(eval "$ref_out"; printf '%s' "$PLAN_ID")
+ref_name=$(eval "$ref_out"; printf '%s' "$PLAN_NAME")
+assert_eq "plan-ref PLAN_ID from worktree" "PLN-001" "$ref_id"
+assert_eq "plan-ref PLAN_NAME from worktree" "PLN-001-e2e-smoke-test" "$ref_name"
 
 # ══════════════════════════════════════════════════════════════════════
 # 7. INVALID STATE TRANSITIONS
@@ -399,7 +422,7 @@ mkdir -p "$PLAN2_DIR"
 
 cat > "$PLAN2_DIR/plan.md" << 'P2'
 > **ID:** PLN-002
-> **schema_version:** 4
+> **schema_version:** 5
 
 ## Goal
 Test the fix cycle path through the pipeline.
@@ -413,9 +436,7 @@ cat > "$PLAN2_DIR/progress.md" << 'PR2'
 PR2
 
 # Add to registry
-sed -i '' '/<!-- Counter:/i\
-| PLN-002 | fix-cycle-test | draft | — | 2026-04-07 |
-' plans/REGISTRY.md
+registry_add_row PLN-002 fix-cycle-test
 
 # Walk through: draft → ready → active → verify
 "$SCRIPT_DIR/wf-registry-update.sh" PLN-002 draft ready >/dev/null
@@ -434,7 +455,7 @@ assert_eq "verify findings → active route" "active" "$route"
 
 # Simulate verify agent routing back to active
 "$SCRIPT_DIR/wf-registry-update.sh" PLN-002 verify active >/dev/null
-state=$(grep "PLN-002" plans/REGISTRY.md | awk -F'|' '{print $4}' | xargs)
+state=$(registry_col PLN-002 4)
 assert_eq "plan routed back to active" "active" "$state"
 
 # Fix applied, findings checked off, back to verify
@@ -451,7 +472,7 @@ assert_eq "fixed findings → clean route" "clean" "$route"
 # Clean verify → testing → complete
 "$SCRIPT_DIR/wf-registry-update.sh" PLN-002 verify testing >/dev/null
 "$SCRIPT_DIR/wf-registry-update.sh" PLN-002 testing complete - >/dev/null
-state=$(grep "PLN-002" plans/REGISTRY.md | awk -F'|' '{print $4}' | xargs)
+state=$(registry_col PLN-002 4)
 assert_eq "fix cycle plan completed" "complete" "$state"
 
 # ══════════════════════════════════════════════════════════════════════
@@ -467,7 +488,7 @@ mkdir -p "$PLAN3_DIR"
 
 cat > "$PLAN3_DIR/plan.md" << 'P3'
 > **ID:** PLN-003
-> **schema_version:** 4
+> **schema_version:** 5
 
 ## Goal
 Test the escalation path through the pipeline.
@@ -475,9 +496,7 @@ P3
 touch "$PLAN3_DIR/findings.md"
 touch "$PLAN3_DIR/progress.md"
 
-sed -i '' '/<!-- Counter:/i\
-| PLN-003 | escalation-test | draft | — | 2026-04-07 |
-' plans/REGISTRY.md
+registry_add_row PLN-003 escalation-test
 
 # Walk to verify
 "$SCRIPT_DIR/wf-registry-update.sh" PLN-003 draft ready >/dev/null
@@ -496,7 +515,7 @@ assert_eq "escalated finding → escalated route" "escalated" "$route"
 
 # Route to draft for replanning
 "$SCRIPT_DIR/wf-registry-update.sh" PLN-003 verify draft >/dev/null
-state=$(grep "PLN-003" plans/REGISTRY.md | awk -F'|' '{print $4}' | xargs)
+state=$(registry_col PLN-003 4)
 assert_eq "escalated plan back to draft" "draft" "$state"
 
 # After replanning, finding resolved, walk back through
@@ -518,7 +537,7 @@ assert_eq "resolved escalation → clean" "clean" "$route"
 
 "$SCRIPT_DIR/wf-registry-update.sh" PLN-003 verify testing >/dev/null
 "$SCRIPT_DIR/wf-registry-update.sh" PLN-003 testing complete - >/dev/null
-state=$(grep "PLN-003" plans/REGISTRY.md | awk -F'|' '{print $4}' | xargs)
+state=$(registry_col PLN-003 4)
 assert_eq "escalation cycle plan completed" "complete" "$state"
 
 # ══════════════════════════════════════════════════════════════════════
@@ -604,6 +623,80 @@ B5
 out=$("$SCRIPT_DIR/wf-list-specable.sh" 2>/dev/null || true)
 # Should find the brief and/or the bug
 assert_contains "specable finds open bug" "BUG-005" "$out"
+
+# ══════════════════════════════════════════════════════════════════════
+# 13. TAGS AND DEPS (schema v5 columns)
+# ══════════════════════════════════════════════════════════════════════
+section "Tags and deps (v5 columns)"
+
+registry_add_row PLN-006 tags-deps-test
+mkdir -p plans/PLN-006-tags-deps-test
+printf '## Goal\nExercise the v5 Tags and Deps columns.\n' > plans/PLN-006-tags-deps-test/plan.md
+
+"$SCRIPT_DIR/wf-set-tags.sh" PLN-006 "infra,security" >/dev/null
+assert_eq "tags written to column 9" "infra,security" "$(registry_col PLN-006 9)"
+
+# Whitespace is normalized out on write, so the registry never holds "a, b".
+"$SCRIPT_DIR/wf-set-tags.sh" PLN-006 "infra, security" >/dev/null
+assert_eq "comma-space normalized on write" "infra,security" "$(registry_col PLN-006 9)"
+
+assert_exit "unknown tag rejected" 1 "$SCRIPT_DIR/wf-set-tags.sh" PLN-006 hosting
+
+# PLN-002 completed earlier; PLN-006 itself is still draft.
+"$SCRIPT_DIR/wf-set-deps.sh" PLN-006 PLN-002 >/dev/null
+assert_eq "deps written to column 10" "PLN-002" "$(registry_col PLN-006 10)"
+assert_contains "complete dep → CLEAR" "CLEAR" "$("$SCRIPT_DIR/wf-check-deps.sh" PLN-006)"
+
+registry_add_row PLN-007 blocker-test
+"$SCRIPT_DIR/wf-set-deps.sh" PLN-006 PLN-007 >/dev/null
+assert_contains "draft dep → BLOCKED" "BLOCKED PLN-007" "$("$SCRIPT_DIR/wf-check-deps.sh" PLN-006)"
+
+# A plan ID also appears inside other rows' Deps column. Row lookups must match
+# the ID column only — PLN-007's row is listed *after* the PLN-006 row that
+# depends on it, so an unanchored grep resolves PLN-007 to the wrong plan.
+blocker_slug=$(eval "$("$SCRIPT_DIR/wf-plan-info.sh" PLN-007)"; printf '%s' "$PLAN_SLUG")
+assert_eq "row lookup ignores Deps mentions" "blocker-test" "$blocker_slug"
+assert_eq "dep in another row is not double-counted" "CLEAR" "$("$SCRIPT_DIR/wf-check-deps.sh" PLN-007)"
+
+# plan-info surfaces both columns; a comma-space Tags value must survive eval
+# intact (BUG-094 — bare emission word-split and dropped later variables).
+awk -F'|' '$2 ~ /PLN-006/ { $9 = " infra, security " } { print }' OFS='|' \
+  plans/REGISTRY.md > plans/REGISTRY.tmp && mv plans/REGISTRY.tmp plans/REGISTRY.md
+info_err=$(eval "$("$SCRIPT_DIR/wf-plan-info.sh" PLN-006)" 2>&1 >/dev/null || true)
+assert_eq "plan-info eval is error-free" "" "$info_err"
+eval "$("$SCRIPT_DIR/wf-plan-info.sh" PLN-006)"
+assert_eq "PLAN_TAGS survives spaces" "infra, security" "$PLAN_TAGS"
+assert_eq "PLAN_DEPS set" "PLN-007" "$PLAN_DEPS"
+assert_eq "PLAN_BLOCKED true" "true" "$PLAN_BLOCKED"
+assert_eq "PLAN_BLOCKING names the dep" "PLN-007" "$PLAN_BLOCKING"
+# PLAN_NAME is emitted after PLAN_TAGS — it used to be lost when the eval broke.
+assert_eq "vars after PLAN_TAGS still set" "PLN-006-tags-deps-test" "$PLAN_NAME"
+
+# ══════════════════════════════════════════════════════════════════════
+# 14. VERSION DISPATCH (wf-exec.sh)
+# ══════════════════════════════════════════════════════════════════════
+section "Version dispatch (wf-exec.sh)"
+
+# Install the scripts the way a client has them, so dispatch runs for real.
+mkdir -p scripts
+cp "$LIB_SCRIPTS/wf-exec.sh" "$LIB_SCRIPTS/version-map.txt" scripts/
+cp -R "$SCRIPT_DIR" "scripts/$SCRIPT_FOLDER"
+sed "s|{{project_slug}}|sbc|g" "$SCRIPT_DIR/wf-plan-port.sh" > "scripts/$SCRIPT_FOLDER/wf-plan-port.sh"
+chmod +x scripts/wf-exec.sh "scripts/$SCRIPT_FOLDER"/*.sh
+
+# Resolves via the plan's WF column.
+out=$(scripts/wf-exec.sh wf-plan-port.sh PLN-006-tags-deps-test)
+assert_contains "dispatch by plan WF column" "FEATURE_PORT=8106" "$out"
+
+# Resolves via .claude/workflow-version when the arg isn't a plan ID.
+out=$(scripts/wf-exec.sh wf-branch-check.sh develop)
+assert_contains "dispatch by .claude/workflow-version" "CURRENT_BRANCH=develop" "$out"
+
+# Explicit override wins over both.
+out=$(WF_VERSION="${SCRIPT_FOLDER#v}" scripts/wf-exec.sh wf-branch-check.sh develop)
+assert_contains "dispatch by WF_VERSION override" "CURRENT_BRANCH=develop" "$out"
+
+assert_exit "unknown script fails" 1 scripts/wf-exec.sh wf-does-not-exist.sh
 
 # ══════════════════════════════════════════════════════════════════════
 # RESULTS
