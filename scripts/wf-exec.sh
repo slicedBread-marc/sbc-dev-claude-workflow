@@ -37,9 +37,22 @@ find_project_root() {
 ROOT="$(find_project_root)" || { echo "wf-exec.sh: cannot locate scripts/version-map.txt (run from within a project)" >&2; exit 1; }
 
 # ── Resolve effective workflow version ───────────────────────────────────
+# A version is dotted digits and nothing else. This matters: `sort -V` places
+# any non-numeric string ABOVE every numeric version, so an unstamped marker
+# like the registry's em-dash would satisfy EVERY row in version-map.txt and
+# resolve to the newest script folder — the precise opposite of what the WF
+# column exists to guarantee. Such a value is treated as "not stamped".
+is_version() { [[ "$1" =~ ^[0-9]+(\.[0-9]+)*$ ]]; }
+
 effective=""
 
 if [ -n "${WF_VERSION:-}" ]; then
+  # An explicit override is human input, so a typo fails loudly rather than
+  # silently routing somewhere surprising.
+  if ! is_version "$WF_VERSION"; then
+    echo "wf-exec.sh: WF_VERSION='$WF_VERSION' is not a version (expected digits and dots, e.g. 2.5.1)" >&2
+    exit 1
+  fi
   effective="$WF_VERSION"
 elif [ $# -ge 1 ] && [[ "$1" =~ ^PLN-[0-9]+ ]]; then
   # Extract bare PLN-NNN from the arg (handles both PLN-041 and PLN-041-slug forms)
@@ -50,12 +63,19 @@ elif [ $# -ge 1 ] && [[ "$1" =~ ^PLN-[0-9]+ ]]; then
     row=$(grep "^| ${plan_id} " "$ROOT/plans/REGISTRY.md" | head -1 || true)
     if [ -n "$row" ]; then
       effective=$(echo "$row" | awk -F'|' '{print $8}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      # "—", "?", "n/a" and friends all mean the same thing as blank: this plan
+      # was never stamped. Fall through to the project's current version.
+      is_version "$effective" || effective=""
     fi
   fi
 fi
 
 if [ -z "$effective" ] && [ -f "$ROOT/.claude/workflow-version" ]; then
   effective=$(tr -d '[:space:]' < "$ROOT/.claude/workflow-version")
+  if [ -n "$effective" ] && ! is_version "$effective"; then
+    echo "wf-exec.sh: .claude/workflow-version contains '$effective', not a version — using baseline" >&2
+    effective=""
+  fi
 fi
 
 [ -z "$effective" ] && effective="0.00"

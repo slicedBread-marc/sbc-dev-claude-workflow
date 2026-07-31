@@ -539,6 +539,92 @@ assert_eq "WORKFLOW.md tells callers to use wf-exec.sh" "true" \
 assert_eq "install.sh gitignores orchestrator runtime state" "true" \
   "$(grep -q '.claude/orchestrator/' "$LIB_ROOT/install.sh" && echo true || echo false)"
 
+section "Version resolution"
+
+# wf-exec.sh + version-map.txt must be installed for these.
+cp "$LIB_SCRIPTS/wf-exec.sh" scripts/wf-exec.sh 2>/dev/null || mkdir -p scripts && cp "$LIB_SCRIPTS/wf-exec.sh" scripts/wf-exec.sh
+cp "$LIB_SCRIPTS/version-map.txt" scripts/version-map.txt
+mkdir -p "scripts/$SCRIPT_FOLDER"
+cp "$SCRIPT_DIR"/*.sh "scripts/$SCRIPT_FOLDER/"
+chmod +x scripts/wf-exec.sh "scripts/$SCRIPT_FOLDER"/*.sh
+
+# A probe script reporting which folder it was dispatched from — dropped into
+# EVERY mapped folder, so a row that resolves to an older generation is
+# measured rather than failing as "script not found".
+while read -r _minver folder; do
+  case "${_minver:-}" in ''|\#*) continue ;; esac
+  mkdir -p "scripts/$folder"
+  cat > "scripts/$folder/wf-whichfolder.sh" << 'PROBE'
+#!/usr/bin/env bash
+basename "$(dirname "$0")"
+PROBE
+  chmod +x "scripts/$folder/wf-whichfolder.sh"
+done < <(sed 's/#.*//' "$LIB_SCRIPTS/version-map.txt")
+
+# Every version-map row must name a folder that actually exists, or dispatch
+# fails at runtime for whoever lands on that row.
+missing=""
+while read -r minver folder; do
+  case "$minver" in ''|\#*) continue ;; esac
+  [ -d "$LIB_SCRIPTS/$folder" ] || missing="$missing $folder"
+done < <(sed 's/#.*//' "$LIB_SCRIPTS/version-map.txt")
+assert_eq "every mapped script folder exists" "" "$missing"
+
+# Thresholds must be dotted digits — the same rule wf-exec.sh enforces on input.
+bad_rows=$(sed 's/#.*//' "$LIB_SCRIPTS/version-map.txt" \
+  | awk 'NF >= 2 && $1 !~ /^[0-9]+(\.[0-9]+)*$/ { print $1 }')
+assert_eq "every threshold is dotted digits" "" "$bad_rows"
+
+# Rows must be ascending — wf-exec.sh takes the LAST match, so an out-of-order
+# file silently resolves to the wrong folder.
+sorted=$(sed 's/#.*//' "$LIB_SCRIPTS/version-map.txt" | awk 'NF >= 2 { print $1 }')
+assert_eq "rows are in ascending version order" "$sorted" "$(printf '%s\n' "$sorted" | sort -V)"
+
+# Live WF values seen in the field, plus plausible future ones.
+resolves_to() { WF_VERSION="$1" ./scripts/wf-exec.sh wf-whichfolder.sh 2>/dev/null; }
+assert_eq "legacy 1.32.13 → v1.x"   "v1.x"  "$(resolves_to 1.32.13)"
+assert_eq "legacy 0.00 → v1.x"      "v1.x"  "$(resolves_to 0.00)"
+assert_eq "2.00.13 → v2.00"         "v2.00" "$(resolves_to 2.00.13)"
+assert_eq "current 2.5.1 → v2.00"   "v2.00" "$(resolves_to 2.5.1)"
+# The trap the map header warns about: a 2.10 minor must not fall back to v1.x.
+assert_eq "future 2.10.0 → v2.00"   "v2.00" "$(resolves_to 2.10.0)"
+assert_eq "future 3.0.0 → v2.00"    "v2.00" "$(resolves_to 3.0.0)"
+
+# A bogus explicit override is a typo — fail loudly rather than route oddly.
+assert_fails "non-version WF_VERSION is rejected" \
+  env WF_VERSION="—" ./scripts/wf-exec.sh wf-whichfolder.sh
+assert_fails "garbage WF_VERSION is rejected" \
+  env WF_VERSION="latest" ./scripts/wf-exec.sh wf-whichfolder.sh
+
+# A plan stamped with the registry's em-dash must be treated as UNSTAMPED and
+# fall back — not sort above every row and grab the newest folder.
+echo "2.5.1" > .claude/workflow-version
+registry_add_row PLN-040 dashwf ready
+awk -F'|' -v OFS='|' '
+  function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+  trim($2) == "PLN-040" { $8 = " — " } { print }
+' plans/REGISTRY.md > r.tmp && mv r.tmp plans/REGISTRY.md
+assert_eq "em-dash WF falls back to the project version" "v2.00" \
+  "$(./scripts/wf-exec.sh wf-whichfolder.sh PLN-040 2>/dev/null)"
+
+# Same for a blank stamp — the 61 unstamped plans in the field rely on this.
+registry_add_row PLN-041 blankwf ready
+awk -F'|' -v OFS='|' '
+  function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+  trim($2) == "PLN-041" { $8 = "  " } { print }
+' plans/REGISTRY.md > r.tmp && mv r.tmp plans/REGISTRY.md
+assert_eq "blank WF falls back to the project version" "v2.00" \
+  "$(./scripts/wf-exec.sh wf-whichfolder.sh PLN-041 2>/dev/null)"
+
+# A real stamp still pins, which is the entire point of the column.
+registry_add_row PLN-042 pinned ready
+awk -F'|' -v OFS='|' '
+  function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+  trim($2) == "PLN-042" { $8 = " 1.32.13 " } { print }
+' plans/REGISTRY.md > r.tmp && mv r.tmp plans/REGISTRY.md
+assert_eq "a stamped plan stays pinned to its generation" "v1.x" \
+  "$(./scripts/wf-exec.sh wf-whichfolder.sh PLN-042 2>/dev/null)"
+
 section "No BSD-only in-place sed"
 
 # `sed -i ''` is macOS-only; it fails outright on GNU sed, so any of these

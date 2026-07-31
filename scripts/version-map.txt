@@ -9,6 +9,36 @@
 #
 # Columns are whitespace-separated. Sort ascending by min_workflow_version.
 #
+#
+# ── Writing a min_workflow_version ────────────────────────────────────────
+#
+# These are THRESHOLDS ("this folder serves version X and up"), not stamps.
+# They are compared with `sort -V`, which reads each dot-component as a
+# NUMBER — so leading zeros carry no meaning, and 2.10 is greater than 2.5.
+#
+#   WRONG:  2.10   meaning "the generation after 2.00".
+#           VERSION is 2.5.x today and 2.10 > 2.5.x, so that folder would sit
+#           dead until the minor actually reached 10. Nothing errors; work
+#           just silently keeps running the old scripts.
+#
+#   RIGHT:  read VERSION, pick the next minor above it (2.5.1 → 2.6), and
+#           name the folder to match (v2.6).
+#
+# Historical note: rows were once written zero-padded (2.00) because VERSION
+# had a 2.00.NN shape. It no longer does — VERSION is plain semver. Padding is
+# harmless where it survives (`sort -V` treats 2.00 and 2.0 as equal, and both
+# still match 2.5.1, 2.10.0 and 3.0.0), but do not write new rows that way.
+#
+# Anything that is not dotted digits — the registry's "—", a blank, "n/a" — is
+# NOT a version. wf-exec.sh treats those as unstamped and falls back, because
+# `sort -V` ranks non-numeric strings ABOVE every version: such a value would
+# otherwise satisfy every row and route to the newest folder, which is the
+# exact opposite of what pinning a plan is for.
+#
+# Verify a change before committing it:
+#   WF_VERSION=2.5.1 scripts/wf-exec.sh wf-plan-info.sh PLN-001
+#
+#
 # min_workflow_version  script_folder
 0.00                    v1.x
-2.00                    v2.00
+2.0                     v2.00
