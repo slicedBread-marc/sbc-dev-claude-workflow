@@ -160,3 +160,17 @@ Evaluate each level in order. **Stop at the first level that applies.** Do not s
 ## Quick mode
 
 If the user just wants the recommendation without the full report, respond with only the "Recommended next action" line.
+
+## When the workflow misbehaves
+
+If the harness does something its own documentation does not describe — a `wf-*` script erroring unexpectedly, an instruction here referencing something that does not exist, the registry contradicting the worktree — record it, then carry on:
+
+```bash
+scripts/wf-exec.sh wf-issue.sh --source wf-status \
+  --expected "<what should have happened>" \
+  --actual   "<what happened, verbatim>" \
+  --context  "<plan id, branch, state>"
+```
+
+These are swept into the claude-workflow library and fixed upstream, so one report fixes it for every project. **Not** for application build/test failures or plan findings — those are normal work, not harness faults. Filing never justifies abandoning the run; work around it if you can and say so in `--notes`.
+

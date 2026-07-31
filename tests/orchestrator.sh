@@ -625,6 +625,126 @@ awk -F'|' -v OFS='|' '
 assert_eq "a stamped plan stays pinned to its generation" "v1.x" \
   "$(./scripts/wf-exec.sh wf-whichfolder.sh PLN-042 2>/dev/null)"
 
+section "Workflow issue reporting"
+
+rm -f WORKFLOW-ISSUES.md
+assert_eq "clean client reports zero open" "0" "$("$SCRIPT_DIR/wf-issue.sh" --count)"
+
+# A real report carries a multi-line error and an apostrophe — awk -v cannot
+# hold either, which is how the first implementation broke.
+multi=$(printf "Error: PLN-097 not found in state 'active'\n  at wf-registry-update.sh:88")
+assert_ok "file an issue" "$SCRIPT_DIR/wf-issue.sh" \
+  --source wf-implement --expected "active→verify to succeed" --actual "$multi" \
+  --context "PLN-097, feature/PLN-097-foo" --notes "Registry already showed verify."
+assert_ok "file a second" "$SCRIPT_DIR/wf-issue.sh" \
+  --source wf-list-testable.sh --expected "one row per testing plan" --actual "awk: cannot open"
+
+assert_eq "count reflects both, on one line" "2" "$("$SCRIPT_DIR/wf-issue.sh" --count)"
+assert_eq "IDs increment" "true" \
+  "$(grep -q '^## WFI-001 ' WORKFLOW-ISSUES.md && grep -q '^## WFI-002 ' WORKFLOW-ISSUES.md && echo true || echo false)"
+assert_eq "newest is first" "WFI-002" \
+  "$(grep -m1 -oE 'WFI-[0-9]+' WORKFLOW-ISSUES.md)"
+assert_eq "multi-line error preserved verbatim" "true" \
+  "$(grep -q 'at wf-registry-update.sh:88' WORKFLOW-ISSUES.md && echo true || echo false)"
+assert_eq "apostrophe survives" "true" \
+  "$(grep -q "state 'active'" WORKFLOW-ISSUES.md && echo true || echo false)"
+assert_eq "workflow version recorded" "true" \
+  "$(grep -q '^\*\*Workflow version:\*\*' WORKFLOW-ISSUES.md && echo true || echo false)"
+assert_eq "header survives an append" "true" \
+  "$(head -1 WORKFLOW-ISSUES.md | grep -q '^# Workflow Issues' && echo true || echo false)"
+
+# Resolution takes an entry out of the open set without deleting the record.
+assert_ok "resolve an issue" "$SCRIPT_DIR/wf-issue.sh" --resolve WFI-001 "fixed in v2.6.0"
+assert_eq "open count drops" "1" "$("$SCRIPT_DIR/wf-issue.sh" --count)"
+assert_eq "--list shows only open" "1" \
+  "$("$SCRIPT_DIR/wf-issue.sh" --list | grep -c '^## WFI-' | xargs)"
+assert_eq "--list --all shows both" "2" \
+  "$("$SCRIPT_DIR/wf-issue.sh" --list --all | grep -c '^## WFI-' | xargs)"
+assert_eq "resolved entry is retained as a record" "true" \
+  "$(grep -q 'fixed in v2.6.0' WORKFLOW-ISSUES.md && echo true || echo false)"
+
+assert_fails "missing --actual is rejected" "$SCRIPT_DIR/wf-issue.sh" --source wf-spec
+assert_fails "missing --source is rejected" "$SCRIPT_DIR/wf-issue.sh" --actual "boom"
+
+# Concurrent filing must not lose a report — several workers can hit the same
+# harness bug at once.
+rm -f WORKFLOW-ISSUES.md
+"$SCRIPT_DIR/wf-issue.sh" --source a --expected e --actual x1 >/dev/null 2>&1 &
+"$SCRIPT_DIR/wf-issue.sh" --source b --expected e --actual x2 >/dev/null 2>&1 &
+"$SCRIPT_DIR/wf-issue.sh" --source c --expected e --actual x3 >/dev/null 2>&1 &
+wait
+assert_eq "three concurrent reports all land" "3" "$("$SCRIPT_DIR/wf-issue.sh" --count)"
+assert_eq "no duplicate IDs under concurrency" "3" \
+  "$(grep -oE '^## WFI-[0-9]+' WORKFLOW-ISSUES.md | sort -u | wc -l | xargs)"
+
+section "Issue reporting is wired into the skills"
+
+for s in wf-spec wf-implement wf-test wf-verify; do
+  assert_eq "$s tells the worker to file harness problems" "true" \
+    "$(grep -q 'wf-issue.sh' "$LIB_ROOT/skills/$s/SKILL.md" && echo true || echo false)"
+done
+assert_eq "the ambient CLAUDE.md rule exists" "true" \
+  "$(grep -q 'wf-issue.sh' "$LIB_ROOT/claude-md/workflow-snippet.md" && echo true || echo false)"
+assert_eq "WORKFLOW.md documents the channel for external agents" "true" \
+  "$(grep -q 'wf-issue.sh' "$LIB_ROOT/templates/WORKFLOW.md" && echo true || echo false)"
+# The distinction that keeps this channel signal rather than noise: without an
+# explicit "do not file" list, every failing app test becomes a workflow issue.
+assert_eq "guidance has a 'File it when' list" "true" \
+  "$(grep -q '\*\*File it when:\*\*' "$LIB_ROOT/claude-md/workflow-snippet.md" && echo true || echo false)"
+assert_eq "guidance has a 'Do not file' list" "true" \
+  "$(grep -q '\*\*Do not file:\*\*' "$LIB_ROOT/claude-md/workflow-snippet.md" && echo true || echo false)"
+assert_eq "app build/test failures are excluded by name" "true" \
+  "$(grep -qi 'application build or test failures' "$LIB_ROOT/claude-md/workflow-snippet.md" && echo true || echo false)"
+assert_eq "plan findings are excluded by name" "true" \
+  "$(grep -qi 'findings.md' "$LIB_ROOT/claude-md/workflow-snippet.md" && echo true || echo false)"
+assert_ok "library sweep script is executable" test -x "$LIB_ROOT/sweep-issues.sh"
+
+section "Library sweep across clients"
+
+# Two fake clients with their own issue files; WF_DEPLOYMENTS keeps the real
+# deployments.txt out of it.
+SWEEP_A="$TEST_DIR/client-a"; SWEEP_B="$TEST_DIR/client-b"
+mkdir -p "$SWEEP_A" "$SWEEP_B"
+printf '%s\n%s\n' "$SWEEP_A" "$SWEEP_B" > "$TEST_DIR/deployments.txt"
+export WF_DEPLOYMENTS="$TEST_DIR/deployments.txt"
+sweep() { "$LIB_ROOT/sweep-issues.sh" "$@"; }
+
+# Clean clients: no issue files at all.
+assert_fails "sweep exits 1 when every client is clean" sweep
+assert_eq "count is zero for a client with no issue file" "0" \
+  "$(sweep --count | awk -F': ' '$1 == "client-a" { print $2 }')"
+
+mk_issue() {  # <dir> <id> <status>
+  local d="$1" id="$2" status="$3"
+  [ -f "$d/WORKFLOW-ISSUES.md" ] || printf '# Workflow Issues\n\n<!-- New entries are inserted directly below this line, newest first. -->\n' > "$d/WORKFLOW-ISSUES.md"
+  printf '\n## %s — wf-implement — 2026-07-31T00:00:00Z\n\n**Status:** %s\n**Context:** —\n\n**Expected:**\ne\n\n**Actual:**\n```\nboom\n```\n' \
+    "$id" "$status" >> "$d/WORKFLOW-ISSUES.md"
+}
+mk_issue "$SWEEP_A" WFI-001 open
+mk_issue "$SWEEP_B" WFI-001 open
+mk_issue "$SWEEP_B" WFI-002 "resolved 2026-07-30 — fixed"
+
+assert_ok "sweep exits 0 when there is work" sweep
+assert_eq "per-client open counts"  "1" "$(sweep --count | awk -F': ' '$1 == "client-a" { print $2 }')"
+assert_eq "resolved entries are not counted" "1" "$(sweep --count | awk -F': ' '$1 == "client-b" { print $2 }')"
+assert_eq "counts are single-valued, not doubled lines" "2" "$(sweep --count | wc -l | xargs)"
+assert_eq "output groups by client" "2" \
+  "$(sweep 2>/dev/null | grep -c 'client-[ab] (' | xargs)"
+# Match on the issue heading, not on words like "fixed" — the sweep's own
+# footer help text contains "fixed in vX.Y.Z" and would match anywhere.
+assert_eq "default view hides resolved entries" "0" \
+  "$(sweep 2>/dev/null | grep -c '^## WFI-002 ' | xargs)"
+assert_eq "default view shows the open ones from both clients" "2" \
+  "$(sweep 2>/dev/null | grep -c '^## WFI-001 ' | xargs)"
+assert_eq "--all reveals resolved entries" "1" \
+  "$(sweep --all 2>/dev/null | grep -c '^## WFI-002 ' | xargs)"
+
+# A dead path in deployments.txt must be skipped, not fatal — clients get moved.
+printf '%s\n%s\n%s\n' "$SWEEP_A" "$TEST_DIR/gone" "$SWEEP_B" > "$TEST_DIR/deployments.txt"
+assert_eq "a missing client is skipped, others still counted" "2" \
+  "$(sweep --count 2>/dev/null | wc -l | xargs)"
+unset WF_DEPLOYMENTS
+
 section "No BSD-only in-place sed"
 
 # `sed -i ''` is macOS-only; it fails outright on GNU sed, so any of these

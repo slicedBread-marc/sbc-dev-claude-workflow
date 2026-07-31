@@ -110,6 +110,31 @@ entry points for an agent arriving cold. The contract is the exit code:
 | 30 | Worker ran, state unchanged |
 | 1 | Error |
 
+## Workflow Issues — the feedback loop
+
+The harness will sometimes be wrong. When a skill or script behaves in a way its
+own documentation doesn't describe, whoever hits it records it in that project
+rather than working around it silently:
+
+```bash
+scripts/wf-exec.sh wf-issue.sh --source wf-implement \
+  --expected "active→verify to succeed" \
+  --actual   "Error: PLN-097 not found in state 'active'"
+```
+
+That appends to `WORKFLOW-ISSUES.md` at the client's root. From the library, sweep
+every installed project at once:
+
+```bash
+./sweep-issues.sh                                              # open issues by client
+./sweep-issues.sh --resolve WFI-003 --client sbc "fixed in v2.6.0"
+```
+
+Fixes go in the library and reach every project on the next `./deploy-all.sh` — so
+one report improves the workflow everywhere, instead of each project accumulating
+its own workarounds. Unattended workers file these too, which is how process bugs
+surface from runs nobody was watching.
+
 ## Multi-Terminal Workflow (manual mode)
 
 ```

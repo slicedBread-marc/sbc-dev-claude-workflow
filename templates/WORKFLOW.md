@@ -44,6 +44,32 @@ tested like anything else:
 
 The bug lands in `bugs/open/BUG-NNN-<slug>/bug.md`.
 
+### Report the workflow itself misbehaving
+
+Distinct from a bug in *this project*. If the **harness** does something its own
+documentation doesn't describe — a `wf-*` script erroring unexpectedly, an
+instruction pointing at something that doesn't exist, the registry contradicting
+the worktree, a plan looping — record it and continue:
+
+```bash
+scripts/wf-exec.sh wf-issue.sh --source <skill-or-script> \
+  --expected "<what should have happened>" \
+  --actual   "<what happened, verbatim>" \
+  --context  "<plan id, branch, state>"
+```
+
+It appends to `WORKFLOW-ISSUES.md` in this directory. The claude-workflow library
+sweeps every project it's installed in and fixes these **upstream**, so one report
+becomes a fix everywhere. A problem worked around silently is one everyone keeps
+hitting.
+
+Not for application build/test failures or plan findings — those are normal work.
+Never patch a `wf-*` script inside this project; the next deploy overwrites it.
+
+```bash
+scripts/wf-exec.sh wf-issue.sh --list     # what's already reported
+```
+
 ### Drive one item end to end (the automation hook)
 
 This is the entry point for an external process. It accepts a bug, a brief, or a
@@ -156,6 +182,7 @@ plans/REGISTRY.md               state machine — single source of truth
 plans/PLN-NNN-<slug>/           plan.md, findings.md, progress.md (never moves)
 plans/briefs/                   brainstormed ideas
 bugs/{open,triaged,closed}/     bug lifecycle
+WORKFLOW-ISSUES.md              harness problems reported here, swept upstream
 claude-workflow.yml             project config, incl. the orchestrator block
 scripts/wf-exec.sh              version dispatcher — always call scripts THROUGH this
 scripts/vN.NN/                  versioned script generations

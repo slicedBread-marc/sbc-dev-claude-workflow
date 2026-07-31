@@ -380,3 +380,17 @@ Project name: `{{project_slug}}-pln<id>` (e.g., `{{project_slug}}-pln004`)
 - You may edit src/, tests/ and update progress.md / check off findings
 - **Do NOT** edit the plan's Steps, Tests, or Design Decisions sections
 - **Do NOT** add findings — only the verify agent and `/wf-test` produce findings
+
+## When the workflow misbehaves
+
+If the harness does something its own documentation does not describe — a `wf-*` script erroring unexpectedly, an instruction here referencing something that does not exist, the registry contradicting the worktree — record it, then carry on:
+
+```bash
+scripts/wf-exec.sh wf-issue.sh --source wf-implement \
+  --expected "<what should have happened>" \
+  --actual   "<what happened, verbatim>" \
+  --context  "<plan id, branch, state>"
+```
+
+These are swept into the claude-workflow library and fixed upstream, so one report fixes it for every project. **Not** for application build/test failures or plan findings — those are normal work, not harness faults. Filing never justifies abandoning the run; work around it if you can and say so in `--notes`.
+

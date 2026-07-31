@@ -771,3 +771,17 @@ If you hit an error and need to stop early, **destroy the container first** befo
 | 8080 | Default local dev |
 
 Project name: `{{project_slug}}-pln<id>` (e.g., `{{project_slug}}-pln004`)
+
+## When the workflow misbehaves
+
+If the harness does something its own documentation does not describe — a `wf-*` script erroring unexpectedly, an instruction here referencing something that does not exist, the registry contradicting the worktree — record it, then carry on:
+
+```bash
+scripts/wf-exec.sh wf-issue.sh --source wf-test \
+  --expected "<what should have happened>" \
+  --actual   "<what happened, verbatim>" \
+  --context  "<plan id, branch, state>"
+```
+
+These are swept into the claude-workflow library and fixed upstream, so one report fixes it for every project. **Not** for application build/test failures or plan findings — those are normal work, not harness faults. Filing never justifies abandoning the run; work around it if you can and say so in `--notes`.
+

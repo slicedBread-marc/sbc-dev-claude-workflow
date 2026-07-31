@@ -3,6 +3,47 @@
 > `wf-orchestrate.sh` exit codes an external process needs to drive a plan.
 > Read it before automating anything against this repo.
 
+## When the workflow itself misbehaves — file it
+
+**This applies in every workflow session, attended or unattended.**
+
+If the harness does something its own documentation does not describe, record it
+before moving on:
+
+```bash
+scripts/wf-exec.sh wf-issue.sh --source <skill-or-script> \
+  --expected "<what the docs say should happen>" \
+  --actual   "<what happened, verbatim>" \
+  --context  "<plan id, branch, state>"
+```
+
+It appends to `WORKFLOW-ISSUES.md` at the project root. These are swept into the
+claude-workflow library periodically and fixed **upstream**, so one report
+becomes a fix for every project using the workflow. A problem you work around
+silently is one everybody keeps hitting.
+
+**File it when:**
+
+- A `wf-*` script exits non-zero with an error that isn't a documented outcome
+- A skill instruction references a file, command, state, or column that doesn't exist
+- The registry contradicts reality — state says one thing, the worktree or branch says another
+- A plan loops, or a gate opens that shouldn't have
+- Documented behavior and observed behavior disagree
+
+**Do not file:**
+
+- Application build or test failures — that's the plan's work, not a harness fault
+- Legitimate verify or test findings — those belong in the plan's `findings.md`
+- Application bugs — use `/wf-bug`
+- The user changing their mind, or you misreading an instruction that was correct
+
+**Then carry on.** Filing is a side note, never a reason to abandon the run. Work
+around the problem if you can and say what you did in the report's `--notes`. If
+you genuinely cannot proceed, file the issue *first*, then escalate normally.
+
+Never edit `WORKFLOW-ISSUES.md` by hand, and never "fix" a workflow script inside
+a client project — the fix belongs in the library, or the next deploy overwrites it.
+
 ## Running the pipeline from one terminal
 
 The orchestrator dispatches unattended workers by REGISTRY state, so the four

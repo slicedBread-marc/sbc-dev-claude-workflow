@@ -292,6 +292,16 @@ sed -e "s|{{project_slug}}|$PROJECT_SLUG|g" \
     "$SCRIPT_DIR/templates/WORKFLOW.md" > "$TARGET_DIR/WORKFLOW.md"
 echo -e "${GREEN}  Installed WORKFLOW.md (project-root entry point)${NC}"
 
+# Seed WORKFLOW-ISSUES.md so the reporting channel is discoverable before the
+# first problem, not after. Created via wf-issue.sh itself (--count is a no-op
+# read that writes the header when missing) so the format has exactly one owner
+# and can't drift between the script and the installer.
+if [ ! -f "$TARGET_DIR/WORKFLOW-ISSUES.md" ]; then
+    ( cd "$TARGET_DIR" && ./scripts/wf-exec.sh wf-issue.sh --count >/dev/null 2>&1 ) || true
+    [ -f "$TARGET_DIR/WORKFLOW-ISSUES.md" ] \
+      && echo -e "${GREEN}  Seeded WORKFLOW-ISSUES.md (harness problems get reported here)${NC}"
+fi
+
 # ── Propagate to feature worktrees ───────────────────────────────────────────
 # Resolve a worktree's plan WF stamp → script_folder using the same algorithm
 # as wf-exec.sh. Only that folder (plus the unversioned dispatcher + map) gets

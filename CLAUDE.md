@@ -15,6 +15,26 @@ Work in this repo is about building, improving, and maintaining that library, no
 - Deployment targets are listed in `deployments.txt` (one absolute path per line). Each receives copies of skills and scripts via `deploy-all.sh`.
 - To add a new client: append its path to `deployments.txt`, ensure its `claude-workflow.yml` sets a unique `project_slug` (prevents Docker compose collisions), then run `./deploy-all.sh`.
 
+### Inbound: workflow issues from clients
+
+Clients report harness problems as they hit them — a `wf-*` script erroring unexpectedly, a skill instruction referencing something that doesn't exist, the registry contradicting the worktree. Each lands in that project's root `WORKFLOW-ISSUES.md` via `wf-issue.sh`.
+
+**Sweep them periodically — this is the main source of process-bug reports:**
+
+```bash
+./sweep-issues.sh              # open issues, grouped by client
+./sweep-issues.sh --count      # one line per client
+```
+
+Fix the cause **here**, in the library — never in the client, where the next deploy overwrites it. Then:
+
+```bash
+./deploy-all.sh
+./sweep-issues.sh --resolve WFI-NNN --client <name> "fixed in vX.Y.Z"
+```
+
+Resolved entries stay in the client's file as the record of what was already reported. `sweep-issues.sh` exits 0 when there is work and 1 when every client is clean.
+
 ---
 
 ## Process Flow
