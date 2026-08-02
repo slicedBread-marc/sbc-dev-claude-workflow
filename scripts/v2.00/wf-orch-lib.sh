@@ -72,6 +72,51 @@ wf_cfg() {
   if [ -z "$val" ]; then printf '%s' "$default"; else printf '%s' "$val"; fi
 }
 
+# wf_cfg_list <dotted.path>
+# Reads a YAML sequence of scalars, one item per output line:
+#
+#   manualTestGate:
+#     renderingSurfaces:
+#       - "src/**/wwwroot/**"      →  src/**/wwwroot/**
+#
+# Same deliberate limits as wf_cfg: no yq, 2-space indentation, scalars only.
+# Prints nothing when the key is absent or the list is empty — callers decide
+# what an empty list means.
+wf_cfg_list() {
+  local path="$1" cfg
+  cfg="$(wf_develop_root)/claude-workflow.yml"
+  [ -f "$cfg" ] || return 0
+
+  awk -v path="$path" '
+    BEGIN { n = split(path, want, "."); level = 0; collecting = 0 }
+    {
+      line = $0; sub(/\r$/, "", line)
+      probe = line; sub(/^[ ]*/, "", probe)
+      if (probe ~ /^#/ || probe == "") next
+      match(line, /^[ ]*/); indent = RLENGTH / 2
+
+      if (collecting) {
+        if (probe ~ /^- /) {
+          item = probe; sub(/^-[ \t]*/, "", item)
+          sub(/[ \t]+#.*$/, "", item)
+          gsub(/^[ \t]+|[ \t]+$/, "", item)
+          gsub(/^"|"$/, "", item); gsub(/^'"'"'|'"'"'$/, "", item)
+          if (item != "") print item
+          next
+        }
+        exit                      # first non-item line ends the sequence
+      }
+
+      if (indent > level) next
+      if (indent < level) level = indent
+      key = probe; sub(/:.*/, "", key); gsub(/[ \t]/, "", key)
+      if (key != want[level + 1]) next
+      if (level == n - 1) { collecting = 1; next }
+      level++
+    }
+  ' "$cfg"
+}
+
 # ── Output ────────────────────────────────────────────────────────────────
 
 # Single-quoted so `eval` survives spaces, semicolons, backticks — the same

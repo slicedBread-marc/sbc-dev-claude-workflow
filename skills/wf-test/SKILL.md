@@ -23,22 +23,36 @@ Order of work:
 2. Run the automated suites and e2e scope as normal.
 3. Work every `#### Chrome-Assisted` criterion — these are scripted navigations and assertions, so run them and record PASS/FAIL yourself.
 4. For every criterion where the mode menu applies, take `[a]` (auto-test) whenever the criterion matches a recurring auto-testable shape. On auto-test FAIL, record it as a Candidate as normal — do **not** fall through to the manual flow.
-5. Only then, if any `#### Manual` criteria (or auto-test fallbacks) remain untested, **[GATE]** once with all of them listed:
+5. Dispose of the criteria that never need a human, whatever remains untested:
+   - `(external)` and `(soak)` — defer each and check it off. They cannot be satisfied at gate time by anyone, so they never gate:
+     ```bash
+     scripts/wf-exec.sh wf-defer-criterion.sh <PLN-ID> external "<criterion text>"
+     ```
+   - `(eyes:cosmetic)` — leave untested and unchecked; whether it gates is the gate script's call, not yours.
+6. **Ask the gate script whether a human is needed. Do not decide this yourself:**
    ```bash
-   scripts/wf-exec.sh wf-gate-open.sh <PLN-ID> manual-test \
-     "N criteria need human eyes: <one-line list>" \
-     --context plans/<plan-name>/plan.md --skill wf-test
+   eval "$(scripts/wf-exec.sh wf-manual-gate.sh <PLN-ID>)"
    ```
-   Commit whatever results you recorded first, then exit 0. State stays `testing`.
+   - `GATE='false'` → **do not stop.** Record the remaining criteria as untested with `$GATE_REASON` in `test-progress.md`, and continue to the exit path as if all criteria passed. A plan whose diff renders nothing to a human never stops for a human.
+   - `GATE='true'` → **[GATE]** once, with everything that is left listed together:
+     ```bash
+     scripts/wf-exec.sh wf-gate-open.sh <PLN-ID> manual-test \
+       "N criteria need human eyes: <one-line list>" \
+       --context plans/<plan-name>/plan.md --skill wf-test
+     ```
+     Commit whatever results you recorded first, then exit 0. State stays `testing`.
+
+   The old rule — gate if any `#### Manual` criterion remains — stopped every plan, because every plan has some. The script keys on the surface the diff touches instead, which the planner does not control at classification time. Its answer is final either way.
 
 | Where | Prompt | Mode | Unattended behavior |
 |-|-|-|-|
 | Entry | Plan selection menu | [AUTO] | Use the plan named in your instructions |
 | Step 2 | Goal missing | **[GATE]** | `goal-missing` |
 | Step 7.2 | Mode menu | [AUTO] | `[a]` when the criterion matches a recurring shape, otherwise defer it to the `manual-test` gate |
-| Step 7.3 | "What do you see?" | [AUTO] | Chrome-Assisted: determine it yourself. `#### Manual`: defer to the gate |
-| Step 7.3 | FAIL classification | [AUTO] | Write the finding and route to spec as normal — that is a state transition, not a question |
-| Step 7.3 | Deferring a criterion | [AUTO] | Do not defer anything unattended; leave it for the gate |
+| Step 7.3 | "What do you see?" | [AUTO] | Chrome-Assisted: determine it yourself. `#### Manual`: leave for step 5/6 above |
+| Step 7.3 | FAIL classification | [AUTO] | Write the finding and route to spec as normal — that is a state transition, not a question. An `(eyes:cosmetic)` failure files a bug and checks off instead |
+| Step 7.3 | Deferring a criterion | [AUTO] | Defer `(external)` and `(soak)` criteria — that is mechanical. Never defer anything else unattended |
+| Step 6 | Whether to open `manual-test` | [AUTO] | `wf-manual-gate.sh` decides. Do not second-guess it in either direction |
 | Completion | "All criteria pass — proceed?" | [AUTO] | Proceed when every criterion is PASS on the current build |
 | Exit | `git push` failed | **[GATE]** | `merge-failed` — question is the git error verbatim |
 | Exit | `gh pr merge` failed | [AUTO] | Already routes to the builder on its own — follow that path, don't gate |
@@ -268,7 +282,7 @@ After user picks:
    - **Let the user describe what they see** — accept natural descriptions
    - Classify their response:
      - **Pass**: note it and continue
-     - **Fail**: capture description. Classify:
+     - **Fail**: capture description. **First check the criterion's tag** — an `(eyes:cosmetic)` failure files a bug and checks off instead of blocking, per [Manual criterion dispositions](#manual-criterion-dispositions). For everything else, classify:
        - **ESCALATED** (design): new behavior not in plan, scope addition, UX change
        - **Behavior** (code fix): bug in specified behavior
        All findings route to wf-spec (Opus) for review before returning to builder.
@@ -493,26 +507,53 @@ When triggered:
 
 ### Deferring a criterion
 
-When the user confirms they want to defer a skipped criterion, append it to `../../plans/deferred-criteria.md`. If the file doesn't exist, create it with the header first.
+Never write `plans/deferred-criteria.md` by hand — one script owns it, so IDs stay unique and `/wf-spec` step 1a can read it back:
 
-**Header (create only if file is absent):**
-```markdown
-# Deferred Criteria
-
-Criteria that couldn't be tested because the required feature wasn't built yet. Reviewed by wf-spec when creating or amending related plans.
-
-| ID | Criterion | Prerequisite | Prereq Plan | Source Plan | Deferred On |
-|-|-|-|-|-|-|
+```bash
+../../scripts/wf-exec.sh wf-defer-criterion.sh PLN-NNN <tag> "<criterion text>" [--prereq <plan-id|first-real-use|next-cycle|date>] [--note "<what isn't built yet>"]
 ```
 
-**Row to append:**
-```
-| DC-NNN | <criterion text> | <what the user said isn't built yet> | PLN-NNN or — | PLN-NNN-<slug> | YYYY-MM-DD |
+| Tag | Use when |
+|-|-|
+| `external` | The criterion is tagged `(external)` — needs a real third-party system, real credentials, or a physical act |
+| `soak` | The criterion is tagged `(soak)` — needs real elapsed calendar time |
+| `unbuilt` | The user skipped it because the prerequisite feature does not exist yet. Ask "Is this related to a specific plan? (e.g. PLN-022, or leave blank)" and pass it as `--prereq`; put what they said is missing in `--note` |
+
+`external` and `soak` criteria are deferred **automatically at exit** (see [Manual criterion dispositions](#manual-criterion-dispositions)) — you do not walk a human through them. The `unbuilt` path is the one that needs the user's confirmation first.
+
+Do **not** commit this file separately — it is committed as part of the normal test-exit commit (findings or completion).
+
+### Manual criterion dispositions
+
+Every `#### Manual` criterion in a schema v6 plan carries a tag saying why a machine cannot check it. The tag decides what a **failure** costs — they are not all merge-blocking, and treating them as if they were is what put *"the board is usable one-handed on a phone"* and *"a `change.package` is refused on both ends"* on the same footing.
+
+| Tag | On PASS | On FAIL |
+|-|-|-|
+| `(eyes:blocking)` | Check it off | Write a finding, route the plan back as normal — current behavior |
+| `(eyes:cosmetic)` | Check it off | **File a bug, check the criterion off, let the plan complete** |
+| `(external)` | — | — |
+| `(soak)` | — | — |
+
+**Cosmetic failures fail soft.** When an `eyes:cosmetic` criterion fails, do not write a finding and do not block the plan. Instead file it as a normal bug and move on:
+
+```bash
+new_id=$(../../scripts/wf-exec.sh wf-counter-next.sh BUG)
+# Create ../../bugs/open/$new_id-<slug>/bug.md — Severity: Low,
+# Source: agent:wf-test, Links: "cosmetic criterion from PLN-NNN"
 ```
 
-- `DC-NNN`: auto-increment by counting existing rows (DC-001, DC-002, …)
-- `Prereq Plan`: if the missing feature is associated with a known plan ID, record it here — ask the user "Is this related to a specific plan? (e.g. PLN-022, or leave blank)". Otherwise `—`.
-- Do **not** commit this file separately — it is committed as part of the normal test-exit commit (findings or completion).
+Then check the criterion off in `test-progress.md` with `— COSMETIC (filed $new_id)`. A papercut that should be fixed next week does not hold a merge.
+
+**`external` and `soak` never gate and never fail.** They cannot be satisfied at gate time by anyone, so gating on them buys nothing and costs a stop. At exit, defer each one and check it off:
+
+```bash
+../../scripts/wf-exec.sh wf-defer-criterion.sh PLN-NNN external "<criterion text>"
+../../scripts/wf-exec.sh wf-defer-criterion.sh PLN-NNN soak "<criterion text>"
+```
+
+The criterion travels to whichever future plan touches that surface — which is exactly what `/wf-spec` step 1a exists to consume.
+
+Pre-v6 plans have untagged manual criteria. Treat every one of them as `eyes:blocking` — the v5 meaning.
 
 ---
 

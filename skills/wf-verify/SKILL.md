@@ -57,6 +57,27 @@ Agent(model: haiku, prompt: "Read all new/modified files in feature-branches/PLN
   Report findings with file:line and severity. Response under 1500 chars.")
 ```
 
+### Manual-criteria lint (mechanical — run it, don't judge it)
+
+Before the five-layer check, lint the plan's `#### Manual` criteria:
+
+```bash
+scripts/wf-exec.sh wf-manual-lint.sh PLN-NNN
+```
+
+Exit 0 means every manual criterion carries a legal reason tag — `(eyes:blocking)`, `(eyes:cosmetic)`, `(external)`, or `(soak)`. Exit 1 prints one line per offender: `<line> <TAB> <code> <TAB> <criterion> <TAB> <message>`.
+
+For each offending line, write a **Spec** finding and escalate it:
+
+```markdown
+- [ ] **Spec**: Manual criterion is untagged — "<criterion>" (plan.md:14) ← ESCALATED
+- [ ] **Spec**: Manual criterion is mechanically assertable — "<criterion>" belongs in the Tests table (plan.md:16) ← ESCALATED
+```
+
+These route the plan to `draft`, because only the planner can reclassify a criterion. **Do not fix the plan yourself** and do not reason about whether the lint is right — it is a mechanical check with a stated heuristic, and a planner who disagrees resolves it by rewording the criterion or moving it to the Tests table. Report exactly what the lint reported.
+
+The reason this exists: `#### Manual` used to cost the planner nothing, so criteria a machine could check landed behind a human gate and ran exactly once. An assertion that runs once is not a regression test.
+
 ### Five-layer check
 
 **1. Code** (from haiku agents)

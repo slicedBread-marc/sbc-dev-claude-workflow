@@ -21,7 +21,7 @@ Feature branches contain **no plan content** — only a `.plan-ref` file with th
 # [Feature Name]
 
 > **ID:** PLN-NNN
-> **schema_version:** 5
+> **schema_version:** 6
 > **Created:** YYYY-MM-DD
 > **Bug:** BUG-NNN — <title> _(optional, only if fixing a bug)_
 > **Brief:** briefs/<brief-name>.md _(optional, only if from a brief)_
@@ -90,7 +90,17 @@ Structured checks for the **verifier** session to execute after implementation.
 - [ ] `/route` — [objectively verifiable behavior: redirects, content appears, form submits, error shown, state persists]
 
 #### Manual
-- [ ] `/route` — [subjective or visual: layout, animation, UX feel, responsive rendering]
+_Every criterion carries a reason tag, written first on the line. Legal tags — and nothing else:_
+
+_`(eyes:blocking)` subjective judgment; failing it blocks the merge._
+_`(eyes:cosmetic)` subjective judgment; failing it files a bug and the plan ships._
+_`(external)` needs a real third-party system, real credentials, or a physical act._
+_`(soak)` needs real elapsed calendar time._
+
+_A criterion that fits none of them belongs in the Tests table. `wf-manual-lint.sh` enforces this and fails the plan back to `draft`._
+
+- [ ] (eyes:blocking) `/route` — [can the user complete the task at all]
+- [ ] (eyes:cosmetic) `/route` — [layout, spacing, copy tone, animation feel]
 
 ### Code Quality
 - [ ] New files follow project conventions (namespaces, folder structure)
@@ -130,6 +140,13 @@ How to confirm the rollback succeeded.
 - [ ] [e.g. Feature X returns expected behavior]
 - [ ] [e.g. Error rate returns to baseline]
 - [ ] Build passes and tests are green
+
+## Consistency
+> Filled by the cross-plan consistency pass (`wf-consistency`) when this plan
+> declares Deps. Its presence is the done-marker — do not write it by hand.
+>
+> **Checked:** YYYY-MM-DD — closure: PLN-NNN, PLN-MMM
+> **Result:** clean | amended PLN-NNN (<what and why>) | escalated (<migration>)
 
 ## Review
 > Filled by the planner's review gate before status is set to Ready.
