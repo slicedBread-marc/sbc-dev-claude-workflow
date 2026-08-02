@@ -37,10 +37,17 @@ All workflow artifacts (plans, bugs, briefs) carry a `schema_version` field in t
 
 ### v6 (current)
 - `schema_version: 6`
-- **Tagged manual criteria** — every `#### Manual` criterion in `plan.md` declares why a machine cannot check it, using exactly one of `(eyes:blocking)`, `(eyes:cosmetic)`, `(external)`, `(soak)`. Enforced by `wf-manual-lint.sh` at spec time and again at verify; an untagged or misclassified criterion routes the plan back to `draft`. See [Manual criterion tags](#manual-criterion-tags-v6).
+- **Tagged manual criteria** — every `#### Manual` criterion in `plan.md` declares why a machine cannot check it, using exactly one of `(eyes:blocking)`, `(eyes:cosmetic)`, `(external)`, `(soak)`, `(unbuilt)`. Enforced by `wf-manual-lint.sh` at spec time and again at verify; an untagged or misclassified criterion routes the plan back to `draft`. See [Manual criterion tags](#manual-criterion-tags-v6).
 - **Deferred criteria have a producer** — `plans/deferred-criteria.md` is written by `wf-defer-criterion.sh` when a plan completes with `external` / `soak` criteria outstanding. It was read by `wf-spec` step 1a in v5 but nothing ever created it.
 - **Progress checklist is live** — `progress.md`'s `## Steps` checklist is ticked per step by `wf-progress-tick.sh` and read by `wf-progress-count.sh`. It is the pipeline's forward-progress signal; the orchestrator resets a plan's attempt budget when it climbs.
 - **Consistency section** — `plan.md` gains `## Consistency`, written by the cross-plan consistency pass for plans with declared `Deps`.
+
+**Registry tracking (workflow v3.2.0, no schema bump).** Nothing in the plan document changed, so `schema_version` stays at 6. What changed is where the registry lives:
+
+- **`plans/REGISTRY.md` is tracked.** It was gitignored as "operational state", which left the pipeline's single source of truth as the one artifact in `plans/` that git did not hold: `plan.md`, `findings.md` and `progress.md` were versioned while the state machine indexing them was not, and a lost develop worktree took the whole pipeline's state with it. It also made the documented row-based auto-merge rationale describe a mechanism that could not occur in an untracked file.
+- `wf-registry-update.sh --commit` stages the registry itself, so a transition and the findings that justify it land in one commit.
+- Feature branches are unaffected: `wf-worktree-sparse.sh` already excludes `plans/**` from every feature worktree, so registry churn never reaches a feature branch or arrives as a conflict when one merges back.
+- **Migration:** `install.sh` removes the `plans/REGISTRY.md` line from `.gitignore` and tells the project to commit the file. Nothing else changes.
 
 ## Manual criterion tags (v6)
 
@@ -78,12 +85,15 @@ A criterion fitting none of the five is misclassified and belongs in the Tests t
 | `3` | v3 | Folder location | `.plan/` | `plans/.counter` |
 | `4` | v4 | REGISTRY.md row | `.plan-ref` (ID only) | REGISTRY.md comment |
 | `5` | v5 | REGISTRY.md row + Tags/Deps | `.plan-ref` (ID only) | REGISTRY.md comment |
+| `6` | v6 | REGISTRY.md row + Tags/Deps | `.plan-ref` (ID only) | REGISTRY.md comment |
 
-When creating new artifacts, always write `schema_version: 5`.
+When creating new artifacts, always write `schema_version: 6`.
 
 ## REGISTRY.md
 
-Single source of truth for plan state. Lives at `plans/REGISTRY.md` on develop.
+Single source of truth for plan state. Lives at `plans/REGISTRY.md` on develop, **tracked and committed** with the plan folders it indexes.
+
+Only develop carries it. `wf-worktree-sparse.sh` excludes `plans/**` from every feature worktree, so there is exactly one writer at a time and a state transition never turns into a merge conflict. Write to it only through the `wf-*.sh` scripts — they take the `registry` lock for the whole read-modify-write and commit the transition atomically.
 
 ```markdown
 | ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps |

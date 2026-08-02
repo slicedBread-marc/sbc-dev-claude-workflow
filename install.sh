@@ -137,7 +137,7 @@ mkdir -p "$TARGET_DIR/plans/complete"
 mkdir -p "$TARGET_DIR/plans/rolled-back"
 echo -e "${GREEN}  plans/ folder structure created${NC}"
 
-# Seed REGISTRY.md if it doesn't exist (gitignored — never overwrite live state)
+# Seed REGISTRY.md if it doesn't exist — never overwrite live state
 REGISTRY_TEMPLATE="$SCRIPT_DIR/templates/plans/REGISTRY.md"
 REGISTRY_DEST="$TARGET_DIR/plans/REGISTRY.md"
 if [ -f "$REGISTRY_TEMPLATE" ] && [ ! -f "$REGISTRY_DEST" ]; then
@@ -317,11 +317,29 @@ else
     echo -e "${YELLOW}  post-commit hook already up to date — skipping${NC}"
 fi
 
-# Gitignore REGISTRY.md (operational state, not source code)
+# REGISTRY.md is TRACKED (v3.2.0).
+#
+# It used to be gitignored as "operational state", which left the pipeline's
+# single source of truth as the one artifact in plans/ that git did not hold:
+# plan.md, findings.md and progress.md were all versioned while the state
+# machine indexing them was not, and a lost develop worktree took the whole
+# pipeline's state with it, reconstructable only by hand from progress logs and
+# branch names. It also made the documented row-based auto-merge rationale
+# describe a mechanism that could not occur.
+#
+# Feature branches still never see it: wf-worktree-sparse.sh excludes plans/**
+# from every feature worktree, so registry churn cannot reach a feature branch
+# or arrive as a conflict when one merges back.
 GITIGNORE="$TARGET_DIR/.gitignore"
-if ! grep -qF "plans/REGISTRY.md" "$GITIGNORE" 2>/dev/null; then
-    echo "plans/REGISTRY.md" >> "$GITIGNORE"
-    echo -e "${GREEN}  Added plans/REGISTRY.md to .gitignore${NC}"
+if grep -qF "plans/REGISTRY.md" "$GITIGNORE" 2>/dev/null; then
+    grep -vF "plans/REGISTRY.md" "$GITIGNORE" > "$GITIGNORE.tmp" && mv "$GITIGNORE.tmp" "$GITIGNORE"
+    echo -e "${GREEN}  Removed plans/REGISTRY.md from .gitignore — it is tracked now${NC}"
+    if [ -d "$TARGET_DIR/.git" ] || [ -f "$TARGET_DIR/.git" ]; then
+        if ! git -C "$TARGET_DIR" ls-files --error-unmatch plans/REGISTRY.md >/dev/null 2>&1; then
+            echo -e "${YELLOW}  plans/REGISTRY.md has never been committed. Add it:${NC}"
+            echo "    git add .gitignore plans/REGISTRY.md && git commit -m 'chore: track the plan registry'"
+        fi
+    fi
 fi
 
 # Install workflow scripts — versioned layout (v2.0+).

@@ -75,7 +75,7 @@ Each client also gets a generated `WORKFLOW.md` at its project root (from `templ
 ### Design Principles
 
 1. **Immovable plans** — each plan lives at `plans/PLN-NNN-<slug>/` forever. No folder movement.
-2. **Registry as state machine** — `plans/REGISTRY.md` is the single source of truth for plan state.
+2. **Registry as state machine** — `plans/REGISTRY.md` is the single source of truth for plan state. Tracked and committed on develop; excluded from every feature worktree, so it has one writer and transitions never become merge conflicts.
 3. **Simple entry, complex exit** — every skill starts with one `grep` on REGISTRY.md. Exit logic handles state transitions, commits, and handoffs.
 4. **No plan content on feature branches** — only a `.plan-ref` file (one line: the plan ID). Skills read plan content from the develop worktree.
 

@@ -104,7 +104,7 @@ Merge strategy `-X theirs` (step 6) and `-X ours` (step 11) automatically resolv
 - **release → main:** Accept release's version
 - **main → develop:** Accept main's version (has REGISTRY.md updates)
 
-Plans never move folders, so the only potential conflict is REGISTRY.md — which is row-based and auto-merges in most cases. If a merge fails, abort and notify the user.
+Plans never move folders, so the only potential conflict is REGISTRY.md — which is tracked as of v3.2.0, and row-based precisely so that transitions to different plans auto-merge. Feature branches carry no copy (`plans/**` is excluded from every feature worktree), so conflicts can only arise between the long-lived branches this skill promotes. If a merge fails, abort and notify the user.
 
 ## Rules
 

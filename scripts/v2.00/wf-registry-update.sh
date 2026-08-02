@@ -132,7 +132,13 @@ if [ "$to_state" = "active" ]; then
 fi
 
 # --- Atomic commit (still under the lock) ---
+#
+# REGISTRY.md is staged here, not by the caller. It is tracked as of v3.2.0 —
+# before that it was gitignored, so a "state transition" commit carried the
+# findings and left the state itself out, and a plan could sit in `verify` at
+# HEAD with a completed clean round already on record.
 if [ -n "$commit_msg" ]; then
+  git add "$REGISTRY" 2>/dev/null || true
   for f in "${add_files[@]+"${add_files[@]}"}"; do
     git add "$f"
   done

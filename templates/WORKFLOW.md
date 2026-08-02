@@ -17,6 +17,13 @@ Work is tracked as **plans** in `plans/REGISTRY.md`, which is the single source
 of truth for state. Nothing is "in progress" because a file changed; it is in
 progress because the registry says so.
 
+The registry is **committed on develop**, alongside the plan folders it indexes.
+Feature branches never carry it — `wf-worktree-sparse.sh` excludes `plans/**`
+from every feature worktree — so a plan's state changes in exactly one place and
+never arrives as a merge conflict. Write to it only through the `wf-*.sh`
+scripts; they hold the `registry` lock and commit the transition with the files
+that justify it.
+
 ```
 draft → ready → active → verify ──[automatic]──→ testing → complete
           ↑        |

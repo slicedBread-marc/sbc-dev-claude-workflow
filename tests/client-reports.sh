@@ -279,6 +279,38 @@ assert_eq "it resolves prompts with [AUTO]/[GATE] like its siblings" "true" \
   "$(grep -q '\[AUTO\]' "$VERIFY_SKILL" && grep -q '\[GATE\]' "$VERIFY_SKILL" && echo true || echo false)"
 
 # ═══════════════════════════════════════════════════════════════════════
+section "The registry is tracked (git-tracker WFI-007)"
+
+# It was gitignored as "operational state", so plan.md, findings.md and
+# progress.md were all versioned while the state machine indexing them was
+# not — and the documented "row-based, so concurrent edits auto-merge"
+# rationale described something that cannot happen in an untracked file.
+assert_eq "install.sh does not add it to .gitignore" "false" \
+  "$(grep -qE '^\s*echo "plans/REGISTRY\.md" >> "\$GITIGNORE"' "$LIB_ROOT/install.sh" && echo true || echo false)"
+assert_eq "install.sh removes an existing ignore line" "true" \
+  "$(grep -q 'Removed plans/REGISTRY.md from .gitignore' "$LIB_ROOT/install.sh" && echo true || echo false)"
+
+# A transition and the findings that justify it must land in ONE commit.
+registry_add_row PLN-108 tracked verify
+git add -A >/dev/null 2>&1 && git commit -qm "add PLN-108" >/dev/null 2>&1
+# Written after the baseline commit, so it is genuinely part of the transition.
+printf '# Findings\n\n## Verify — 2026-08-02\n\n- [x] all clear\n' > plans/PLN-108-tracked/findings.md
+"$SCRIPT_DIR/wf-registry-update.sh" PLN-108 verify testing \
+  --commit "verify(PLN-108-tracked): clean — ready for human test" \
+  --add plans/PLN-108-tracked/findings.md >/dev/null 2>&1
+committed=$(git show --stat --name-only --pretty=format: HEAD | tr -d ' ')
+assert_eq "the registry is in the transition commit" "true" \
+  "$(printf '%s' "$committed" | grep -qx 'plans/REGISTRY.md' && echo true || echo false)"
+assert_eq "so are the findings that justify it" "true" \
+  "$(printf '%s' "$committed" | grep -qx 'plans/PLN-108-tracked/findings.md' && echo true || echo false)"
+assert_eq "and HEAD agrees with the working tree" "testing" \
+  "$(git show HEAD:plans/REGISTRY.md | grep '^| PLN-108 |' | awk -F'|' '{print $4}' | xargs)"
+
+# Feature branches must still never carry it.
+assert_eq "sparse-checkout still excludes plans/ from feature worktrees" "true" \
+  "$(grep -q '^!plans/\*\*$' "$SCRIPT_DIR/wf-worktree-sparse.sh" && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
 section "Test filter vs. Microsoft.Testing.Platform (git-tracker, unnumbered)"
 
 # FullyQualifiedName~X is VSTest syntax. Under MTP `dotnet test --filter` is
