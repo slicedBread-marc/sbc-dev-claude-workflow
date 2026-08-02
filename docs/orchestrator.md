@@ -232,6 +232,16 @@ Everything below is configurable in `claude-workflow.yml → orchestrator`:
   is a pure read: no workers, no gates opened, and nothing written to
   `events.log` — a preview that left entries behind would be indistinguishable
   from a real dispatch when the log is read back later.
+- The daemon logs a sweep only when it dispatched something. A sweep that
+  spawns nothing while no worker is live is a **stall**: it emits one `stalled`
+  event naming the gates responsible and their blocked-closure sizes, then
+  stays quiet until that situation changes. Total stall is the one condition
+  worth notifying on — unambiguous, never self-correcting, and every minute in
+  it is wasted wall-clock.
+- `wf-list-gates.sh` ranks the queue by **blocked-closure size**, not by age.
+  A gate's cost is the time until someone looks times the number of plans
+  behind it, and the second term is invisible from the gate itself. Column 6 is
+  that count; ties break oldest-first so nothing starves.
 - Config is read **once, at startup**. Changing `sweep_interval`,
   `max_attempts_per_plan` or any other `orchestrator.*` key needs a daemon
   restart to take effect.

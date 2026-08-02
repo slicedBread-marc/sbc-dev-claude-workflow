@@ -99,9 +99,16 @@ render() {
   printf '%s\n' "${B}GATES${R} ${DIM}— waiting on you (/wf-attend)${R}"
   local gates; gates=$("$SELF_DIR/wf-list-gates.sh" 2>/dev/null || true)
   if [ -n "$gates" ]; then
-    printf '%s\n' "$gates" | while IFS=$'\t' read -r gid gname gopened gq _gctx; do
+    printf '%s\n' "$gates" | while IFS=$'\t' read -r gid gname gopened gq _gctx gblk; do
       [ -n "$gid" ] || continue
-      printf '  %s%-11s%s %-11s %s\n' "$YEL" "$gname" "$R" "$gid" "$gq"
+      # Costliest first — the count is what the gate is holding up, and it is
+      # the only thing on this line that says whether answering it is urgent.
+      if [ "${gblk:-0}" -gt 0 ] 2>/dev/null; then
+        printf '  %s%-11s%s %-11s %s(blocking %s)%s %s\n' \
+          "$YEL" "$gname" "$R" "$gid" "$YEL" "$gblk" "$R" "$gq"
+      else
+        printf '  %s%-11s%s %-11s %s\n' "$YEL" "$gname" "$R" "$gid" "$gq"
+      fi
     done
   else
     printf '  %snone — nothing is waiting on you%s\n' "$DIM" "$R"

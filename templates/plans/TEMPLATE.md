@@ -42,6 +42,8 @@ Why it matters and any additional context (optional paragraph).
 ## Steps
 Each step must be independently completable and verifiable.
 
+**Every entity this plan requires must name the step that creates it.** Accounts the acceptance criteria log in as, tables a query reads, config keys a guard compares against, columns a client must populate, sessions an endpoint resumes, records a `--list` enumerates — for each one, either a step here creates it or the plan names the dependency that does. *A required entity with no provisioning path* is the most repeated defect class in this pipeline's history: it appeared in 6 of 7 plans in one closure, and passed a per-plan architecture review every time, because from inside a single plan the thing simply reads as already present.
+
 ### Step N: [Short title]
 - **Files:** exact paths to create or modify
 - **What:** specific changes — name new classes/methods/components, describe signatures
@@ -107,6 +109,7 @@ _A criterion that fits none of them belongs in the Tests table. `wf-manual-lint.
 - [ ] New files follow project conventions (namespaces, folder structure)
 - [ ] No TODO/HACK markers left without a tracking note
 - [ ] No hardcoded values that should be config/constants
+- [ ] Every entity the plan requires is created by a step here, or by a named dependency
 
 ### Regression Scope
 - [ ] [Area] — [what to check]

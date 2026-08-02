@@ -19,14 +19,18 @@ Run this first and display the queue before reading further:
 scripts/wf-exec.sh wf-list-gates.sh
 ```
 
-Output is tab-separated: `<id>  <gate>  <opened>  <question>  <context>`, oldest first.
+Output is tab-separated: `<id>  <gate>  <opened>  <question>  <context>  <blocking>`.
+
+`<blocking>` is how many other incomplete plans cannot start until this gate is answered, and the queue is **ordered by it, costliest first** (ties break oldest-first). A gate at the root of a dependency chain holds everything behind it; one blocking nothing costs only the minute it takes to answer. Present them in the order given — do not re-sort by age.
 
 Render it as a numbered table and stop:
 
 ```
-| # | Plan | Gate | Waiting | Question |
-|-|-|-|-|-|
+| # | Plan | Gate | Blocking | Waiting | Question |
+|-|-|-|-|-|-|
 ```
+
+Show `Blocking` as a plain count, and `—` when it is 0.
 
 Then: "Which one? (number, or `all` to work through them in order)"
 

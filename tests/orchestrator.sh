@@ -257,10 +257,30 @@ sleep 1
 opened_again=$("$SCRIPT_DIR/wf-list-gates.sh" PLN-010 2>/dev/null | cut -f3)
 assert_eq "re-opening the same gate keeps the original timestamp" "$opened_first" "$opened_again"
 
-# Queue is FIFO by open time.
+# Queue is ranked by what a gate COSTS, not by when it was opened.
+#
+# A gate's cost is not the minute it takes to answer — it is that minute times
+# the number of plans that cannot start until it is. On a dependency chain one
+# gate at the root holds everything behind it, and a FIFO queue presents it
+# indistinguishably from a gate blocking nothing. PLN-1 declares a dep on
+# PLN-011 above, so PLN-011's gate blocks one plan and PLN-010's blocks none —
+# even though PLN-010 was opened first.
 "$SCRIPT_DIR/wf-gate-open.sh" PLN-011-beta manual-test "does /play feel smooth?" >/dev/null 2>&1
-assert_eq "queue is oldest-first" "PLN-010" "$("$SCRIPT_DIR/wf-list-gates.sh" 2>/dev/null | head -1 | cut -f1)"
-assert_eq "both gates listed" "2" "$("$SCRIPT_DIR/wf-list-gates.sh" 2>/dev/null | wc -l | xargs)"
+gates=$("$SCRIPT_DIR/wf-list-gates.sh" 2>/dev/null)
+assert_eq "costliest gate is first" "PLN-011" "$(printf '%s' "$gates" | head -1 | cut -f1)"
+assert_eq "the blocked-closure size is reported" "1" \
+  "$(printf '%s' "$gates" | awk -F'\t' '$1 == "PLN-011" { print $6 }')"
+assert_eq "a gate blocking nothing reports zero" "0" \
+  "$(printf '%s' "$gates" | awk -F'\t' '$1 == "PLN-010" { print $6 }')"
+assert_eq "both gates listed" "2" "$(printf '%s\n' "$gates" | wc -l | xargs)"
+
+# Equal cost still breaks oldest-first, so nothing starves.
+"$SCRIPT_DIR/wf-gate-open.sh" PLN-010 spec-approval "still?" >/dev/null 2>&1
+sleep 1
+"$SCRIPT_DIR/wf-gate-open.sh" PLN-012-gamma manual-test "later, also blocking nothing" >/dev/null 2>&1
+assert_eq "ties break oldest-first" "PLN-010" \
+  "$("$SCRIPT_DIR/wf-list-gates.sh" 2>/dev/null | awk -F'\t' '$6 == 0 { print $1; exit }')"
+"$SCRIPT_DIR/wf-gate-close.sh" PLN-012 done >/dev/null 2>&1
 
 assert_ok "close a gate" "$SCRIPT_DIR/wf-gate-close.sh" PLN-010 approved
 assert_fails "closed gate no longer probes open" "$SCRIPT_DIR/wf-list-gates.sh" PLN-010
@@ -816,6 +836,75 @@ echo 999999 > "$ORCH/daemon.pid"
 "$SCRIPT_DIR/wf-orchestrate.sh" --stop >/dev/null 2>&1
 assert_eq "a stale pidfile is cleared, not left behind" "false" \
   "$([ -f "$ORCH/daemon.pid" ] && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
+section "Stall is announced once, not every minute (git-tracker P-008b)"
+
+# A daemon that sweeps, spawns nothing and has no workers live is not idle —
+# every candidate is behind a gate or an unmet dep and nothing will change
+# until a human acts. The old code wrote one `sweep — spawned 0` per interval
+# regardless: ~1,440 identical lines a day, 146 KB in one measured run, whose
+# entire content was "nobody has looked yet".
+#
+# Swap in a one-plan registry so a sweep is instant and the assertion is about
+# the stall logic rather than about how long the fixture takes to walk.
+cp plans/REGISTRY.md plans/REGISTRY.full
+cat > plans/REGISTRY.md << 'STALLSEED'
+# Plan Registry
+
+| ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps |
+|-|-|-|-|-|-|-|-|-|
+| PLN-050 | stalled | draft | — | — | 2026-08-02 | 2.00 | — | — |
+
+<!-- Counter: 51 -->
+STALLSEED
+mkdir -p plans/PLN-050-stalled
+printf '# PLN-050\n\n## Goal\nstall fixture\n' > plans/PLN-050-stalled/plan.md
+mv "$ORCH/gates" "$ORCH/gates.full" 2>/dev/null || true
+mkdir -p "$ORCH/gates"
+rm -f "$ORCH/logs"/*.pid "$ORCH/stalled"
+"$SCRIPT_DIR/wf-gate-open.sh" PLN-050-stalled spec-approval "approve?" >/dev/null 2>&1
+: > "$ORCH/events.log"
+
+"$SCRIPT_DIR/wf-orchestrate.sh" --daemon --interval 1 >stall.log 2>&1 &
+stall_wrapper=$!
+sleep 5
+"$SCRIPT_DIR/wf-orchestrate.sh" --stop >/dev/null 2>&1
+wait "$stall_wrapper" 2>/dev/null || true
+
+assert_eq "an empty sweep writes no sweep event" "0" \
+  "$(grep -c 'sweep.*spawned 0' "$ORCH/events.log" 2>/dev/null | xargs)"
+assert_eq "stall is announced exactly once across those sweeps" "1" \
+  "$(grep -c 'stalled' "$ORCH/events.log" 2>/dev/null | xargs)"
+assert_eq "and it names the gate responsible" "true" \
+  "$(grep 'stalled' "$ORCH/events.log" 2>/dev/null | grep -q 'PLN-050(spec-approval' && echo true || echo false)"
+
+# Restarting into the SAME situation must stay quiet — otherwise the daemon is
+# just re-logging on a longer period.
+"$SCRIPT_DIR/wf-orchestrate.sh" --daemon --interval 1 >>stall.log 2>&1 &
+stall_wrapper=$!
+sleep 3
+"$SCRIPT_DIR/wf-orchestrate.sh" --stop >/dev/null 2>&1
+wait "$stall_wrapper" 2>/dev/null || true
+assert_eq "an unchanged stall is not re-announced" "1" \
+  "$(grep -c 'stalled' "$ORCH/events.log" 2>/dev/null | xargs)"
+
+# A CHANGED situation must announce again — suppression is per-situation, not
+# once-and-never-again.
+registry_add_row PLN-051 alsostalled draft
+"$SCRIPT_DIR/wf-gate-open.sh" PLN-051-alsostalled spec-approval "this one too?" >/dev/null 2>&1
+"$SCRIPT_DIR/wf-orchestrate.sh" --daemon --interval 1 >>stall.log 2>&1 &
+stall_wrapper=$!
+sleep 3
+"$SCRIPT_DIR/wf-orchestrate.sh" --stop >/dev/null 2>&1
+wait "$stall_wrapper" 2>/dev/null || true
+assert_eq "a changed stall is announced again" "2" \
+  "$(grep -c 'stalled' "$ORCH/events.log" 2>/dev/null | xargs)"
+
+rm -rf "$ORCH/gates"
+mv "$ORCH/gates.full" "$ORCH/gates" 2>/dev/null || mkdir -p "$ORCH/gates"
+mv plans/REGISTRY.full plans/REGISTRY.md
+rm -f "$ORCH/stalled"
 
 # ═══════════════════════════════════════════════════════════════════════
 section "Dry run leaves no trace (git-tracker WFI-011, WFI-003)"

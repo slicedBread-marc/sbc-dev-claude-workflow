@@ -326,8 +326,45 @@ sweep() {
     done < <("candidates_$role")
   done
 
-  wf_event sweep "—" "spawned $spawned"
+  # Only a sweep that did something is worth an event. A daemon writes one
+  # sweep per interval whether or not anything moved, so at the shipped 60s
+  # this was ~1,440 identical `spawned 0` lines a day — 146 KB in one measured
+  # run — whose entire content was "a human has not looked yet".
+  if [ "$spawned" -gt 0 ]; then
+    wf_event sweep "—" "spawned $spawned"
+  fi
   SWEPT=$spawned
+}
+
+# A daemon that sweeps, spawns nothing and has no workers live is not idle —
+# it is STALLED. Every candidate is behind a gate or an unmet dep, and nothing
+# will change until a human acts. Say so once, name what is responsible, and
+# stay quiet until the situation actually changes. Total stall is the one
+# condition worth notifying on: unambiguous, never self-correcting, and every
+# minute spent in it is wasted wall-clock.
+stall_note() {
+  local gates sig prev file
+  file="$ORCH/stalled"
+  gates=$("$SELF_DIR/wf-list-gates.sh" 2>/dev/null \
+          | awk -F'\t' '{ printf "%s(%s, blocking %s) ", $1, $2, $6 }' || true)
+  sig="${gates:-none}"
+  prev=$(cat "$file" 2>/dev/null || echo "")
+  [ "$sig" = "$prev" ] && return 0
+  printf '%s' "$sig" > "$file"
+  if [ -n "$gates" ]; then
+    wf_event stalled "—" "nothing dispatchable; every candidate is gated or dep-blocked behind: $gates"
+    echo "$(wf_now)  STALLED — waiting on: $gates"
+  else
+    wf_event stalled "—" "nothing dispatchable and no gates open — the pipeline is empty or complete"
+    echo "$(wf_now)  idle — nothing to dispatch"
+  fi
+}
+
+# Live workers across every role.
+workers_live() {
+  local role n=0
+  for role in $SWEEP_ROLES; do n=$(( n + $(role_running "$role") )); done
+  printf '%s' "$n"
 }
 
 # ── Modes ─────────────────────────────────────────────────────────────────
@@ -383,7 +420,14 @@ case "$mode" in
     echo "wf-orchestrate: config is read once, at startup — restart to pick up claude-workflow.yml changes."
     while true; do
       sweep
-      [ "$SWEPT" -gt 0 ] && echo "$(wf_now)  dispatched $SWEPT"
+      if [ "$SWEPT" -gt 0 ]; then
+        echo "$(wf_now)  dispatched $SWEPT"
+        rm -f "$ORCH/stalled"          # next stall is a fresh one, announce it
+      elif [ "$(workers_live)" -eq 0 ]; then
+        stall_note
+      else
+        rm -f "$ORCH/stalled"          # work is in flight; not stalled
+      fi
       # Backgrounded so the trap fires now rather than whenever the interval
       # happens to elapse. Bash defers a trap until a FOREGROUND child returns,
       # so a plain `sleep 60` kept the daemon alive for up to a full interval
