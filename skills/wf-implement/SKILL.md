@@ -214,15 +214,18 @@ If the command prints nothing, continue to Phase 1 / Phase 2 as normal.
     ```
 13. **Read the plan** — from develop worktree: `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/plan.md`
 14. **Execute steps in order** — follow each step exactly as specified
-    - After each step, commit and refresh the claim:
+    - After each step, commit, record the step, and refresh the claim:
       ```bash
       git add src/ tests/ && git commit -m "implement(PLN-NNN-<slug>): step N — <desc>"
+      $DEVELOP_ROOT/scripts/wf-exec.sh wf-progress-tick.sh PLN-NNN N "<desc>"
       $DEVELOP_ROOT/scripts/wf-exec.sh wf-claim.sh PLN-NNN-<slug>
       ```
       Refreshing the claim on every commit means the claim age reflects time since last activity. Sessions that crash without committing will have their claims auto-expire (TTL: 2 hours).
+
+      **`wf-progress-tick.sh` is not optional.** It ticks `Step N` in `progress.md`'s `## Steps` checklist and writes the Log line in one call. That checklist is the pipeline's only record of forward progress: the orchestrator resets a plan's attempt budget when the checked count climbs, which is what tells a **resume** of a long plan apart from a **retry** of a thrashing one. A plan whose checklist never moves gets parked as `stuck` no matter how much work landed on the branch. If a step ends blocked, call it as `wf-progress-tick.sh PLN-NNN N "<why>" --blocked` — that logs without ticking.
     - **Config-driven randomness**: If a step introduces probabilistic or random behavior (e.g., a spawn chance, drop rate, trigger probability), store the controlling value in `appsettings.json` (or equivalent config) rather than as a hardcoded constant. This lets testers force or suppress the behavior via override values (e.g., `1.0` to always trigger, `0.0` to never trigger) without modifying source code.
 15. **Write tests** — implement all tests listed in the Tests table. Before drafting a new test, if `$DEVELOP_ROOT/plans/auto-test-log.md` exists, skim its `### Realized` section for rows whose criterion or test file looks relevant. Use them as a style reference (naming, file location, assertion shape) to match house convention without reinvention.
-16. **Log progress** — after each step, append to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/progress.md`: `[date] Step N — done / blocked (reason)`. **Never use relative paths** — `plans/` only exists on the develop worktree.
+16. **Log progress** — handled by `wf-progress-tick.sh` in step 14; do not hand-edit the `## Steps` checklist. For anything that is not a step completion (a note, an ambiguity you resolved conservatively), append directly to `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/progress.md` under `## Log`. **Never use relative paths** — `plans/` only exists on the develop worktree.
 17. **Deploy to local container for testing:**
     ```bash
     $DEVELOP_ROOT/scripts/wf-exec.sh wf-docker-up.sh PLN-NNN-<slug>

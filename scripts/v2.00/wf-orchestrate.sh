@@ -77,12 +77,15 @@ cfg_interval="${interval_override:-$(wf_cfg orchestrator.sweep_interval 60)}"
 cfg_max_attempts=$(wf_cfg orchestrator.max_attempts_per_plan 3)
 cfg_max_spawns=$(wf_cfg orchestrator.max_spawns_per_hour 20)
 
+cfg_consistency=$(wf_cfg orchestrator.consistency_pass true)
+
 max_concurrent() {
   case "$1" in
-    spec)      wf_cfg orchestrator.max_concurrent.spec 1 ;;
-    implement) wf_cfg orchestrator.max_concurrent.implement 2 ;;
-    verify)    wf_cfg orchestrator.max_concurrent.verify 2 ;;
-    test)      wf_cfg orchestrator.max_concurrent.test 1 ;;
+    spec)        wf_cfg orchestrator.max_concurrent.spec 1 ;;
+    implement)   wf_cfg orchestrator.max_concurrent.implement 2 ;;
+    verify)      wf_cfg orchestrator.max_concurrent.verify 2 ;;
+    test)        wf_cfg orchestrator.max_concurrent.test 1 ;;
+    consistency) wf_cfg orchestrator.max_concurrent.consistency 1 ;;
   esac
 }
 
@@ -139,6 +142,40 @@ attempts_bump() {
 }
 attempts_reset() { rm -f "$ORCH/attempts/$1".* 2>/dev/null || true; }
 
+# Forward progress — what makes the attempt budget mean something.
+#
+# The budget counts worker LAUNCHES. Without this, a clean resume of an 11-step
+# plan bumps the same counter as a genuine active⇄verify thrash, so long plans
+# park as `stuck` with nothing wrong and the only workaround is raising the cap
+# until the loop breaker no longer breaks loops.
+#
+# The signature is (registry state, ticked steps). Either moving means the last
+# launch accomplished something, so the budget resets and `max_attempts_per_plan`
+# reads as what it claims to be: N launches with NO forward progress.
+progress_sig() {
+  local id="$1" st cnt con="-"
+  st=$(plan_state "$id")
+  cnt=$("$SELF_DIR/wf-progress-count.sh" "$id" 2>/dev/null || echo "0/0")
+  # A finished consistency pass moves nothing else — the plan stays `ready` —
+  # so it has to appear here or a successful pass reads as a stalled worker.
+  "$SELF_DIR/wf-list-consistency.sh" "$id" >/dev/null 2>&1 && con="c"
+  printf '%s:%s:%s' "${st:-none}" "$cnt" "$con"
+}
+
+# Resets the attempt budget when the plan has moved since the last check.
+progress_check() {
+  local id="$1" sig prev file
+  mkdir -p "$ORCH/progress"
+  file="$ORCH/progress/$id"
+  sig=$(progress_sig "$id")
+  prev=$(cat "$file" 2>/dev/null || echo "")
+  if [ -n "$prev" ] && [ "$sig" != "$prev" ]; then
+    attempts_reset "$id"
+    wf_event progress "$id" "forward progress $prev → $sig — attempt budget reset"
+  fi
+  printf '%s' "$sig" > "$file"
+}
+
 # Hourly spawn budget. Bucketed by hour rather than parsed from events.log so
 # it stays portable (no date arithmetic).
 spawn_budget_left() {
@@ -167,14 +204,17 @@ dispatch() {
     return 1
   fi
 
+  # Did anything move since we last looked? If so the budget starts over.
+  progress_check "$id"
+
   local attempts; attempts=$(attempts_get "$id" "$role")
   if [ "$attempts" -ge "$cfg_max_attempts" ]; then
     if ! gate_open "$id"; then
       "$SELF_DIR/wf-gate-open.sh" "$artifact" stuck \
-        "$role has run $attempts times without reaching a new state. Needs a human look." \
+        "$role has run $attempts times with no forward progress — neither the registry state nor the progress.md step checklist moved. Needs a human look." \
         --skill "wf-$role" >/dev/null 2>&1 || true
     fi
-    wf_event stuck "$id" "$role: $attempts attempts, parked"
+    wf_event stuck "$id" "$role: $attempts attempts without progress, parked"
     return 1
   fi
 
@@ -212,11 +252,25 @@ candidates_test() {
     | awk -F'\t' 'NF && $6 !~ /^blocked:/ { print $1 }' || true
 }
 
+candidates_consistency() {
+  [ "$cfg_consistency" = "true" ] || return 0
+  "$SELF_DIR/wf-list-consistency.sh" 2>/dev/null | awk -F'\t' 'NF { print $1 }' || true
+}
+
 candidates_implement() {
   # Types: new | resume | fix are actionable; processing (claimed elsewhere)
   # and blocked (deps) are not.
+  local pending
+  pending=$(candidates_consistency)
+
   "$SELF_DIR/wf-list-implementable.sh" 2>/dev/null \
-    | awk -F'\t' '$1 == "new" || $1 == "resume" || $1 == "fix" { print $2 }' || true
+    | awk -F'\t' '$1 == "new" || $1 == "resume" || $1 == "fix" { print $2 }' \
+    | while IFS= read -r name; do
+        # A plan still owing a consistency pass is not implementable yet —
+        # building it first is what turns a cheap amendment into a migration.
+        printf '%s\n' "$pending" | grep -qx "$name" && continue
+        printf '%s\n' "$name"
+      done || true
 }
 
 candidates_spec() {
@@ -231,7 +285,10 @@ candidates_spec() {
 # ── Sweep ─────────────────────────────────────────────────────────────────
 # Order matters: drain the furthest-along work first so WIP does not pile up
 # behind a queue of freshly specced plans.
-SWEEP_ROLES="verify test implement spec"
+# `consistency` sits ahead of `implement`: a cross-plan contradiction caught
+# while both plans are still documents is an amendment; caught after one is
+# built, it is a migration.
+SWEEP_ROLES="verify test consistency implement spec"
 
 sweep() {
   local spawned=0 role cap running artifact
@@ -342,7 +399,15 @@ case "$mode" in
       else
         case "$state" in
           draft)          role="spec" ;;
-          ready|active)   role="implement" ;;
+          ready)
+            # Owe a cross-plan check? Do it before anything is built.
+            if [ "$cfg_consistency" = "true" ] && "$SELF_DIR/wf-list-consistency.sh" "$pln_id" >/dev/null 2>&1; then
+              role="consistency"
+            else
+              role="implement"
+            fi
+            ;;
+          active)         role="implement" ;;
           verify)         role="verify" ;;
           testing)        role="test" ;;
           complete)       result="done"; break ;;
@@ -368,6 +433,8 @@ case "$mode" in
         result="done"; break
       fi
 
+      sig_before=$(progress_sig "$pln_id")
+
       rc=0
       "$SELF_DIR/wf-spawn.sh" "$role" "$artifact" --foreground || rc=$?
       attempts_bump "$pln_id" "$role"
@@ -383,10 +450,13 @@ case "$mode" in
         gate_info=$(gate_line "$probe_id"); result="blocked-on-human"; break
       fi
 
-      new_state=$(plan_state "$pln_id")
-      if [ "$new_state" = "$state" ]; then
+      # A worker that ticked steps but did not change state is still advancing
+      # a long plan — keep driving it. Only a launch that moved NOTHING (state
+      # and step checklist both unchanged) counts as no-progress.
+      if [ "$(progress_sig "$pln_id")" = "$sig_before" ]; then
         result="no-progress"; break
       fi
+      attempts_reset "$pln_id"
     done
 
     final_state=$(plan_state "$pln_id")
