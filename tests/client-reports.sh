@@ -279,6 +279,46 @@ assert_eq "it resolves prompts with [AUTO]/[GATE] like its siblings" "true" \
   "$(grep -q '\[AUTO\]' "$VERIFY_SKILL" && grep -q '\[GATE\]' "$VERIFY_SKILL" && echo true || echo false)"
 
 # ═══════════════════════════════════════════════════════════════════════
+section "Test filter vs. Microsoft.Testing.Platform (git-tracker, unnumbered)"
+
+# FullyQualifiedName~X is VSTest syntax. Under MTP `dotnet test --filter` is
+# not recognised: it prints MTP's help, reports "Zero tests ran" and exits 1.
+# A verify agent reading only that exit code fails a fully passing plan.
+if command -v yq >/dev/null 2>&1; then
+  SCOPE_DIR="$TEST_DIR/scope"
+  mkdir -p "$SCOPE_DIR/plans/PLN-107-scoped" "$SCOPE_DIR/scripts"
+  cp "$SCRIPT_DIR"/wf-test-scope.sh "$SCRIPT_DIR"/wf-plan-info.sh \
+     "$SCRIPT_DIR"/wf-orch-lib.sh "$SCRIPT_DIR"/wf-lock.sh "$SCOPE_DIR/scripts/" 2>/dev/null
+  cp plans/REGISTRY.md "$SCOPE_DIR/plans/REGISTRY.md"
+  printf '| PLN-107 | scoped | verify | — | — | 2026-08-02 | 2.00 | — | — |\n' >> "$SCOPE_DIR/plans/REGISTRY.md"
+  printf '# PLN-107\n\n## Goal\nscoped\n\n## Test Scope\n- unit\n' > "$SCOPE_DIR/plans/PLN-107-scoped/plan.md"
+  cat > "$SCOPE_DIR/claude-workflow.yml" <<'YML'
+testFilterStyle: auto
+testScopes:
+  unit:
+    - Core.Tests
+YML
+
+  out=$(cd "$SCOPE_DIR" && ./scripts/wf-test-scope.sh PLN-107-scoped 2>/dev/null || true)
+  assert_eq "a VSTest project still gets a filter" "true" \
+    "$(printf '%s' "$out" | grep -q 'FullyQualifiedName~Core.Tests' && echo true || echo false)"
+
+  printf '{ "test": { "runner": "Microsoft.Testing.Platform" } }\n' > "$SCOPE_DIR/global.json"
+  rc=0
+  out=$(cd "$SCOPE_DIR" && ./scripts/wf-test-scope.sh PLN-107-scoped 2>/dev/null) || rc=$?
+  assert_eq "an MTP project gets no filter at all" "" "$out"
+  assert_eq "and it is a clean exit, not a failure" "0" "$rc"
+
+  # An explicit setting must beat the detection in both directions.
+  printf 'testFilterStyle: vstest\ntestScopes:\n  unit:\n    - Core.Tests\n' > "$SCOPE_DIR/claude-workflow.yml"
+  out=$(cd "$SCOPE_DIR" && ./scripts/wf-test-scope.sh PLN-107-scoped 2>/dev/null || true)
+  assert_eq "testFilterStyle: vstest overrides the detection" "true" \
+    "$(printf '%s' "$out" | grep -q 'FullyQualifiedName~Core.Tests' && echo true || echo false)"
+else
+  printf '  \033[33m—\033[0m yq not installed, skipping filter-style checks\n'
+fi
+
+# ═══════════════════════════════════════════════════════════════════════
 section "local-env deploy is feature-branch only (git-tracker WFI-016)"
 
 # Hooks live in the shared admin dir and fire from every worktree, so an

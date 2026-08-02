@@ -87,13 +87,18 @@ if [ ${#declared[@]} -eq 0 ]; then
   exit 0
 fi
 
+# NOTE: the loops below are C-style, not `seq`. yq prints "null" for an absent
+# key, `$(( null - 1 ))` is -1, and BSD seq REVERSES a range when first > last —
+# so `seq 0 -1` emitted 0 and -1, yq died on index [-1], and `set -e` killed the
+# script for any project whose config omitted these keys.
+
 # Auto-detect categories from git diff --name-only develop..HEAD.
 auto=()
 if git -C "$DEVELOP_ROOT" rev-parse --verify develop >/dev/null 2>&1; then
   changed_files=$(git -C "$DEVELOP_ROOT" diff --name-only develop..HEAD 2>/dev/null || true)
   if [ -n "$changed_files" ]; then
     mapping_count=$(yq e '.testMappings | length' "$CONFIG" 2>/dev/null || echo "0")
-    for i in $(seq 0 $((mapping_count - 1))); do
+    for (( i = 0; i < mapping_count; i++ )); do
       glob=$(yq e ".testMappings[$i].glob" "$CONFIG")
       scopes_count=$(yq e ".testMappings[$i].scopes | length" "$CONFIG")
       matched=0
@@ -104,7 +109,7 @@ if git -C "$DEVELOP_ROOT" rev-parse --verify develop >/dev/null 2>&1; then
         esac
       done <<< "$changed_files"
       if [ "$matched" -eq 1 ]; then
-        for j in $(seq 0 $((scopes_count - 1))); do
+        for (( j = 0; j < scopes_count; j++ )); do
           scope=$(yq e ".testMappings[$i].scopes[$j]" "$CONFIG")
           auto+=("$scope")
         done
@@ -118,7 +123,7 @@ fi
 # Mandatory categories.
 mandatory=()
 mandatory_count=$(yq e '.testScopeMandatory | length' "$CONFIG" 2>/dev/null || echo "0")
-for i in $(seq 0 $((mandatory_count - 1))); do
+for (( i = 0; i < mandatory_count; i++ )); do
   cat_name=$(yq e ".testScopeMandatory[$i]" "$CONFIG")
   mandatory+=("$cat_name")
 done
@@ -150,7 +155,7 @@ for cat in "${all_cats[@]}"; do
     continue
   fi
   used_cats+=("$cat")
-  for i in $(seq 0 $((count - 1))); do
+  for (( i = 0; i < count; i++ )); do
     fqn=$(yq e ".testScopes.\"$cat\"[$i]" "$CONFIG")
     fqn_parts+=("FullyQualifiedName~$fqn")
   done

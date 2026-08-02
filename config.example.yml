@@ -82,6 +82,19 @@ local_stop_command: ""
 #
 # Leave these blocks empty to disable tiered gating — verify falls back to the
 # full suite (backward-compatible behavior).
+#
+# testFilterStyle — how wf-test-scope.sh renders the filter.
+#   auto    (default) vstest, unless the project is detected as Microsoft.
+#           Testing.Platform (global.json `runner`, or a csproj setting
+#           TestingPlatformDotnetTestSupport), in which case: none
+#   vstest  emit FullyQualifiedName~X expressions
+#   none    never emit a filter — always run the full suite
+#
+# MTP does not recognise VSTest's --filter in native mode: it prints its own
+# help, reports "Zero tests ran" and exits 1. A verify agent reading only the
+# exit code would fail a fully passing plan, so the scoped run degrades to the
+# full suite rather than emitting a filter the runner will reject.
+testFilterStyle: auto
 testScopes: {}
 #   unit:
 #     - MyApp.Core.Tests
