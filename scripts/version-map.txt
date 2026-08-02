@@ -4,8 +4,28 @@
 # workflow version (from plan WF column, .claude/workflow-version, or
 # $WF_VERSION env). That row's script_folder is where wf-exec.sh dispatches.
 #
-# Add a new row ONLY when scripts actually change. Most workflow bumps
-# keep mapping to the same script folder.
+# Add a new row ONLY when a script change is INCOMPATIBLE with plans stamped
+# under the current row. Most workflow bumps — including ones that rewrite
+# scripts substantially or add new ones — keep mapping to the same folder.
+#
+# This wording is deliberate, and narrower than what it used to say ("when
+# scripts actually change"). Read literally, that rule promised every plan the
+# exact scripts it was specced under, and the deploy has never worked that way:
+# a folder is overwritten in place so that in-flight plans pick up bug fixes.
+# v3.0.0 is the case that exposed it — seven new scripts and a rewritten
+# orchestrator went into v2.00 with no new row, which looks like the guarantee
+# silently lapsing. It did not, because v3's scripts were built to serve v5
+# plans: wf-manual-lint.sh reads each plan's `schema_version` and applies v5
+# semantics below 6, so a plan stamped 2.5.3 gets v3's fixes and v5's rules.
+#
+# What the WF column actually pins is the script GENERATION, not a version.
+# Fork a folder when a plan stamped under the old one would be misread by the
+# new scripts and cannot be handled in-script — a changed plan.md layout, a
+# renamed registry column, a script contract with no backward-compatible
+# reading. Then, and only then, does an old plan need the old scripts.
+#
+# Folder names are generation labels (v1.x, v2.00), not version stamps. v2.00
+# serving workflow 3.x is expected.
 #
 # Columns are whitespace-separated. Sort ascending by min_workflow_version.
 #

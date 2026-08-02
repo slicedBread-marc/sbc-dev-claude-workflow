@@ -30,10 +30,22 @@ if grep -q '^\- \[ \].*ESCALATED\|^\- \[ \].*PLAN-SCOPED' "$findings" 2>/dev/nul
   exit 0
 fi
 
-# Check for any unchecked items
-if grep -q '^\- \[ \]' "$findings" 2>/dev/null; then
+# Check for any unchecked items.
+#
+# BROAD-SCOPE is the exception. A finding marked BROAD-SCOPE is out of this
+# plan's declared scope and is resolved by spawning an independent bug — the
+# skill is explicit that "a plan can go to active or testing while still
+# spawning bugs for out-of-scope security issues". Routing on it anyway sent
+# the plan back to an implementer whose own Out of Scope section forbids the
+# fix, so the only way out was to check off a finding nobody had acted on.
+remaining=$(grep '^\- \[ \]' "$findings" 2>/dev/null | grep -cv 'BROAD-SCOPE' || true)
+if [ "${remaining:-0}" -gt 0 ]; then
   echo "active"
   exit 0
+fi
+
+if grep -q '^\- \[ \].*BROAD-SCOPE' "$findings" 2>/dev/null; then
+  echo "wf-findings-route: unchecked BROAD-SCOPE finding(s) present — not routing on them; file each as an independent bug" >&2
 fi
 
 echo "clean"

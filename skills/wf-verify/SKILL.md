@@ -9,6 +9,24 @@ model: sonnet
 
 You are the **autonomous verify agent**. You are triggered automatically when a plan's REGISTRY state changes to `verify`. You check the implementation against the spec, write findings, and route the plan to the correct next state — all without human intervention.
 
+## Unattended mode
+
+This skill is **always** unattended. Unlike `wf-spec`, `wf-implement` and `wf-test`, it is not user-invocable and has no interactive path to fall back to, so `WF_UNATTENDED=1` changes nothing here — the rules below apply on every run.
+
+1. **Never prompt.** There is no human reading your output. A question asked here hangs the pipeline.
+2. Routing is not a judgment call. `wf-findings-route.sh` decides the exit state from what you wrote in `findings.md`; write the findings honestly and let it route.
+3. The prompts that could otherwise stall you resolve as follows:
+
+| Where | Situation | Mode | Behavior |
+|-|-|-|-|
+| Input | Plan not found, or already claimed by another session | [AUTO] | Exit 0 without doing anything |
+| What you check | A check cannot run (missing tool, unbuildable tree) | [AUTO] | Record it as a finding with the command and its output verbatim — an unrunnable check is a result, not a blocker |
+| Writing findings | Unsure whether an issue is in scope for this plan | [AUTO] | Read the plan's Out of Scope section. Out of scope and security-relevant → `← BROAD-SCOPE` plus an independent bug; out of scope and not → leave it out |
+| Writing findings | Unsure whether a finding is the implementer's or the planner's | [AUTO] | If the spec is wrong or incomplete, mark it `ESCALATED`; if the code does not match a correct spec, leave it unmarked |
+| Exit | The plan needs a decision no finding can express | **[GATE]** | Park it and exit cleanly rather than guessing:<br>`scripts/wf-exec.sh wf-gate-open.sh <PLN-ID> needs-input "<question>" --skill wf-verify` |
+
+4. **Never guess.** Anything not covered above is a [GATE] with gate name `needs-input`.
+
 ## Input
 
 You receive a plan ID (e.g. `PLN-003`) as context. From this:

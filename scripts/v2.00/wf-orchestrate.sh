@@ -79,6 +79,13 @@ cfg_max_spawns=$(wf_cfg orchestrator.max_spawns_per_hour 20)
 
 cfg_consistency=$(wf_cfg orchestrator.consistency_pass true)
 
+# --dry-run must leave NO trace. An events.log carrying `sweep — spawned 1`
+# from a preview is indistinguishable, when read back, from a real dispatch —
+# there is no matching spawn event, pidfile or process to contradict it.
+if $dry_run; then
+  wf_event() { :; }
+fi
+
 max_concurrent() {
   case "$1" in
     spec)        wf_cfg orchestrator.max_concurrent.spec 1 ;;
@@ -209,7 +216,8 @@ dispatch() {
 
   local attempts; attempts=$(attempts_get "$id" "$role")
   if [ "$attempts" -ge "$cfg_max_attempts" ]; then
-    if ! gate_open "$id"; then
+    # Opening the gate is a real mutation — a preview must not do it either.
+    if ! $dry_run && ! gate_open "$id"; then
       "$SELF_DIR/wf-gate-open.sh" "$artifact" stuck \
         "$role has run $attempts times with no forward progress — neither the registry state nor the progress.md step checklist moved. Needs a human look." \
         --skill "wf-$role" >/dev/null 2>&1 || true
@@ -290,6 +298,17 @@ candidates_spec() {
 # built, it is a migration.
 SWEEP_ROLES="verify test consistency implement spec"
 
+# sweep() reports its count in SWEPT, not on stdout.
+#
+# It used to `printf '%s' "$spawned"` and be called as `n=$(sweep)`. Everything
+# dispatch() and wf-spawn.sh printed landed inside that substitution too, so a
+# sweep that actually dispatched something returned the spawn message with the
+# count glued on the end, and the daemon's `[ "$n" -gt 0 ]` failed every time
+# with "integer expression expected" — the one branch that reports progress was
+# unreachable precisely when there was progress to report. An out-of-band
+# result channel makes that class of bug impossible rather than fixing one case.
+SWEPT=0
+
 sweep() {
   local spawned=0 role cap running artifact
   for role in $SWEEP_ROLES; do
@@ -308,7 +327,7 @@ sweep() {
   done
 
   wf_event sweep "—" "spawned $spawned"
-  printf '%s' "$spawned"
+  SWEPT=$spawned
 }
 
 # ── Modes ─────────────────────────────────────────────────────────────────
@@ -319,8 +338,12 @@ case "$mode" in
 
   sweep)
     require_enabled || exit 1
-    n=$(sweep)
-    echo "sweep: $n worker(s) dispatched"
+    sweep
+    if $dry_run; then
+      echo "sweep: $SWEPT worker(s) would be dispatched (dry run — nothing spawned, nothing logged)"
+    else
+      echo "sweep: $SWEPT worker(s) dispatched"
+    fi
     exit 0
     ;;
 
@@ -335,21 +358,68 @@ case "$mode" in
       rm -f "$DAEMON_PID"
     fi
     echo $$ > "$DAEMON_PID"
-    trap 'rm -f "$DAEMON_PID"; wf_event daemon "—" "stopped"; exit 0' INT TERM EXIT
+
+    # Clearing the trap first is what stops the handler running twice: on
+    # SIGTERM it fires for TERM, and its own `exit 0` then fires it again
+    # through EXIT — two "stopped" events, and two attempts to delete a pidfile
+    # that by then may belong to a replacement daemon.
+    #
+    # The ownership test is the other half. An unconditional `rm -f` from an
+    # outgoing daemon deletes its successor's pidfile, after which wf-board
+    # reports "daemon: off" while the successor is still sweeping and the next
+    # --stop finds nothing to stop.
+    daemon_shutdown() {
+      trap - INT TERM EXIT
+      if [ "$(cat "$DAEMON_PID" 2>/dev/null || echo "")" = "$$" ]; then
+        rm -f "$DAEMON_PID"
+      fi
+      wf_event daemon "—" "stopped"
+      exit 0
+    }
+    trap daemon_shutdown INT TERM EXIT
+
     wf_event daemon "—" "started (interval ${cfg_interval}s)"
     echo "wf-orchestrate: daemon up, sweeping every ${cfg_interval}s. Ctrl-C or --stop to end."
+    echo "wf-orchestrate: config is read once, at startup — restart to pick up claude-workflow.yml changes."
     while true; do
-      n=$(sweep)
-      [ "$n" -gt 0 ] && echo "$(wf_now)  dispatched $n"
-      sleep "$cfg_interval"
+      sweep
+      [ "$SWEPT" -gt 0 ] && echo "$(wf_now)  dispatched $SWEPT"
+      # Backgrounded so the trap fires now rather than whenever the interval
+      # happens to elapse. Bash defers a trap until a FOREGROUND child returns,
+      # so a plain `sleep 60` kept the daemon alive for up to a full interval
+      # after --stop reported it dead — long enough to overlap its replacement.
+      sleep "$cfg_interval" &
+      wait $! || true
     done
     ;;
 
   stop|kill-all)
     if [ -f "$DAEMON_PID" ]; then
-      pid=$(cat "$DAEMON_PID")
-      kill "$pid" 2>/dev/null && echo "daemon stopped (PID $pid)" || echo "daemon not running"
-      rm -f "$DAEMON_PID"
+      pid=$(cat "$DAEMON_PID" 2>/dev/null || echo "")
+      if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+        # Wait for it to actually go. Printing "stopped" the instant SIGTERM is
+        # delivered is a lie the caller acts on — it starts a replacement, and
+        # for a while two daemons sweep the same registry.
+        waited=0
+        while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 15 ]; do
+          sleep 1
+          waited=$((waited + 1))
+        done
+        if kill -0 "$pid" 2>/dev/null; then
+          kill -9 "$pid" 2>/dev/null || true
+          echo "daemon killed (PID $pid — no exit ${waited}s after SIGTERM)"
+        else
+          echo "daemon stopped (PID $pid)"
+        fi
+      else
+        echo "daemon not running (clearing stale pidfile)"
+      fi
+      # The daemon's own trap removes the pidfile when it owns it. Only clear
+      # what is left over, and only if it is still the pid we just stopped.
+      if [ "$(cat "$DAEMON_PID" 2>/dev/null || echo "")" = "$pid" ]; then
+        rm -f "$DAEMON_PID"
+      fi
     else
       echo "daemon not running"
     fi

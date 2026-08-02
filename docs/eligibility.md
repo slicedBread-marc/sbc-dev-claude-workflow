@@ -27,9 +27,14 @@ All eligibility is determined by `plans/REGISTRY.md` state. Scripts in `scripts/
 
 | Type | REGISTRY State | Eligible when |
 |-|-|-|
-| `new` | `ready` | Plan exists, no existing worktree |
-| `resume` | `active` | No unchecked findings in `findings.md` |
-| `fix` | `active` | Has unchecked (non-ESCALATED) findings in `findings.md` |
+| `new` | `ready` | Plan exists, **no existing worktree** for its branch |
+| `resume` | `active`, or `ready` with a worktree | No unchecked findings in `findings.md` |
+| `fix` | `active`, or `ready` with a worktree | Has unchecked (non-ESCALATED) findings in `findings.md` |
+
+A plan sent back to `ready` for a replan keeps its branch and worktree, so state
+alone does not distinguish a new build from a resumed one. The worktree does:
+if one exists, there is nothing left to create and the implementer picks up
+where it left off.
 
 **Not eligible:**
 - Plans in `draft`, `verify`, `testing`, or `complete` state.

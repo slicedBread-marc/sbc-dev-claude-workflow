@@ -156,7 +156,7 @@ The orchestrator parks work rather than guessing. These never run unattended:
 Queued gates are drained with `/wf-attend`.
 
 Manual acceptance criteria carry a tag saying why a machine cannot check them —
-`(eyes:blocking)`, `(eyes:cosmetic)`, `(external)`, `(soak)`. Only unresolved
+`(eyes:blocking)`, `(eyes:cosmetic)`, `(external)`, `(soak)`, `(unbuilt)`. Only unresolved
 `eyes:*` criteria can open a gate, and a cosmetic failure files a bug rather than
 holding the merge. Anything else is a mechanically assertable criterion in the
 wrong place, and the verify lint fails the plan back to `draft` for it.

@@ -46,7 +46,7 @@ bugs/closed/  → resolved by /wf-deploy when a plan completes
    ```
 3. **Choose a slug** — kebab-case title (e.g. `login-crash-empty-password`). The folder will be `BUG-NNN-<slug>`.
 4. **Create the bug folder** — `bugs/open/BUG-NNN-<slug>/`
-5. **Write `bug.md`** — fill in all known fields from the template at `bugs/_template/bug.md`
+5. **Write `bug.md`** — fill in all known fields using the **bug.md format** block below. That block is the format; there is no separate template file to read.
 6. **Handle attachments** — if the user provides a file path, copy or note it:
    - If the file exists locally, note its path in `bug.md` under `## Attachments` with a relative reference
    - If the user describes a file they'll add later, add a placeholder: `- [ ] Attach: <description>`

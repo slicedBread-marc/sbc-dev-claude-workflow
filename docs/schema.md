@@ -52,6 +52,7 @@ All workflow artifacts (plans, bugs, briefs) carry a `schema_version` field in t
 | `eyes:cosmetic` | Subjective judgment about layout, spacing, copy tone, animation feel | No | Files a `BUG-NNN`, criterion checks off, plan completes |
 | `external` | Needs a real third-party system, real credentials, or a physical act | Not in CI | Deferred to `plans/deferred-criteria.md` |
 | `soak` | Needs real elapsed calendar time | Not at gate time | Deferred to `plans/deferred-criteria.md` |
+| `unbuilt` | The prerequisite feature does not exist yet | Once it is built | Deferred to `plans/deferred-criteria.md` |
 
 ```markdown
 #### Manual
@@ -59,9 +60,12 @@ All workflow artifacts (plans, bugs, briefs) carry a `schema_version` field in t
 - [ ] (eyes:cosmetic) /app/board — column spacing is even at 1280px
 - [ ] (external) trx ticket pull <real id> — every image in the DevOps web UI is present
 - [ ] (soak) trx work — the Stalled section surfaces something genuinely forgotten
+- [ ] (unbuilt) the export button — the screen it lives on ships in PLN-112
 ```
 
-A criterion fitting none of the four is misclassified and belongs in the Tests table. `wf-manual-lint.sh` also flags an `eyes:*` criterion written with an assertable verb (*is refused, returns, contains, exists, stops for, prints, matches, resolves*) unless the same line carries a subjective marker (*reads, feels, legible, usable, at a glance*).
+`unbuilt` is the one tag a planner does not write by hand: `wf-defer-criterion.sh` stamps it when `wf-test` defers a criterion whose prerequisite has not shipped. It is listed here because the plan still has to lint afterwards.
+
+A criterion fitting none of the five is misclassified and belongs in the Tests table. `wf-manual-lint.sh` also flags an `eyes:*` criterion written with an assertable verb (*is refused, returns, contains, exists, stops for, prints, matches, resolves*) unless the same line carries a subjective marker (*reads, feels, legible, usable, at a glance*).
 
 **Migration from v5.** No migration script is needed and no in-flight plan changes behavior. `wf-manual-lint.sh` reads the plan's `schema_version` and skips linting anything below 6, so a v5 plan already in the pipeline is never failed back to `draft` for lacking tags. When counting criteria (for the manual-test gate) a v5 plan falls back to v5 semantics: every unchecked manual criterion counts as `eyes:blocking`, which is what "any Manual criterion gates" already meant. Plans drafted or re-drafted after the upgrade are written as v6 and must carry tags.
 

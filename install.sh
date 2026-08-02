@@ -165,6 +165,28 @@ else
              }' "$REGISTRY_DEST" "$REGISTRY_DEST" > "$REGISTRY_DEST.tmp" && mv "$REGISTRY_DEST.tmp" "$REGISTRY_DEST"
         echo -e "${GREEN}  REGISTRY.md migrated (WF column added)${NC}"
     fi
+
+    # v5 migration: Tags and Deps. The seeded header shipped 7 columns while
+    # wf-spec was already writing 9-field rows, so header and rows disagreed
+    # from the first plan onwards — wf-set-tags.sh patched it per row, which
+    # hid the mismatch instead of fixing it.
+    if grep -qE '^\| ID \|.*\| WF \|' "$REGISTRY_DEST" && ! grep -qE '^\| ID \|.*\| Tags \|' "$REGISTRY_DEST"; then
+        echo "  Migrating REGISTRY.md → adding Tags and Deps columns"
+        awk 'BEGIN{OFS=""}
+             NR==FNR{if(/^\| ID \|/){hdr=NR}; if(hdr && NR==hdr+1){sep=NR}; next}
+             {
+               if(FNR==hdr){sub(/\|[[:space:]]*$/, "| Tags | Deps |"); print; next}
+               if(FNR==sep){sub(/\|[[:space:]]*$/, "|-|-|"); print; next}
+               # Only pad rows that are still 7-field; wf-set-tags.sh may
+               # already have widened some of them.
+               if(/^\| (PLN|BUG|BRF)-/){
+                 n=gsub(/\|/,"|"); if(n==8){sub(/\|[[:space:]]*$/, "| — | — |")}
+                 print; next
+               }
+               print
+             }' "$REGISTRY_DEST" "$REGISTRY_DEST" > "$REGISTRY_DEST.tmp" && mv "$REGISTRY_DEST.tmp" "$REGISTRY_DEST"
+        echo -e "${GREEN}  REGISTRY.md migrated (Tags/Deps columns added)${NC}"
+    fi
 fi
 
 # Copy and templatize plan templates

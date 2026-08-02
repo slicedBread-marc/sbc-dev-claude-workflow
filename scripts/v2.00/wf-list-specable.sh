@@ -6,6 +6,16 @@
 
 set -euo pipefail
 
+# Registry work is develop-root work. Sourced/derived paths below are relative
+# ("plans/REGISTRY.md", "plans/PLN-NNN-slug/..."), and verify and implement
+# workers run with their CWD inside a feature worktree — where those resolve to
+# that worktree's own stale copy. The write then "succeeds", the verification
+# grep passes against the copy it just wrote, and the real registry never moves.
+# The main worktree is always the first one git lists.
+_wf_root=$(git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //') || true
+[ -n "$_wf_root" ] || _wf_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
+cd "$_wf_root"
+
 REGISTRY="plans/REGISTRY.md"
 found=0
 

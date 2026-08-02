@@ -24,8 +24,21 @@ fi
 script_name="$1"
 shift
 
-# ── Locate the project root (walk up from CWD) ───────────────────────────
+# ── Locate the project root ──────────────────────────────────────────────
+# The MAIN worktree first, then a walk up from CWD.
+#
+# Walking up from CWD alone is wrong inside a feature worktree. plans/, the
+# registry and the deployed script snapshots all live on develop, and a
+# worktree that picked up a partial `scripts/` from an interrupted deploy
+# answers the walk with itself — at which point `.claude/workflow-version` is
+# sparse-excluded there, the effective version reads as unstamped, and every
+# call routes to the v1.x baseline folder that no longer exists on disk.
 find_project_root() {
+  local main
+  main=$(git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //')
+  if [ -n "$main" ] && [ -f "$main/scripts/version-map.txt" ]; then
+    printf '%s' "$main"; return 0
+  fi
   local dir="$PWD"
   while [ "$dir" != "/" ]; do
     if [ -f "$dir/scripts/version-map.txt" ]; then printf '%s' "$dir"; return 0; fi

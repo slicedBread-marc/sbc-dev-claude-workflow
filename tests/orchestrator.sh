@@ -461,6 +461,13 @@ STUB_MODE=noop orch PLN-035 >/dev/null 2>&1 || true
 plan=$(orch --sweep --dry-run 2>/dev/null || true)
 assert_eq "the parked plan is not offered for dispatch" "false" \
   "$(printf '%s' "$plan" | grep -q 'implement PLN-035-thrash' && echo true || echo false)"
+# A preview must not park anything. Opening a `stuck` gate is a persistent
+# mutation that takes the plan out of the pipeline — --dry-run promises to
+# "spawn nothing", and a run that leaves a gate behind has done more than
+# report. The gate is owed, but only a real sweep may open it.
+assert_fails "dry-run does not open the stuck gate" \
+  "$SCRIPT_DIR/wf-list-gates.sh" PLN-035
+orch --sweep >/dev/null 2>&1 || true
 assert_ok "plan over its attempt budget is parked as 'stuck'" \
   "$SCRIPT_DIR/wf-list-gates.sh" PLN-035
 assert_eq "the gate names the reason" "stuck" \
@@ -761,6 +768,73 @@ assert_eq "a missing client is skipped, others still counted" "2" \
   "$(sweep --count 2>/dev/null | wc -l | xargs)"
 unset WF_DEPLOYMENTS
 
+section "Daemon lifecycle (git-tracker WFI-006, WFI-012)"
+
+# --stop used to send SIGTERM and print success immediately, but the daemon
+# spent nearly all its life in a FOREGROUND `sleep $interval` — and bash defers
+# a trap until a foreground child returns. So it kept sweeping for up to a full
+# interval after being declared dead, alongside the replacement the operator
+# started on the strength of that message.
+#
+# A long interval is the point: with the fix --stop returns in about a second,
+# without it the daemon would outlive this assertion by a hundred.
+"$SCRIPT_DIR/wf-orchestrate.sh" --daemon --interval 30 >daemon.log 2>&1 &
+daemon_wrapper=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  [ -f "$ORCH/daemon.pid" ] && break
+  sleep 0.5
+done
+daemon_pid=$(cat "$ORCH/daemon.pid" 2>/dev/null || echo "")
+assert_eq "daemon wrote a pidfile" "true" \
+  "$([ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null && echo true || echo false)"
+
+stop_start=$(date +%s)
+"$SCRIPT_DIR/wf-orchestrate.sh" --stop >stop.log 2>&1
+stop_elapsed=$(( $(date +%s) - stop_start ))
+
+# Checked HERE, before `wait` — "the daemon is gone" has to be true at the
+# moment --stop returns, which is the claim its output makes. Waiting first
+# would let the old behavior pass: --stop returned instantly, the daemon kept
+# sweeping for the rest of its interval, and only `wait` hid the gap.
+assert_eq "the daemon is gone the moment --stop returns" "false" \
+  "$([ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null && echo true || echo false)"
+assert_eq "--stop returns promptly, not after a whole interval" "true" \
+  "$([ "$stop_elapsed" -lt 10 ] && echo true || echo false)"
+
+wait "$daemon_wrapper" 2>/dev/null || true
+
+# The trap was `... exit 0` on INT TERM EXIT: the TERM handler's own exit
+# re-entered it through EXIT, logging "stopped" twice and running `rm -f` a
+# second time on a pidfile a replacement daemon may by then own.
+assert_eq "shutdown is logged exactly once" "1" \
+  "$(grep -c 'daemon.*stopped' "$ORCH/events.log" 2>/dev/null | xargs)"
+assert_eq "the pidfile is cleared" "false" \
+  "$([ -f "$ORCH/daemon.pid" ] && echo true || echo false)"
+
+# An outgoing daemon must not delete a pidfile it no longer owns.
+echo 999999 > "$ORCH/daemon.pid"
+"$SCRIPT_DIR/wf-orchestrate.sh" --stop >/dev/null 2>&1
+assert_eq "a stale pidfile is cleared, not left behind" "false" \
+  "$([ -f "$ORCH/daemon.pid" ] && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
+section "Dry run leaves no trace (git-tracker WFI-011, WFI-003)"
+
+events_before=$(wc -l < "$ORCH/events.log" 2>/dev/null | xargs)
+out=$("$SCRIPT_DIR/wf-orchestrate.sh" --sweep --dry-run 2>/dev/null || true)
+events_after=$(wc -l < "$ORCH/events.log" 2>/dev/null | xargs)
+assert_eq "a preview writes nothing to events.log" "$events_before" "$events_after"
+assert_eq "and says so rather than claiming a dispatch" "true" \
+  "$(printf '%s' "$out" | grep -q 'would be dispatched (dry run' && echo true || echo false)"
+
+# sweep() reported its count on stdout, so everything dispatch() and
+# wf-spawn.sh printed was captured by the same `n=$(sweep)` — the daemon then
+# tested a spawn message as an integer and failed on every sweep that had
+# something to report.
+assert_eq "the sweep count is an integer, not a spawn message" "true" \
+  "$(printf '%s' "$out" | grep -qE '^sweep: [0-9]+ worker' && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
 section "No BSD-only in-place sed"
 
 # `sed -i ''` is macOS-only; it fails outright on GNU sed, so any of these

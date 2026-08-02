@@ -43,7 +43,38 @@ if [ "$auto_switch" = "true" ]; then
   # Reset infra files before switching — prevents unmerged/dirty conflicts
   # Use HEAD to resolve both dirty and unmerged (U) states
   git checkout HEAD -- .claude/workflow-version .claude/workflow.md 2>/dev/null || true
-  git checkout "$expected" 2>/dev/null
+
+  # A missing target branch used to be indistinguishable from any other
+  # failure: `git checkout 2>/dev/null` swallowed "pathspec did not match",
+  # and `set -e` aborted before the echo — so the caller got exit 1 with
+  # completely empty stdout AND stderr. Greenfield repos hit this every time,
+  # because develop does not exist yet.
+  if ! git rev-parse --verify --quiet "refs/heads/$expected" >/dev/null; then
+    # Track an existing remote branch if there is one, otherwise create it.
+    if git rev-parse --verify --quiet "refs/remotes/origin/$expected" >/dev/null; then
+      git checkout -b "$expected" --track "origin/$expected" || {
+        echo "Error: branch '$expected' exists on origin but could not be checked out" >&2
+        exit 1
+      }
+      echo "CREATED_BRANCH=$expected (tracking origin/$expected)"
+    else
+      git checkout -b "$expected" || {
+        echo "Error: branch '$expected' does not exist and could not be created from '$current'" >&2
+        exit 1
+      }
+      echo "CREATED_BRANCH=$expected (from $current)"
+    fi
+    echo "CURRENT_BRANCH=$expected"
+    echo "SWITCHED_FROM=$current"
+    exit 0
+  fi
+
+  # Real git errors surface — no 2>/dev/null. A dirty tree that blocks the
+  # switch is something the caller has to see.
+  if ! git checkout "$expected"; then
+    echo "Error: could not switch from '$current' to '$expected'" >&2
+    exit 1
+  fi
   echo "CURRENT_BRANCH=$expected"
   echo "SWITCHED_FROM=$current"
   exit 0

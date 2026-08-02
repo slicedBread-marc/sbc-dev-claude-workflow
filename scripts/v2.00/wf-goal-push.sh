@@ -13,6 +13,16 @@ set -euo pipefail
 # shellcheck source=wf-lock.sh
 source "$(dirname "$0")/wf-lock.sh"
 
+# Registry work is develop-root work. Sourced/derived paths below are relative
+# ("plans/REGISTRY.md", "plans/PLN-NNN-slug/..."), and verify and implement
+# workers run with their CWD inside a feature worktree — where those resolve to
+# that worktree's own stale copy. The write then "succeeds", the verification
+# grep passes against the copy it just wrote, and the real registry never moves.
+# The main worktree is always the first one git lists.
+_wf_root=$(git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //') || true
+[ -n "$_wf_root" ] || _wf_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
+cd "$_wf_root"
+
 raw_id="${1:-}"
 new_goal="${2:-}"
 trigger="${3:-}"
@@ -59,11 +69,52 @@ if ! grep -q "^### Goal History" "$plan_file"; then
   ' "$plan_file" > "$plan_file.tmp" && mv "$plan_file.tmp" "$plan_file"
 fi
 
-# Append history row after the separator line
+# Append the history row INSIDE the Goal History section.
+#
+# This used to match the first `|-|-|-|-|` anywhere in the file. In the shipped
+# template Goal History's own header is a comment (the table starts empty), so
+# the first LIVE four-column separator belongs to `## Tests` — and every goal
+# push silently prepended a row to the Tests table, giving it an ID column
+# holding a date and a Command column holding an em-dash.
+#
+# So: find the section, and only then find its separator. If the header is
+# still commented out, uncomment it rather than writing a second one.
 awk -v row="| $today | $current_goal | $trigger | — |" '
+  /^### Goal History/ { in_hist = 1; print; next }
+
+  # Any other heading closes the section. If we got here without writing the
+  # row, the section had no live table — emit one before leaving.
+  in_hist && /^#+[[:space:]]/ {
+    if (!done) { print "| Date | Previous Goal | Trigger | Resolution |"; print "|-|-|-|-|"; print row; print ""; done = 1 }
+    in_hist = 0; print; next
+  }
+
+  # The commented-out placeholder header becomes the real one.
+  in_hist && !done && /^<!--[[:space:]]*\|[[:space:]]*Date[[:space:]]*\|/ {
+    print "| Date | Previous Goal | Trigger | Resolution |"
+    print "|-|-|-|-|"
+    print row
+    done = 1
+    next
+  }
+
+  in_hist && !done && /^\|[[:space:]]*-+[[:space:]]*\|/ { print; print row; done = 1; next }
+
   { print }
-  /^\|-\|-\|-\|-\|/ && !done { print row; done=1 }
+
+  END {
+    if (in_hist && !done) {
+      print "| Date | Previous Goal | Trigger | Resolution |"
+      print "|-|-|-|-|"
+      print row
+    }
+  }
 ' "$plan_file" > "$plan_file.tmp" && mv "$plan_file.tmp" "$plan_file"
+
+if ! grep -q "^| $today | " "$plan_file"; then
+  echo "Error: could not locate '### Goal History' in $plan_file — goal not pushed" >&2
+  exit 1
+fi
 
 # Replace the current goal line with the new goal
 goal_line_num=$(grep -n "^## Goal" "$plan_file" | head -1 | cut -d: -f1)

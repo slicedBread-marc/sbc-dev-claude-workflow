@@ -228,7 +228,13 @@ Everything below is configurable in `claude-workflow.yml → orchestrator`:
 - `enabled: false` by default. Workers run with
   `--dangerously-skip-permissions`; turning this on is a deliberate human grant,
   and `/wf-orchestrate` is explicitly forbidden from flipping it for you.
-- `--dry-run` on `--sweep` reports what would be spawned and spawns nothing.
+- `--dry-run` on `--sweep` reports what would be spawned and spawns nothing. It
+  is a pure read: no workers, no gates opened, and nothing written to
+  `events.log` — a preview that left entries behind would be indistinguishable
+  from a real dispatch when the log is read back later.
+- Config is read **once, at startup**. Changing `sweep_interval`,
+  `max_attempts_per_plan` or any other `orchestrator.*` key needs a daemon
+  restart to take effect.
 - Per-role `max_concurrent` caps.
 - `max_attempts_per_plan` parks thrashing plans.
 - `max_spawns_per_hour` is the hard ceiling on a runaway pipeline.

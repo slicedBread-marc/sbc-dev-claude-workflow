@@ -11,13 +11,16 @@
 #   - [ ] (eyes:cosmetic)  /app/board — column spacing is even at 1280px
 #   - [ ] (external)       trx ticket pull <id> — every image appears in the DevOps UI
 #   - [ ] (soak)           trx work — the Stalled section surfaces something forgotten
+#   - [ ] (unbuilt)        the export button — the screen it lives on ships in PLN-112
 #
 #   eyes:blocking  subjective judgment; failing it blocks the merge
 #   eyes:cosmetic  subjective judgment; failing it files a bug and ships
 #   external       needs a real third-party system, real credentials, or a physical act
 #   soak           needs real elapsed calendar time
+#   unbuilt        the prerequisite feature does not exist yet (the wf-test
+#                  deferral path — see wf-defer-criterion.sh)
 #
-# Anything that fits none of the four is misclassified and belongs in the Tests
+# Anything that fits none of the five is misclassified and belongs in the Tests
 # table. `#### Manual` used to have no cost and no schema — writing a criterion
 # there was strictly easier than writing a real test, so planners drifted into
 # it under time pressure and shipped assertions (including security assertions)
@@ -29,7 +32,7 @@
 #              exit 1 if any findings, 0 if clean.
 #   --counts   print eval-safe KEY='value' lines and exit 0:
 #                MANUAL_TOTAL, MANUAL_EYES_BLOCKING, MANUAL_EYES_COSMETIC,
-#                MANUAL_EXTERNAL, MANUAL_SOAK, MANUAL_UNTAGGED,
+#                MANUAL_EXTERNAL, MANUAL_SOAK, MANUAL_UNBUILT, MANUAL_UNTAGGED,
 #                MANUAL_OPEN_EYES  (unchecked eyes:* criteria — what gates)
 #
 # Codes: untagged | unknown-tag | assertable
@@ -124,7 +127,7 @@ out=$(awk -v legacy="$legacy" '
     if (tag == "") {
       # Pre-v6 plan: no tags were ever required, so read it the v5 way.
       if (legacy) { eyes_blocking++; if (!checked) { open_eyes++; open_blocking++ } ; next }
-      printf "F\t%d\tuntagged\t%s\t%s\n", NR, text, "no reason tag — add (eyes:blocking), (eyes:cosmetic), (external) or (soak), or move it to the Tests table"
+      printf "F\t%d\tuntagged\t%s\t%s\n", NR, text, "no reason tag — add (eyes:blocking), (eyes:cosmetic), (external), (soak) or (unbuilt), or move it to the Tests table"
       untagged++
       next
     }
@@ -133,11 +136,14 @@ out=$(awk -v legacy="$legacy" '
     else if (lower_tag == "eyes:cosmetic") { eyes_cosmetic++; if (!checked) { open_eyes++; open_cosmetic++ } }
     else if (lower_tag == "external")      { external++ }
     else if (lower_tag == "soak")          { soak++ }
+    # Written by wf-defer-criterion.sh when the prerequisite feature does not
+    # exist yet. Deferring the documented way has to produce a plan that lints.
+    else if (lower_tag == "unbuilt")       { unbuilt++ }
     else {
       untagged++
       msg = "unknown tag (" tag ")"
       if (lower_tag == "eyes") msg = msg " — pick a disposition: eyes:blocking or eyes:cosmetic"
-      else msg = msg " — legal tags: eyes:blocking, eyes:cosmetic, external, soak"
+      else msg = msg " — legal tags: eyes:blocking, eyes:cosmetic, external, soak, unbuilt"
       printf "F\t%d\tunknown-tag\t%s\t%s\n", NR, text, msg
       next
     }
@@ -150,9 +156,9 @@ out=$(awk -v legacy="$legacy" '
     }
   }
   END {
-    printf "C\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", \
+    printf "C\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", \
       total + 0, eyes_blocking + 0, eyes_cosmetic + 0, external + 0, soak + 0, untagged + 0, \
-      open_eyes + 0, open_blocking + 0, open_cosmetic + 0
+      open_eyes + 0, open_blocking + 0, open_cosmetic + 0, unbuilt + 0
   }
 ' "$plan_file")
 
@@ -165,6 +171,7 @@ if [ "$mode" = "counts" ]; then
   wf_emit MANUAL_EYES_COSMETIC "$(printf '%s' "$counts" | cut -f4)"
   wf_emit MANUAL_EXTERNAL      "$(printf '%s' "$counts" | cut -f5)"
   wf_emit MANUAL_SOAK          "$(printf '%s' "$counts" | cut -f6)"
+  wf_emit MANUAL_UNBUILT       "$(printf '%s' "$counts" | cut -f11)"
   wf_emit MANUAL_UNTAGGED      "$(printf '%s' "$counts" | cut -f7)"
   wf_emit MANUAL_OPEN_EYES     "$(printf '%s' "$counts" | cut -f8)"
   wf_emit MANUAL_OPEN_BLOCKING "$(printf '%s' "$counts" | cut -f9)"

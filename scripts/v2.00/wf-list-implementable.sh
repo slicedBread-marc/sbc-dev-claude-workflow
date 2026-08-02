@@ -4,8 +4,9 @@
 #
 # Format per line: <type>\t<plan-name>\t<goal>\t<priority>
 #   type = "new"        — state: ready, no existing worktree
-#   type = "resume"     — state: active, no unchecked findings
-#   type = "fix"        — state: active, has unchecked findings
+#   type = "resume"     — has a worktree (state active, or ready after a
+#                         replan), no unchecked findings
+#   type = "fix"        — has a worktree, has unchecked findings
 #   type = "processing" — state: active, claimed by another session (< 2h old claim file)
 #   type = "blocked"    — deps not all complete (appends blocking plan IDs)
 #   priority = "urgent" or "—" (normal)
@@ -14,8 +15,28 @@
 
 set -euo pipefail
 
+# Registry work is develop-root work. Sourced/derived paths below are relative
+# ("plans/REGISTRY.md", "plans/PLN-NNN-slug/..."), and verify and implement
+# workers run with their CWD inside a feature worktree — where those resolve to
+# that worktree's own stale copy. The write then "succeeds", the verification
+# grep passes against the copy it just wrote, and the real registry never moves.
+# The main worktree is always the first one git lists.
+_wf_root=$(git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //') || true
+[ -n "$_wf_root" ] || _wf_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
+cd "$_wf_root"
+
 REGISTRY="plans/REGISTRY.md"
 found=0
+
+# Branches that already have a worktree checked out. Read once — `git worktree
+# list` is cheap but this loop runs per plan.
+existing_worktrees=$(git worktree list --porcelain 2>/dev/null \
+  | awk '/^branch /{ sub(/^branch refs\/heads\//, ""); print }' || true)
+
+has_worktree() {
+  [ -n "$1" ] && [ "$1" != "—" ] || return 1
+  printf '%s\n' "$existing_worktrees" | grep -qx "$1"
+}
 
 urgent_lines=()
 normal_lines=()
@@ -67,11 +88,22 @@ while IFS='|' read -r _ id slug state priority branch _rest; do
     continue
   }
 
-  if [ "$state" = "ready" ]; then
+  # `new` is defined as "ready AND no existing worktree", but the type used to
+  # be read off the state alone. A plan sent back to `ready` for a replan keeps
+  # its branch and worktree, so it came back as `new` — and the implementer,
+  # following the type, would try to create a branch and worktree that already
+  # exist. Anything with a live worktree is a resume or a fix, whatever the
+  # registry says.
+  effective_state="$state"
+  if [ "$state" = "ready" ] && has_worktree "$branch"; then
+    effective_state="active"
+  fi
+
+  if [ "$effective_state" = "ready" ]; then
     line=$(printf "new\t%s\t%s\t%s" "$plan_name" "$goal" "$priority")
     if [ "$priority" = "urgent" ]; then urgent_lines+=("$line"); else normal_lines+=("$line"); fi
     found=1
-  elif [ "$state" = "active" ]; then
+  elif [ "$effective_state" = "active" ]; then
     claimfile="$plan_dir/.wf-claim"
     claimed=0
     now=$(date +%s)

@@ -96,6 +96,7 @@ _`(eyes:blocking)` subjective judgment; failing it blocks the merge._
 _`(eyes:cosmetic)` subjective judgment; failing it files a bug and the plan ships._
 _`(external)` needs a real third-party system, real credentials, or a physical act._
 _`(soak)` needs real elapsed calendar time._
+_`(unbuilt)` the prerequisite feature does not exist yet — written by `wf-defer-criterion.sh`, not by hand._
 
 _A criterion that fits none of them belongs in the Tests table. `wf-manual-lint.sh` enforces this and fails the plan back to `draft`._
 
