@@ -144,14 +144,22 @@ The orchestrator parks work rather than guessing. These never run unattended:
 
 | Gate | Why |
 |-|-|
-| `spec-approval` | A spec may be *written* by a machine; approving what gets built is a human call |
-| `manual-test` | Acceptance criteria that need human eyes (visual polish, animation feel) |
+| `spec-approval` | A spec may be *written* by a machine; approving what gets built is a human call. Under `specApproval.mode: verdict` this is replaced by the review's verdict, except for plans tagged in `gateTags` |
+| `spec-stuck` | `verdict` mode only — the review blocked the plan for `maxReviewRounds` rounds running |
+| `manual-test` | Criteria that need human eyes, **and** a diff that renders something to a human. A plan that renders nothing never stops here |
+| `consistency-migration` | A plan contradicts an already-built dependency — that is a migration, not an amendment |
 | `goal-missing` | The goal is quoted in PRs and by the tester — it is not invented |
 | `migration` | Pending workflow-upgrade actions |
 | `merge-failed` | `git push` was rejected |
-| `stuck` | A plan hit its attempt budget; retrying will not help |
+| `stuck` | A plan burned its attempt budget **with no forward progress** — neither its state nor its `progress.md` step checklist moved. Retrying will not help |
 
 Queued gates are drained with `/wf-attend`.
+
+Manual acceptance criteria carry a tag saying why a machine cannot check them —
+`(eyes:blocking)`, `(eyes:cosmetic)`, `(external)`, `(soak)`. Only unresolved
+`eyes:*` criteria can open a gate, and a cosmetic failure files a bug rather than
+holding the merge. Anything else is a mechanically assertable criterion in the
+wrong place, and the verify lint fails the plan back to `draft` for it.
 
 ---
 
@@ -168,6 +176,7 @@ Run these from a Claude session in this repo.
 | `/wf-bug` | File a bug |
 | `/wf-brainstorm` | Explore an idea into a decided brief |
 | `/wf-spec` | Turn a brief or bug into a plan |
+| `/wf-consistency` | Check a plan against its dependency closure (automatic when it declares `Deps`) |
 | `/wf-implement` | Build a ready plan |
 | `/wf-test` | Human acceptance test |
 | `/wf-release`, `/wf-deploy` | Promote to staging, then production |
@@ -181,6 +190,7 @@ Run these from a Claude session in this repo.
 plans/REGISTRY.md               state machine — single source of truth
 plans/PLN-NNN-<slug>/           plan.md, findings.md, progress.md (never moves)
 plans/briefs/                   brainstormed ideas
+plans/deferred-criteria.md      criteria no gate can satisfy, waiting for a plan that can
 bugs/{open,triaged,closed}/     bug lifecycle
 WORKFLOW-ISSUES.md              harness problems reported here, swept upstream
 claude-workflow.yml             project config, incl. the orchestrator block

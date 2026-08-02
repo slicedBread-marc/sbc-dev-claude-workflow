@@ -120,10 +120,74 @@ testScopeMandatory: []
 # The log is the feedback loop: every [a] you hit is a signal that the plan
 # missed an automation opportunity. Reviewing the log informs future specs.
 autoTestGrowth:
-  enabled: false
+  # On by default: a criterion checked once by a human is not a regression
+  # test, and every criterion converted here runs in every later verify.
+  enabled: true
   agentModel: sonnet
   logCandidatesOnFail: true
   logFile: plans/auto-test-log.md
+
+# ── Manual-test gate ────────────────────────────────────────────────────────
+# When an unattended /wf-test run stops for a human.
+#
+# The rule used to be "stop if any `#### Manual` criterion remains". Every plan
+# has some, so every plan stopped. But the criteria are not evenly spread: plans
+# that render nothing to a human are almost entirely shell assertions wearing a
+# manual label, while browser-UI plans are genuinely irreducible. The gate keys
+# on the surface the diff touches — which the planner does not control when
+# classifying criteria — rather than on how many criteria were written.
+#
+# A gate opens only when ALL of these hold. `wf-manual-gate.sh` decides;
+# /wf-test does not second-guess it.
+manualTestGate:
+  # 1. The diff must touch a rendering surface below.
+  requireRenderingSurface: true
+
+  # 2. At least this many unresolved (eyes:*) criteria must remain.
+  minEyesCriteria: 1
+
+  # 3. Whether an (eyes:cosmetic) criterion alone can hold a merge. Off: a
+  #    cosmetic failure files a BUG-NNN and the plan ships.
+  blockOnCosmetic: false
+
+  # Globs that count as "a human can see this". Empty ⇒ every plan can gate.
+  # `/**/` spans any number of directories; a bare `*` stops at a separator.
+  renderingSurfaces:
+    - "src/**/wwwroot/**"
+    - "src/**/*.razor"
+    - "src/**/Components/**"
+    - "src/**/*.tsx"
+
+# ── Spec approval ───────────────────────────────────────────────────────────
+# Who decides a drafted plan may be built.
+#
+#   gate     every plan parks as a `spec-approval` gate and waits for a human.
+#            The default, and the pre-3.0 behavior.
+#   verdict  the architecture review runs unattended and its VERDICT is the
+#            gate: Approved / Approved-with-notes advances to `ready`, Blocked
+#            goes round the fix loop, and only a plan still Blocked after
+#            maxReviewRounds parks for a human.
+#
+# `verdict` exists because the human decision was measured and found empty: in
+# one 16-plan program the review found Critical findings in 8 of 8 plans, so the
+# question was never "is this good?" but "proceed with the fix loop the reviewer
+# just specified" — a state transition wearing a judgment call's clothes. Every
+# plan converged in 2 rounds.
+#
+# Read `docs/orchestrator.md` before switching. In `verdict` mode nothing else
+# reads the plan before it is built, so the cross-plan consistency pass is the
+# compensating control — leave it on.
+specApproval:
+  mode: gate
+
+  # Blocked rounds allowed before parking as a `spec-stuck` gate. A plan needing
+  # a 4th round has a problem the reviewer cannot articulate, which is exactly
+  # when a human is worth interrupting.
+  maxReviewRounds: 3
+
+  # Plans carrying any of these tags always gate, whatever the verdict.
+  gateTags:
+    - security
 
 # ── Orchestrator ────────────────────────────────────────────────────────────
 # Dispatches unattended workers by REGISTRY state so the pipeline runs from one
@@ -152,6 +216,7 @@ orchestrator:
     implement: 2
     verify: 2
     test: 1
+    consistency: 1
 
   # Model tier per role — the whole point is that grunt work runs cheap.
   # spec gets the expensive model because planning is where judgment lives.
@@ -160,9 +225,33 @@ orchestrator:
     implement: sonnet
     verify: sonnet
     test: haiku
+    consistency: sonnet
 
-  # Loop breaker. A plan bouncing active⇄verify this many times parks as a
-  # `stuck` gate instead of burning tokens forever.
+  # Cross-plan consistency pass. When a plan with declared Deps reaches `ready`,
+  # a worker reads it plus its whole dependency closure and checks only the
+  # claims BETWEEN plans: consumed APIs exist with the assumed shape, required
+  # entities have a provisioning path somewhere, no two plans define the same
+  # artifact incompatibly.
+  #
+  # No other role owns this. Every review is scoped to one plan, so two plans
+  # can each be correct alone and still contradict each other — and the same
+  # missing-provisioning-path defect appeared in 7 of 16 plans of one program
+  # without any per-plan review being able to see it was a pattern.
+  #
+  # It runs BEFORE implement: caught while both plans are documents it is an
+  # amendment; caught after one is built it is a migration. It is also the
+  # compensating control for specApproval.mode: verdict — turning that on while
+  # turning this off leaves nothing reading across plans at all.
+  consistency_pass: true
+
+  # Loop breaker. A plan launched this many times WITHOUT FORWARD PROGRESS
+  # parks as a `stuck` gate instead of burning tokens forever.
+  #
+  # Forward progress = the registry state moved, or progress.md's `## Steps`
+  # checklist gained a tick. That distinction is what keeps a clean resume of a
+  # long plan from spending the same budget as an active⇄verify thrash — do not
+  # raise this to work around a plan that parks mid-build. If that happens, the
+  # implementer is not calling wf-progress-tick.sh, and the fix is there.
   max_attempts_per_plan: 3
 
   # Hard ceiling on worker launches per hour, across all roles. The backstop

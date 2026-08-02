@@ -34,6 +34,7 @@ your-project/
     wf-review/SKILL.md     # /wf-review — architecture & security review
     wf-implement/SKILL.md  # /wf-implement — build from specs
     wf-verify/SKILL.md     # wf-verify — autonomous verify agent (not user-invocable)
+    wf-consistency/SKILL.md# /wf-consistency — cross-plan contract check
     wf-test/SKILL.md       # /wf-test — human acceptance testing
   plans/
     REGISTRY.md                  # SINGLE SOURCE OF TRUTH for plan state
@@ -70,6 +71,7 @@ draft → ready → active → verify ──[agent]──→ testing → complet
 | `/wf-review` | sonnet | Architecture & security review (auto-gate + manual) |
 | `/wf-implement` | sonnet | Build from plan, fix findings |
 | `wf-verify` | sonnet | Autonomous verify agent (triggered by state change) |
+| `/wf-consistency` | sonnet | Check a plan against its dependency closure (automatic on `ready` + Deps) |
 | `/wf-test` | haiku | Human acceptance testing |
 | `/wf-board` | haiku | Live orchestrator view — workers, gates, events |
 | `/wf-attend` | haiku | Drain the gate queue |
@@ -91,6 +93,12 @@ pure bash; the orchestrator never calls a model.** Only workers cost tokens.
 When a worker hits something a machine shouldn't decide — approving a spec, an
 acceptance criterion that needs human eyes, a failed push — it opens a **gate**
 and exits cleanly instead of guessing. `/wf-attend` walks that queue.
+
+Which stops are worth a human is measured, not assumed. A manual criterion only
+gates when the diff actually renders something to a human **and** the criterion
+is tagged as needing eyes; spec approval can be handed to the architecture
+review's verdict (`specApproval.mode: verdict`), leaving a gate only for plans
+the review keeps blocking. See [`docs/orchestrator.md`](docs/orchestrator.md).
 
 Ships **disabled** (`orchestrator.enabled: false`): workers run with
 `--dangerously-skip-permissions`, so enabling it is a deliberate decision. Caps

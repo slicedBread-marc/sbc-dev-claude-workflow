@@ -38,12 +38,38 @@ Three properties worth stating, because they're the reason it's cheap and safe:
 | State | Role | Default model | Why |
 |-|-|-|-|
 | `draft`, open bugs, decided briefs | spec | opus | Planning is where judgment lives |
+| `ready` with unchecked `Deps` | consistency | sonnet | Nothing else reads across plans |
 | `ready`, `active` | implement | sonnet | Bulk of the work |
 | `verify` | verify | sonnet | Already autonomous before this existed |
 | `testing` | test | haiku | Guided by the plan's criteria |
 
-Sweep order is **verify → test → implement → spec**: drain the furthest-along
-work first so WIP doesn't pile up behind freshly specced plans.
+Sweep order is **verify → test → consistency → implement → spec**: drain the
+furthest-along work first so WIP doesn't pile up behind freshly specced plans.
+`consistency` sits immediately ahead of `implement`, and a plan still owing a
+pass is filtered out of the implement candidates — a cross-plan contradiction
+caught while both plans are still documents is an amendment; caught after one is
+built, it is a migration.
+
+### The consistency pass
+
+Every review in the pipeline is scoped to one plan, so two plans can each be
+correct alone and contradict each other. One program specified a forward-paging
+list API in PLN-003 while PLN-007 needed to page backward; both reviews passed on
+the point, and it surfaced only because an attending human happened to hold both
+plans at once. The same missing-provisioning-path defect appeared independently
+in 7 of 16 plans — a pattern no per-plan reviewer is scoped to see.
+
+`wf-consistency` reads a plan plus its full dependency closure and checks only
+inter-plan claims: consumed APIs exist with the assumed shape, required entities
+have a provisioning path somewhere, no two plans define the same artifact
+incompatibly. Findings against an **unbuilt** dependency become amendments to it;
+findings against a **built** one open a `consistency-migration` gate.
+
+It writes `## Consistency` into the plan, which is the done-marker
+`wf-list-consistency.sh` reads — so it runs once per plan, not once per sweep.
+Turn it off with `orchestrator.consistency_pass: false`, but read the note under
+`specApproval` first: it is the compensating control for verdict-mode spec
+approval.
 
 ## Skip rules
 
@@ -57,10 +83,33 @@ An artifact is not dispatched when any of these hold:
 | Its role is at `max_concurrent` | live pidfiles under `.claude/orchestrator/logs/` |
 | It's over `max_attempts_per_plan` | `.claude/orchestrator/attempts/<ID>.<role>` |
 | The hourly spawn budget is spent | `.claude/orchestrator/spawns-<YYYYMMDDHH>` |
+| It still owes a consistency pass (implement only) | `wf-list-consistency.sh` |
 
 The attempt budget is the loop breaker. A plan bouncing `active ⇄ verify`
 forever burns tokens silently; after N implement spawns it parks as a `stuck`
 gate instead of retrying.
+
+### Resume is not retry
+
+The budget counts worker **launches**, which for a while made it useless: a clean
+resume of an 11-step plan spent the same budget as a genuine `active ⇄ verify`
+thrash, so long plans parked as `stuck` with nothing wrong and the only
+workaround was raising the cap until the loop breaker no longer broke loops.
+Nothing recorded forward progress — `wf-implement` kept `progress.md`'s Log
+current but never ticked its Steps checklist, which read *1 of 11* while the
+branch sat at step 9.
+
+Both halves are fixed together:
+
+- `wf-progress-tick.sh` ticks the checklist and writes the Log line in one call,
+  and `wf-implement` calls it on every step commit.
+- The dispatcher records a progress signature per plan —
+  `<state>:<ticked>/<total>:<consistency-pending>` — and **resets the attempt
+  budget whenever it changes.**
+
+So `max_attempts_per_plan: 3` now means what it claims: three launches with *no
+forward progress*. If a plan still parks mid-build, the implementer is not
+calling `wf-progress-tick.sh`; raising the cap hides that rather than fixing it.
 
 ## Gates
 
@@ -71,8 +120,10 @@ artifacts; `/wf-attend` drains the queue.
 
 | Gate | Opened when |
 |-|-|
-| `spec-approval` | A spec is drafted. **The hard stop** — writing a spec unattended is fine, approving one is not |
-| `manual-test` | `#### Manual` criteria remain after everything testable has been cleared |
+| `spec-approval` | A spec is drafted, under `specApproval.mode: gate` (the default) — writing a spec unattended is fine, approving one is not. Also opened in `verdict` mode for plans tagged in `specApproval.gateTags` |
+| `spec-stuck` | `verdict` mode only: the review blocked the plan for `maxReviewRounds` rounds running |
+| `consistency-migration` | A plan contradicts an **already-built** dependency — an amendment can't fix it |
+| `manual-test` | `wf-manual-gate.sh` says a human is needed: the diff touches a rendering surface **and** unresolved `(eyes:*)` criteria remain |
 | `goal-missing` | No concrete goal line; it's quoted in PRs and by the tester, so it isn't invented |
 | `migration` | Pending `MIGRATION-NOTES.md` actions for the plan |
 | `merge-failed` | `git push` was rejected |
@@ -96,15 +147,44 @@ or an improvisation. Each of `wf-spec`, `wf-implement` and `wf-test` carries an
 (resolve to a documented default) or `[GATE]` (park, never guess), plus inline
 markers at the gates themselves.
 
-Three judgment calls encoded there are worth knowing:
+Judgment calls encoded there worth knowing:
 
 - **wf-spec** flips auto-test promotion to `[AUTO] yes`, overriding step 7c's
   "never auto-promote". Maximizing automation is the standing direction.
-- **wf-test** does *not* gate on the first Manual criterion. It clears everything
-  testable without eyes (Chrome-Assisted, recurring auto-testable shapes), then
-  parks **once** with the remainder. Otherwise a human gets pulled back for one
-  item at a time.
+- **wf-spec**'s review gate is `[GATE]` or `[AUTO]` depending on
+  `specApproval.mode` — see below.
+- **wf-test** does *not* gate on the first Manual criterion, and does not decide
+  the question at all: `wf-manual-gate.sh` does, and its answer is final in both
+  directions.
 - **wf-test** treats an unverified criterion as *not* a PASS. A false PASS ships.
+- **wf-consistency** may amend an unbuilt dependency unattended; against a built
+  one it must gate, because that is a migration.
+
+### Which gates are actually worth a human
+
+Two of them were measured and found empty, and both were removed on evidence
+rather than taste.
+
+**Spec approval** (`specApproval.mode`). In a 16-plan program, 15 plans parked as
+`spec-approval`. The architecture review found Critical findings in 8 of 8 gates
+drained with a human present — not one plan was approvable as drafted — so the
+human's decision was never *"is this good?"* but *"proceed with the fix loop the
+reviewer just specified."* Total human input across those 8: the word "approve",
+then the word "all". Under `mode: verdict` the review runs unattended and its
+verdict is the gate; every plan in that run converged in 2 rounds, and a plan
+still Blocked after `maxReviewRounds` parks as `spec-stuck`. Ships as `gate` —
+switching is a deliberate grant, and it should not be switched without the
+consistency pass running.
+
+**Manual test** (`manualTestGate`). The old rule stopped on any `#### Manual`
+criterion, and every plan has some. Sorted by surface, CLI-only plans had 14 of
+15 "manual" criteria that were plain shell assertions; browser-UI plans had 12 of
+14 that genuinely needed eyes. The gate now keys on whether the diff touches a
+configured rendering surface — something the planner does not control when
+classifying criteria — so a plan that renders nothing to a human never stops for
+one. `(external)` and `(soak)` criteria never gate under any condition: they
+cannot be satisfied at gate time either, so gating on them buys a stop and
+nothing else.
 
 ## Concurrency
 

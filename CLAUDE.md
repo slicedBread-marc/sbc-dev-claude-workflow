@@ -50,6 +50,7 @@ The workflow is designed to run across 4 terminal sessions, each with a dedicate
 | T3 | Builder | `/wf-implement` | Sonnet |
 | T4 | Tester | `/wf-test` | Haiku |
 | Agent | Verifier | `wf-verify` (auto-triggered) | Sonnet |
+| Agent | Consistency | `wf-consistency` (auto-triggered on `ready` + Deps) | Sonnet |
 | Any | Release | `/wf-release`, `/wf-deploy` | Haiku |
 
 Each terminal runs `/wf-init` once per session to establish its role. `/wf-next` auto-routes to the correct skill based on `TERMINAL_ROLE`.
@@ -145,4 +146,4 @@ All artifacts (plans, bugs, briefs) use a **global shared counter** embedded in 
 - IDs are type-prefixed: `PLN-NNN`, `BUG-NNN`, `BRF-NNN`.
 - Numbers are globally unique across all types.
 
-**Schema version:** `5` (see `docs/schema.md`). Registry-based model — plans never move, state in REGISTRY.md, `.plan-ref` on feature branches. v5 adds Tags and Deps columns to REGISTRY.md plus goal stack in plan.md.
+**Schema version:** `6` (see `docs/schema.md`). Registry-based model — plans never move, state in REGISTRY.md, `.plan-ref` on feature branches. v5 added Tags and Deps columns plus the goal stack. v6 adds typed reason tags on `#### Manual` criteria (`eyes:blocking`, `eyes:cosmetic`, `external`, `soak`, linted by `wf-manual-lint.sh`), a live `## Steps` checklist in progress.md as the forward-progress signal, a `## Consistency` section, and a producer for `plans/deferred-criteria.md`.

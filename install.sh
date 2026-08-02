@@ -64,13 +64,56 @@ fi
 # Read source_dirs as comma-separated string
 SOURCE_DIRS=$(grep -A 10 "^source_dirs:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - //' | sed 's/"//g' | tr '\n' ', ' | sed 's/,$//')
 
-# Backfill the orchestrator block for clients installed before it existed.
-# Without this the orchestrator silently runs on hardcoded defaults and there
-# is nothing in the config to discover — including no visible `enabled` flag
-# to turn it on. Appended verbatim from config.example.yml, never overwritten.
+# Backfill config blocks for clients installed before they existed. Without
+# this the feature silently runs on hardcoded defaults and there is nothing in
+# the config to discover — including no visible flag to turn it on. Appended
+# verbatim from config.example.yml, never overwritten.
+
+# extract_block <comment-header-prefix> — that header through the line before
+# the next `# ── ` header (or EOF).
+extract_block() {
+    awk -v start="$1" '
+      index($0, start) == 1 { on = 1; print; next }
+      on && /^# ── / { exit }
+      on { print }
+    ' "$SCRIPT_DIR/config.example.yml"
+}
+
 if ! grep -q "^orchestrator:" "$CONFIG_FILE" 2>/dev/null; then
     awk '/^# ── Orchestrator ─/,0' "$SCRIPT_DIR/config.example.yml" >> "$CONFIG_FILE"
     echo -e "${GREEN}  Added orchestrator: block to $CONFIG_FILE (disabled by default)${NC}"
+fi
+
+# v3.0: manual-test gating keys on the surface the diff touches, not on how
+# many `#### Manual` criteria the planner wrote. Absent, wf-manual-gate.sh
+# falls back to pre-3.0 behavior (stop whenever anything manual remains).
+if ! grep -q "^manualTestGate:" "$CONFIG_FILE" 2>/dev/null; then
+    printf '\n' >> "$CONFIG_FILE"
+    extract_block "# ── Manual-test gate" >> "$CONFIG_FILE"
+    echo -e "${GREEN}  Added manualTestGate: block to $CONFIG_FILE${NC}"
+    echo -e "${YELLOW}    Review renderingSurfaces — the defaults assume a .NET/Razor layout${NC}"
+fi
+
+# v3.0: who approves a spec. Ships as `gate` — today's behavior — so nothing
+# changes for an existing client until they opt in.
+if ! grep -q "^specApproval:" "$CONFIG_FILE" 2>/dev/null; then
+    printf '\n' >> "$CONFIG_FILE"
+    extract_block "# ── Spec approval" >> "$CONFIG_FILE"
+    echo -e "${GREEN}  Added specApproval: block to $CONFIG_FILE (mode: gate — unchanged behavior)${NC}"
+fi
+
+# The orchestrator's consistency keys default to on in the scripts, so an older
+# orchestrator block needs no edit — but say so rather than letting a new role
+# appear in the board unannounced.
+if grep -q "^orchestrator:" "$CONFIG_FILE" 2>/dev/null && ! grep -q "consistency_pass:" "$CONFIG_FILE" 2>/dev/null; then
+    echo -e "${YELLOW}  Note: the cross-plan consistency pass is ON by default (no config key present).${NC}"
+    echo -e "${YELLOW}    Add 'consistency_pass: false' under orchestrator: to disable it.${NC}"
+fi
+
+if grep -qE "^autoTestGrowth:" "$CONFIG_FILE" 2>/dev/null && \
+   awk '/^autoTestGrowth:/{f=1;next} f && /^[a-zA-Z]/{exit} f && /enabled:[[:space:]]*false/{found=1} END{exit !found}' "$CONFIG_FILE"; then
+    echo -e "${YELLOW}  Note: autoTestGrowth.enabled is false here; it now defaults to true upstream.${NC}"
+    echo -e "${YELLOW}    A criterion checked once by a human is not a regression test — consider enabling it.${NC}"
 fi
 
 echo "Configuration:"
@@ -125,6 +168,19 @@ fi
 echo "Installing templates..."
 for f in "$SCRIPT_DIR/templates/plans/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/briefs/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/briefs/INDEX.md"; do
     DEST="$TARGET_DIR/plans/${f#$SCRIPT_DIR/templates/plans/}"
+
+    # v6 migration: the plan template carries the schema. A client left on the
+    # v5 template keeps drafting untagged `#### Manual` criteria, which the
+    # verify lint then fails back to draft — so this one is replaced rather
+    # than skipped. The old file is kept beside it; local edits are not lost,
+    # they just stop being the template.
+    if [ "$(basename "$f")" = "TEMPLATE.md" ] && [ "$(dirname "$f")" = "$SCRIPT_DIR/templates/plans" ] \
+       && [ -f "$DEST" ] && ! grep -q 'schema_version:\*\* 6' "$DEST" 2>/dev/null; then
+        cp "$DEST" "$DEST.v5.bak"
+        rm -f "$DEST"
+        echo -e "${YELLOW}  plans/TEMPLATE.md is pre-v6 — replacing (old copy kept at TEMPLATE.md.v5.bak)${NC}"
+    fi
+
     if [ -f "$DEST" ]; then
         echo -e "  ${YELLOW}Skipping $DEST (already exists)${NC}"
     else
@@ -435,6 +491,7 @@ echo "  /wf-verify      — check implementation against plan"
 echo "  /wf-debug       — interactive debug session"
 echo "  /wf-bug         — file a bug report"
 echo "  /wf-info        — full history and status for any plan, bug, or brief"
+echo "  /wf-consistency — check a plan against its dependency closure"
 echo "  /wf-rollback    — revert a completed plan"
 echo ""
 echo "Orchestrated mode (run the pipeline from one terminal):"

@@ -28,12 +28,42 @@ All workflow artifacts (plans, bugs, briefs) carry a `schema_version` field in t
 - **Verify agent** replaces manual wf-verify skill — triggered automatically on state change to `verify`
 - **Simplified findings** — flat checklists instead of FND-NNN tables with status columns
 
-### v5 (current)
+### v5 (legacy)
 - `schema_version: 5`
 - **Tags column** in REGISTRY.md — comma-separated category tags per plan (e.g. `security,admin`)
 - **Deps column** in REGISTRY.md — comma-separated plan IDs that must be `complete` before this plan is workable (e.g. `PLN-045,PLN-073`)
 - **Goal stack** in `plan.md` — `### Goal History` table tracks goal overrides during fix cycles. When findings come back, wf-spec pushes a focused sub-goal; when resolved, the original goal is restored.
 - Allowed tags (extensible): `security`, `arcade`, `admin`, `lessons`, `ux`, `infra`, `e2e`, `bugfix`
+
+### v6 (current)
+- `schema_version: 6`
+- **Tagged manual criteria** — every `#### Manual` criterion in `plan.md` declares why a machine cannot check it, using exactly one of `(eyes:blocking)`, `(eyes:cosmetic)`, `(external)`, `(soak)`. Enforced by `wf-manual-lint.sh` at spec time and again at verify; an untagged or misclassified criterion routes the plan back to `draft`. See [Manual criterion tags](#manual-criterion-tags-v6).
+- **Deferred criteria have a producer** — `plans/deferred-criteria.md` is written by `wf-defer-criterion.sh` when a plan completes with `external` / `soak` criteria outstanding. It was read by `wf-spec` step 1a in v5 but nothing ever created it.
+- **Progress checklist is live** — `progress.md`'s `## Steps` checklist is ticked per step by `wf-progress-tick.sh` and read by `wf-progress-count.sh`. It is the pipeline's forward-progress signal; the orchestrator resets a plan's attempt budget when it climbs.
+- **Consistency section** — `plan.md` gains `## Consistency`, written by the cross-plan consistency pass for plans with declared `Deps`.
+
+## Manual criterion tags (v6)
+
+`#### Manual` criteria are the only checks in the pipeline a machine never runs, so each one states the reason it is exempt:
+
+| Tag | Means | Can a machine ever check it? | On failure |
+|-|-|-|-|
+| `eyes:blocking` | Subjective judgment about whether the user can complete the task | No | Findings written, plan routes to `active` |
+| `eyes:cosmetic` | Subjective judgment about layout, spacing, copy tone, animation feel | No | Files a `BUG-NNN`, criterion checks off, plan completes |
+| `external` | Needs a real third-party system, real credentials, or a physical act | Not in CI | Deferred to `plans/deferred-criteria.md` |
+| `soak` | Needs real elapsed calendar time | Not at gate time | Deferred to `plans/deferred-criteria.md` |
+
+```markdown
+#### Manual
+- [ ] (eyes:blocking) /app/time — the timer is usable one-handed on a phone
+- [ ] (eyes:cosmetic) /app/board — column spacing is even at 1280px
+- [ ] (external) trx ticket pull <real id> — every image in the DevOps web UI is present
+- [ ] (soak) trx work — the Stalled section surfaces something genuinely forgotten
+```
+
+A criterion fitting none of the four is misclassified and belongs in the Tests table. `wf-manual-lint.sh` also flags an `eyes:*` criterion written with an assertable verb (*is refused, returns, contains, exists, stops for, prints, matches, resolves*) unless the same line carries a subjective marker (*reads, feels, legible, usable, at a glance*).
+
+**Migration from v5.** No migration script is needed and no in-flight plan changes behavior. `wf-manual-lint.sh` reads the plan's `schema_version` and skips linting anything below 6, so a v5 plan already in the pipeline is never failed back to `draft` for lacking tags. When counting criteria (for the manual-test gate) a v5 plan falls back to v5 semantics: every unchecked manual criterion counts as `eyes:blocking`, which is what "any Manual criterion gates" already meant. Plans drafted or re-drafted after the upgrade are written as v6 and must carry tags.
 
 ## Skill Behaviour
 
