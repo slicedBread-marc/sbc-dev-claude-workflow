@@ -28,7 +28,10 @@ fi
 
 # Parse config (simple grep-based, no yq dependency)
 get_config() {
-    grep "^$1:" "$CONFIG_FILE" 2>/dev/null | sed "s/^$1:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' || true
+    # head -1: a duplicated key would otherwise return a multi-line value, and
+    # every consumer feeds these into `sed -e "s|...|$VALUE|"`, where an
+    # embedded newline is a syntax error rather than a wrong answer.
+    grep "^$1:" "$CONFIG_FILE" 2>/dev/null | head -1 | sed "s/^$1:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' || true
 }
 
 BUILD_CMD=$(get_config "build_command")
@@ -174,17 +177,19 @@ for f in "$SCRIPT_DIR/templates/plans/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/
     # verify lint then fails back to draft — so this one is replaced rather
     # than skipped. The old file is kept beside it; local edits are not lost,
     # they just stop being the template.
+    REPLACING=false
     if [ "$(basename "$f")" = "TEMPLATE.md" ] && [ "$(dirname "$f")" = "$SCRIPT_DIR/templates/plans" ] \
        && [ -f "$DEST" ] && ! grep -q 'schema_version:\*\* 6' "$DEST" 2>/dev/null; then
-        cp "$DEST" "$DEST.v5.bak"
-        rm -f "$DEST"
-        echo -e "${YELLOW}  plans/TEMPLATE.md is pre-v6 — replacing (old copy kept at TEMPLATE.md.v5.bak)${NC}"
+        REPLACING=true
     fi
 
-    if [ -f "$DEST" ]; then
+    if [ -f "$DEST" ] && [ "$REPLACING" = false ]; then
         echo -e "  ${YELLOW}Skipping $DEST (already exists)${NC}"
     else
         mkdir -p "$(dirname "$DEST")"
+        # Render to a temp file and swap. The v6 replacement below removes a
+        # file the client is using, so a failed render must not be able to
+        # leave them with no template at all.
         sed -e "s|{{build_command}}|$BUILD_CMD|g" \
             -e "s|{{test_command}}|$TEST_CMD|g" \
             -e "s|{{test_filter_flag}}|$TEST_FILTER|g" \
@@ -196,7 +201,13 @@ for f in "$SCRIPT_DIR/templates/plans/TEMPLATE.md" "$SCRIPT_DIR/templates/plans/
             -e "s|{{project_slug}}|$PROJECT_SLUG|g" \
             -e "s|{{production_logs_url}}|$PRODUCTION_LOGS_URL|g" \
             -e "s|{{production_url}}|$PRODUCTION_URL|g" \
-            "$f" > "$DEST"
+            "$f" > "$DEST.new"
+
+        if [ "$REPLACING" = true ]; then
+            mv "$DEST" "$DEST.v5.bak"
+            echo -e "${YELLOW}  plans/TEMPLATE.md is pre-v6 — replacing (old copy kept at TEMPLATE.md.v5.bak)${NC}"
+        fi
+        mv "$DEST.new" "$DEST"
         echo -e "${GREEN}  Installed $DEST${NC}"
     fi
 done
