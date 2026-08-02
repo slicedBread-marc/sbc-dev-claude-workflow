@@ -25,9 +25,17 @@ WT_PATH="${1:?Usage: wf-worktree-sparse.sh <worktree-path>}"
 cd "$WT_PATH"
 
 # Get the worktree-specific git admin dir (e.g. .git/worktrees/PLN-NNN-slug)
-# and the main repo root for shared config.
-GIT_DIR=$(git rev-parse --git-dir)
-REPO_ROOT=$(git rev-parse --show-toplevel)
+# and the SHARED admin dir, which is where repo-wide config and the main
+# worktree's own info/ live.
+#
+# --show-toplevel would be wrong: git gives every linked worktree its own
+# toplevel, so from inside a feature worktree it returns that worktree. The
+# mkdir below then targets the worktree's `.git`, which is a regular file (a
+# gitdir pointer) rather than a directory, and dies with "Not a directory"
+# before sparse-checkout is configured at all.
+GIT_DIR=$(cd "$(git rev-parse --git-dir)" && pwd)
+COMMON_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
+REPO_ROOT=$(dirname "$COMMON_DIR")
 
 # Enable sparse checkout in the shared repo config.
 # This is a repo-wide flag, so we must also protect the main worktree
@@ -36,9 +44,9 @@ git -C "$REPO_ROOT" config core.sparseCheckout true
 
 # Protect the main worktree: ensure develop's sparse-checkout file is a
 # catch-all so the global flag doesn't accidentally exclude files there.
-main_sparse="$REPO_ROOT/.git/info/sparse-checkout"
+main_sparse="$COMMON_DIR/info/sparse-checkout"
 if [ ! -f "$main_sparse" ] || grep -q '^!' "$main_sparse"; then
-  mkdir -p "$REPO_ROOT/.git/info"
+  mkdir -p "$COMMON_DIR/info"
   echo '/**' > "$main_sparse"
 fi
 

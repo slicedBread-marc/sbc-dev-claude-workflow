@@ -3,9 +3,17 @@
 
 MSG=$(git log -1 --pretty=%s)
 ROOT=$(git rev-parse --show-toplevel)
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 
 # claude-workflow: local-env trigger
-if [[ "$MSG" == implement\(* ]]; then
+#
+# Feature branches only. WORKFLOW.md describes this as running "on feature
+# branch worktrees — T3/T4 work in their isolated worktree directory", but
+# hooks live in the shared admin dir and fire from every worktree. So a
+# fix-cycle `implement(` commit made on develop deployed DEVELOP's tree —
+# which under sparse-checkout does not match the Dockerfile's build context,
+# and failed the build on every such commit.
+if [[ "$MSG" == implement\(* ]] && [[ "$BRANCH" == feature/* ]]; then
     SCRIPT="$ROOT/.claude/on-implement-commit.sh"
     if [ -x "$SCRIPT" ]; then
         "$SCRIPT" deploy

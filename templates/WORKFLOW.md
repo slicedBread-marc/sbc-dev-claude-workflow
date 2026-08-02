@@ -123,7 +123,7 @@ scripts/wf-exec.sh wf-list-gates.sh       # what is waiting on a human
 | Hook | Trigger | Effect |
 |-|-|-|
 | `.git/hooks/post-commit` | commit message matches `*move*to verify*` | Launches the verify agent for that plan |
-| `.git/hooks/post-commit` | commit message starts `implement(` | Starts/refreshes the local dev environment |
+| `.git/hooks/post-commit` | commit message starts `implement(` **and HEAD is a `feature/*` branch** | Starts/refreshes the local dev environment |
 | `.claude/on-verify-trigger.sh` | called by the hook above | Shim over `wf-spawn.sh verify` |
 | `.claude/on-implement-commit.sh` | called by the hook above | Docker local-env lifecycle |
 | Orchestrator daemon | `wf-orchestrate.sh --daemon` (manual start) | Sweeps `REGISTRY.md` and dispatches unattended workers by state |

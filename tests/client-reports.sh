@@ -153,6 +153,11 @@ assert_eq "develop's sparse-checkout stayed a catch-all" "/**" \
 
 git worktree remove --force "$TEST_DIR/wt-101" >/dev/null 2>&1
 
+# The frozen v1.x snapshot carried the same line and the same failure — it is a
+# pure bug fix, so it propagates in place rather than forking a folder.
+assert_eq "the v1.x snapshot no longer derives REPO_ROOT from --show-toplevel" "false" \
+  "$(grep -q 'REPO_ROOT=$(git rev-parse --show-toplevel)' "$LIB_SCRIPTS/v1.x/wf-worktree-sparse.sh" && echo true || echo false)"
+
 # ═══════════════════════════════════════════════════════════════════════
 section "Implementable type vs. existing worktree (git-tracker WFI-014)"
 
@@ -272,6 +277,37 @@ assert_eq "wf-verify has an Unattended mode section" "true" \
   "$(grep -qi '^## Unattended mode' "$VERIFY_SKILL" && echo true || echo false)"
 assert_eq "it resolves prompts with [AUTO]/[GATE] like its siblings" "true" \
   "$(grep -q '\[AUTO\]' "$VERIFY_SKILL" && grep -q '\[GATE\]' "$VERIFY_SKILL" && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
+section "local-env deploy is feature-branch only (git-tracker WFI-016)"
+
+# Hooks live in the shared admin dir and fire from every worktree, so an
+# `implement(` commit made on develop during a fix cycle deployed develop's
+# tree. Under sparse-checkout that tree does not match the Dockerfile's build
+# context, and the deploy failed on every such commit.
+cp "$LIB_ROOT/templates/hooks/post-commit" .git/hooks/post-commit
+chmod +x .git/hooks/post-commit
+cat > .claude/on-implement-commit.sh <<'STUB'
+#!/bin/bash
+echo "$1" >> "$(git rev-parse --show-toplevel)/.claude/deploy-ran"
+STUB
+chmod +x .claude/on-implement-commit.sh
+rm -f .claude/deploy-ran
+
+git checkout -q develop
+echo one > marker.txt && git add marker.txt >/dev/null 2>&1
+git commit -qm "implement(PLN-001-x): fix findings" >/dev/null 2>&1
+assert_eq "an implement( commit on develop does NOT deploy" "false" \
+  "$([ -f .claude/deploy-ran ] && echo true || echo false)"
+
+git checkout -q -b feature/PLN-106-hooked
+echo two > marker.txt && git add marker.txt >/dev/null 2>&1
+git commit -qm "implement(PLN-106-hooked): step 1" >/dev/null 2>&1
+assert_eq "the same commit on a feature branch still deploys" "true" \
+  "$([ -f .claude/deploy-ran ] && echo true || echo false)"
+
+git checkout -q develop
+rm -f .git/hooks/post-commit .claude/on-implement-commit.sh .claude/deploy-ran
 
 # ═══════════════════════════════════════════════════════════════════════
 section "wf-bug points at a template that exists (sbc WFI-005)"
