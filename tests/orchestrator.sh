@@ -677,6 +677,22 @@ assert_eq "three concurrent reports all land" "3" "$("$SCRIPT_DIR/wf-issue.sh" -
 assert_eq "no duplicate IDs under concurrency" "3" \
   "$(grep -oE '^## WFI-[0-9]+' WORKFLOW-ISSUES.md | sort -u | wc -l | xargs)"
 
+# Regression: the IDs are zero-padded, so WFI-008 and WFI-009 are read as octal
+# unless the increment forces base 10 — which left the heading with no ID at all
+# and made the next report collide. Seen live in git-tracker.
+rm -f WORKFLOW-ISSUES.md
+"$SCRIPT_DIR/wf-issue.sh" --source seed --expected e --actual x >/dev/null 2>&1
+awk '{ sub(/^## WFI-001 /, "## WFI-008 "); print }' WORKFLOW-ISSUES.md > tmp.$$ && mv tmp.$$ WORKFLOW-ISSUES.md
+assert_ok "filing after WFI-008 succeeds" "$SCRIPT_DIR/wf-issue.sh" \
+  --source wf-spec --expected "no octal" --actual "octal"
+assert_eq "the ID after 008 is 009, not blank" "true" \
+  "$(grep -q '^## WFI-009 ' WORKFLOW-ISSUES.md && echo true || echo false)"
+awk '{ sub(/^## WFI-009 /, "## WFI-019 "); print }' WORKFLOW-ISSUES.md > tmp.$$ && mv tmp.$$ WORKFLOW-ISSUES.md
+assert_ok "filing after WFI-019 succeeds" "$SCRIPT_DIR/wf-issue.sh" \
+  --source wf-spec --expected "no octal" --actual "octal"
+assert_eq "the ID after 019 is 020" "true" \
+  "$(grep -q '^## WFI-020 ' WORKFLOW-ISSUES.md && echo true || echo false)"
+
 section "Issue reporting is wired into the skills"
 
 for s in wf-spec wf-implement wf-test wf-verify; do

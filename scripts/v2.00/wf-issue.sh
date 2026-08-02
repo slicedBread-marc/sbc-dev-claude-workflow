@@ -144,8 +144,10 @@ ensure_file
 wf_lock_acquire "workflow-issues" || exit 0
 
 # Next ID: one more than the highest already present.
+# 10# forces base 10 — the IDs are zero-padded, so bash reads 008 and 009 as
+# octal and errors out, leaving $next empty and the heading without an ID.
 last=$(grep -oE '^## WFI-[0-9]+' "$ISSUES" 2>/dev/null | grep -oE '[0-9]+' | sort -n | tail -1)
-next=$(printf 'WFI-%03d' "$(( ${last:-0} + 1 ))")
+next=$(printf 'WFI-%03d' "$(( 10#${last:-0} + 1 ))")
 
 wf_version=$(tr -d '[:space:]' < "$ROOT/.claude/workflow-version" 2>/dev/null || echo "unknown")
 

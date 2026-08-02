@@ -31,7 +31,8 @@ if [ -z "$current" ]; then
   exit 1
 fi
 
-next=$((current + 1))
+# 10# forces base 10 in case the counter was hand-edited with a leading zero.
+next=$((10#$current + 1))
 
 # Update counter (awk into a tempfile — `sed -i ''` is macOS-only)
 awk -v cur="$current" -v nxt="$next" '
