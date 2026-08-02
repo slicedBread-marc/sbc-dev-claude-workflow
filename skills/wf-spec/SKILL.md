@@ -31,9 +31,25 @@ Rules, in force for the whole session:
 | 4b | Goal confirmation | [AUTO] | Accept your own draft if it is concrete and specific. If you cannot write a concrete goal from the source artifact, [GATE] `goal-missing` |
 | 4c | Tag assignment | [AUTO] | Assign from the allowlist based on slug, goal, and touched paths |
 | 7c | Auto-test promotion (y/n) | [AUTO] | **Yes** — promote. Maximizing automation is the standing direction; this overrides "never auto-promote" in step 7c |
-| Review gate | Plan approval | **[GATE]** | `spec-approval` — a human decides what gets built. Question: the goal plus step/test counts. Context: the plan.md path |
+| Review gate | Plan approval | **[GATE]** or [AUTO] | Depends on `specApproval.mode` — see below |
 
-The review gate is the hard stop. A spec may be written unattended; it may not be **approved** unattended.
+### The review gate
+
+Read the mode before you exit — do not assume either behavior:
+
+```bash
+SPEC_MODE=$(scripts/wf-exec.sh wf-config-get.sh specApproval.mode gate)
+MAX_ROUNDS=$(scripts/wf-exec.sh wf-config-get.sh specApproval.maxReviewRounds 3)
+GATE_TAGS=$(scripts/wf-exec.sh wf-config-get.sh specApproval.gateTags --list)
+```
+
+**`gate` (default)** — the hard stop. A spec may be written unattended; it may not be **approved** unattended. Park as `spec-approval` and exit; `/wf-attend` runs the review with a human present.
+
+**`verdict`** — the review runs unattended and **its verdict is the gate**, not the plan's existence. Follow [Exit — verdict mode](#exit--verdict-mode).
+
+Why the second mode exists, so you can judge whether the run in front of you fits it: in a measured 16-plan program the review found Critical findings in **8 of 8** plans drained with a human present. Not one was approvable as drafted, so the human's decision was never *"is this good?"* — it was always *"proceed with the fix loop the reviewer just specified."* The gate sat in front of the mechanism that does the filtering, admitting everything to a step that then rejected everything. Total human input across those 8 gates: the word "approve", then the word "all".
+
+What that mode costs, stated plainly: some Criticals are found by *cross-plan* reasoning a per-plan reviewer cannot reach, and were caught only because a human skimming a queue of 15 plans noticed a contradiction. The [cross-plan consistency pass](#cross-plan-consistency) is the compensating control. If it is disabled, `verdict` mode is running without a safety net.
 
 ## IMMEDIATE STARTUP — run in parallel before reading further
 
@@ -114,15 +130,23 @@ If the user picks a bug BUG-NNN:
 ## What you do
 
 1. **Read the input** — if from a brief: read the relevant brief in `plans/briefs/`; if from a bug: the bug's `bug.md` becomes the scope definition
-1a. **Check deferred criteria** — if `plans/deferred-criteria.md` exists, read it and scan for entries where `Prereq Plan` matches the current plan ID, or where the criterion text or prerequisite description overlaps with the feature being planned. If any match, show them to the user before writing the plan:
+1a. **Check deferred criteria** — list the open ones:
+    ```bash
+    scripts/wf-exec.sh wf-defer-criterion.sh --list
+    ```
+    Output is tab-separated: `DC-NNN <TAB> criterion <TAB> tag <TAB> from-plan <TAB> prereq`. These are `external` / `soak` criteria whose original plan shipped without them (step 8 defines the tags). Show any whose prereq is this plan's ID, or whose criterion touches the surface you are planning:
     ```
     Found N deferred criterion/criteria that may apply to this plan:
-    | # | Criterion | From |
-    |-|-|-|
-    | DC-001 | <text> | PLN-009 |
+    | # | Criterion | Tag | From |
+    |-|-|-|-|
+    | DC-001 | <text> | external | PLN-009 |
     ```
-    Ask: "Include any of these in the acceptance criteria? (Enter numbers, or press enter to skip.)"
-    For each included: add it to the plan's Human Test Criteria and remove its row from `deferred-criteria.md`.
+    Ask: "Include any of these in the acceptance criteria? (Enter numbers, or press enter to skip.)" — under `WF_UNATTENDED=1` this is [AUTO] include-none, per the unattended table.
+    For each included: add it to the plan's `#### Manual` section **carrying its original tag**, then mark it consumed:
+    ```bash
+    scripts/wf-exec.sh wf-defer-criterion.sh --consume DC-001 PLN-NNN
+    ```
+    Do not delete rows by hand — the consumed row is the record that the criterion was picked up rather than dropped.
 2. **Choose a feature name** — a short kebab-case slug describing the work (e.g. `user-auth`, `payment-webhook`, `login-crash`)
 3. **Inherit the plan ID** — reuse the source artifact's number (see [ID Inheritance](#id-inheritance)). Do not call `wf-counter-next.sh`.
 4. **Explore the codebase** — spawn **haiku agents** to find existing patterns, file structures, and signatures you need to reference in the plan. Keep agents focused: one per question, output under 2000 characters.
@@ -141,7 +165,7 @@ If the user picks a bug BUG-NNN:
     Suggest tags based on the plan content (e.g., a plan fixing auth → `security`, a plan for arcade games → `arcade`). Multiple tags allowed. Store for use when writing the registry row.
 5. **Create the plan folder** — `plans/PLN-NNN-<slug>/` with three files following `templates/plans/TEMPLATE.md`:
    - Folder is always `plans/PLN-NNN-<slug>/` (e.g. `plans/PLN-041-user-auth/`)
-   - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 5`
+   - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 6`
    - **Goal** — use the confirmed one-liner from step 4b as the first line under `## Goal`. Follow with an optional context paragraph.
    - `plan.md` — goal, steps, tests, checklist, design decisions, out of scope
    - `findings.md` — empty (no table header needed — findings are appended as flat checklists)
@@ -178,8 +202,34 @@ If the user picks a bug BUG-NNN:
     If yes, add the test to the Tests table (step 7) and skip adding it under Human Test Criteria. If no, proceed normally. **Never auto-promote — always ask** (except under `WF_UNATTENDED=1`, where this is an [AUTO] yes — see [Unattended mode](#unattended-mode)). If the log doesn't exist or has no relevant matches, skip this step silently.
 8. **Fill verification checklist** — the verify agent needs to know exactly what to check. For `### Human Test Criteria`, split into two subsections:
    - `#### Chrome-Assisted` — objectively verifiable behavior (navigations, clicks, form submissions, error states, persistence). Each criterion starts with a route: `- [ ] /login — redirects to /dashboard after valid credentials`
-   - `#### Manual` — subjective or visual checks that need human eyes (layout, animation, UX feel). Each criterion starts with a route: `- [ ] /play — animation feels smooth and natural`
-   Only use `#### Manual` for things that genuinely require human judgment. If Chrome can navigate and check the result, it's Chrome-Assisted.
+   - `#### Manual` — checks no machine can make. **Every one carries a reason tag, written first on the line.** Exactly four tags are legal:
+
+   ```markdown
+   #### Manual
+   - [ ] (eyes:blocking) /app/time — the timer is usable one-handed on a phone
+   - [ ] (eyes:cosmetic) /app/board — column spacing is even at 1280px
+   - [ ] (external) trx ticket pull <real id> — every image visible in the DevOps web UI is present
+   - [ ] (soak) trx work — the Stalled section surfaces something genuinely forgotten
+   ```
+
+   | Tag | Means | On failure |
+   |-|-|-|
+   | `eyes:blocking` | Subjective judgment about whether the user can complete the task at all | Findings written, plan routes to `active` |
+   | `eyes:cosmetic` | Subjective judgment about layout, spacing, copy tone, animation feel | Files a `BUG-NNN`, criterion checks off, plan completes |
+   | `external` | Needs a real third-party system, real credentials, or a physical act | Deferred to `plans/deferred-criteria.md` |
+   | `soak` | Needs real elapsed calendar time | Deferred to `plans/deferred-criteria.md` |
+
+   **A criterion that fits none of the four is misclassified — it belongs in the Tests table.** `wf-verify` lints this mechanically (`wf-manual-lint.sh`); an untagged criterion, an unknown tag, or an assertable verb under an `eyes:*` tag fails the plan back to `draft`. Writing a criterion here is no longer cheaper than writing a real test.
+
+   Grade your own wording before you commit it:
+
+   | Belongs in the Tests table | Belongs under `eyes:*` |
+   |-|-|
+   | is refused, returns, contains, exists, is empty, is absent, stops for, prints, matches, resolves, redirects, exits | reads well, is legible, feels, is usable, is interpretable at a glance, reads naturally, genuinely useful |
+
+   Watch for **security** assertions in particular. *"Pasting a fake token results in a refusal, not a publication"* is a redaction test and probably the highest-value test in its plan — parked under `#### Manual` it runs once and never again.
+
+   Honest caveat, worth one line in the plan when it applies: an assertion can pass while the criterion fails. *"Refused with a message naming the file"* is satisfied by a message that names the file and is otherwise incomprehensible. Automating that trades a rare deep check for a permanent shallow one. Take the trade — but state it rather than letting it happen by accident.
 9. **Make all design decisions** — the implementer should not need to make judgment calls
 10. **Write the rollback plan** — fill in `## Rollback` in `plan.md`:
     - List specific trigger conditions (don't leave as TBD)
@@ -213,7 +263,18 @@ Bad agent tasks (do these yourself):
 
 ## Exit (complex) — Review Gate
 
-**[GATE] under `WF_UNATTENDED=1`.** Commit the drafted plan (state stays `draft`), then park and exit:
+**Self-lint first, always.** Before committing anything, run the same check the verify agent will run:
+
+```bash
+scripts/wf-exec.sh wf-manual-lint.sh PLN-NNN --file plans/PLN-NNN-<slug>/plan.md
+```
+
+Fix every line it prints — add the missing tag, pick a disposition, or move the criterion into the Tests table — and re-run until it exits 0. Catching it here costs one edit; catching it at verify costs a full round trip through `draft`.
+
+**Under `WF_UNATTENDED=1`, branch on `specApproval.mode`** (read it, don't assume — see [The review gate](#the-review-gate)):
+
+- `verdict` → go to [Exit — verdict mode](#exit--verdict-mode).
+- `gate` (the default), **or** the plan carries any tag in `specApproval.gateTags` → **[GATE]**. Commit the drafted plan (state stays `draft`), then park and exit:
 
 ```bash
 git add plans/PLN-NNN-<slug>/ && git commit -m "spec(PLN-NNN-<slug>): draft plan — awaiting approval"
@@ -278,6 +339,55 @@ Columns: `ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps`. U
 
 ---
 
+## Exit — verdict mode
+
+Active only when `specApproval.mode` is `verdict` **and** the plan carries no tag listed in `specApproval.gateTags`. If it carries one, park as `spec-approval` instead — that is the escape hatch and it is not overridable.
+
+The ordering is the whole point. In `gate` mode the human sits in front of the mechanism that does the filtering; here the review runs first and its verdict is what decides.
+
+```
+draft → review → ┬─ Approved / Approved-with-notes ──────→ ready   (no gate)
+                 ├─ Blocked, round ≤ N ──→ fix → re-review (no gate)
+                 └─ Blocked, round > N ──→ [GATE: spec-stuck]
+```
+
+1. **Goal gate** — the first line under `## Goal` must be a concrete one-liner. If you cannot write one from the source artifact, **[GATE]** `goal-missing`. Never invent a goal to get past this.
+
+2. **Run the review** — the same sonnet agent as the attended flow, verbatim. This is round 1.
+
+3. **Route on `Result:`**
+   - **Approved** / **Approved with notes** → record the verdict, transition `draft → ready`, commit, exit. No gate, no human.
+   - **Blocked** (or any Critical finding) → revise the plan against the findings, then re-review. Each re-review is one more round.
+
+4. **Round ceiling** — stop after `specApproval.maxReviewRounds` (default 3). A plan still Blocked past that has a problem the reviewer cannot articulate, which is exactly when a human is worth interrupting:
+   ```bash
+   scripts/wf-exec.sh wf-gate-open.sh PLN-NNN spec-stuck \
+     "Blocked after N review rounds. Unresolved: <the reviewer's remaining Criticals, one line>" \
+     --context plans/PLN-NNN-<slug>/plan.md --skill wf-spec
+   ```
+   Commit the plan as it stands first (state stays `draft`), then exit 0. Do **not** advance a plan the reviewer is still blocking, and do **not** keep looping past the ceiling.
+
+5. **Write every round to `## Review`** — an unattended approval has to be auditable after the fact, so the record is not optional and not summarized:
+   ```markdown
+   > **2026-08-01 — Plan Review (unattended, round 2 of 3)**
+   > **Result:** Approved with notes
+   > **Rounds:** 2 — round 1 Blocked (3 Critical), fixed in-place, round 2 clear
+   > | # | Severity | Category | Finding | Recommendation |
+   > |-|-|-|-|-|
+   ```
+
+6. **Transition and commit** — same as the attended path (steps 5–6 above), with the commit message naming the verdict:
+   ```bash
+   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN draft ready
+   scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
+   git add plans/PLN-NNN-<slug>/ plans/briefs/ bugs/ plans/deferred-criteria.md
+   git commit -m "spec: PLN-NNN-<slug> — approved with notes (round 2), plan ready"
+   ```
+
+**Do not skip the review to save a round.** The verdict is the only thing standing between a draft and a builder in this mode; a plan advanced without one is worse than a plan that gated.
+
+---
+
 ## Replanning
 
 When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `findings.md`, it's a plan returned from verify or test that needs review. Findings come in two categories:
@@ -314,6 +424,20 @@ When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `fin
    git add plans/deferred-criteria.md
    git commit -m "spec: PLN-NNN-<slug> — amendment, back to ready"
    ```
+
+## Cross-plan consistency
+
+You are scoped to one plan. Nothing you write here can see a contradiction with the plan next to it — that is `wf-consistency`'s job, and it runs automatically when a plan with declared `Deps` reaches `ready`.
+
+Your part of that contract is **declaring the dependencies in the first place.** A plan whose `Deps` column reads `—` is never cross-checked, whatever it actually consumes:
+
+```bash
+scripts/wf-exec.sh wf-set-deps.sh PLN-NNN PLN-003,PLN-005
+```
+
+Set `Deps` whenever this plan consumes an API, entity, schema, or config key that another plan provides — including plans not yet built. That is the case the pass is most valuable in: a mismatch against an unbuilt dependency is a dated amendment, while the same mismatch against a built one is a migration.
+
+If a consistency pass amends *your* plan, its amendment lands in `## Amendments` with the triggering plan named. Treat it as you would any other amendment — never rewrite Steps, Tests, or Design Decisions in place.
 
 ## Bug consumption
 

@@ -9,7 +9,7 @@
 # orchestrator daemon both call it, which is what stops them double-launching
 # the same plan — the pidfile guard lives here, not in each caller.
 #
-#   role      spec | implement | verify | test
+#   role      spec | implement | verify | test | consistency
 #   artifact  PLN-NNN[-slug], or BUG-NNN / BRF-NNN for the spec role
 #
 # Options:
@@ -49,8 +49,8 @@ while [ $# -gt 0 ]; do
 done
 
 case "$role" in
-  spec|implement|verify|test) ;;
-  *) echo "Usage: $0 <spec|implement|verify|test> <artifact> [--foreground] [--dry-run] [--model NAME]" >&2; exit 1 ;;
+  spec|implement|verify|test|consistency) ;;
+  *) echo "Usage: $0 <spec|implement|verify|test|consistency> <artifact> [--foreground] [--dry-run] [--model NAME]" >&2; exit 1 ;;
 esac
 
 id=$(printf '%s' "$artifact" | grep -oE '^(PLN|BUG|BRF)-[0-9]+' || true)
@@ -62,10 +62,11 @@ ORCH="$(wf_orch_dir)"
 # ── Default model per role ────────────────────────────────────────────────
 default_model() {
   case "$1" in
-    spec)      echo "opus" ;;
-    implement) echo "sonnet" ;;
-    verify)    echo "sonnet" ;;
-    test)      echo "haiku" ;;
+    spec)        echo "opus" ;;
+    implement)   echo "sonnet" ;;
+    verify)      echo "sonnet" ;;
+    test)        echo "haiku" ;;
+    consistency) echo "sonnet" ;;
   esac
 }
 model="${model_override:-$(wf_cfg "orchestrator.models.$role" "$(default_model "$role")")}"

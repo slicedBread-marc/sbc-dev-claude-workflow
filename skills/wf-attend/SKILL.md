@@ -50,6 +50,30 @@ The plan is drafted and committed in `draft` state. The orchestrator wrote it bu
    scripts/wf-exec.sh wf-gate-close.sh <PLN-ID> "approved"
    ```
 
+### Draining several `spec-approval` gates at once
+
+When the user picks `all` and the queue holds more than two `spec-approval` gates, do **not** work them one at a time. Reviewing serially re-establishes shared context per plan and lets the same defect class be discovered independently N times — in one measured run, a reviewer flagged defects a sibling plan had already fixed, because it had no way to know.
+
+1. **Fan out round 1.** Spawn the sonnet review agent for every parked plan concurrently, in a single message. Round 1 needs no shared state.
+2. **Read all the verdicts before fixing anything.** Group findings by defect class, not by plan.
+3. **After a defect class appears in 3 or more plans, stop reviewing it and sweep.** A targeted sweep for one known class across every remaining plan is far cheaper than N full reviews, and it catches instances a full review scores as low-priority. Two such sweeps in one 16-plan run caught 13 findings that per-plan review had missed.
+4. **A finding present in 3+ plans is a template defect, not a plan defect.** One run found an ambiguous `git revert -m 1 <sha>` in the rollback section of **all 16 plans**, propagated by copying. Fixing it 16 times fixes nothing — raise it against `plans/TEMPLATE.md` (and report it upstream with `wf-issue.sh` if the defect came from the shipped template), then apply the corrected wording to the affected plans.
+
+Then walk the per-plan approve/edit/reject decisions with the findings already in hand.
+
+### `spec-stuck`
+
+Only appears under `specApproval.mode: verdict`. The architecture review blocked this plan for `maxReviewRounds` consecutive rounds — the fix loop is not converging, and another round is not the answer.
+
+1. Show the plan's `## Review` section — every round is recorded there, so the user can see what the reviewer kept objecting to and what the fixes tried.
+2. Ask: `resolve with me / send to a human planner / approve anyway?`
+   - **resolve** — work the remaining Criticals with the user, then hand to `/wf-spec` to re-review and transition.
+   - **send to planner** — leave state `draft`, append the reviewer's unresolved Criticals to `findings.md` as ESCALATED items.
+   - **approve anyway** — only on an explicit, unambiguous instruction. Record the override in `## Review` with the user's stated reason before transitioning.
+3. Close the gate with the outcome.
+
+A plan reaching this gate is the mode working, not failing — it is the 1-in-8 case the round ceiling exists to catch.
+
 ### `manual-test`
 
 Automated and Chrome-Assisted criteria already passed; what's left needs human eyes.
