@@ -62,7 +62,8 @@ in 7 of 16 plans — a pattern no per-plan reviewer is scoped to see.
 `wf-consistency` reads a plan plus its full dependency closure and checks only
 inter-plan claims: consumed APIs exist with the assumed shape, required entities
 have a provisioning path somewhere, no two plans define the same artifact
-incompatibly. Findings against an **unbuilt** dependency become amendments to it;
+incompatibly, and no dependency's prohibition has outlived its purpose to the
+point of making a downstream plan unbuildable. Findings against an **unbuilt** dependency become amendments to it;
 findings against a **built** one open a `consistency-migration` gate.
 
 It writes `## Consistency` into the plan, which is the done-marker
@@ -133,8 +134,11 @@ artifacts; `/wf-attend` drains the queue.
 One file per artifact rather than a shared `GATES.md`: concurrent workers would
 race on appends, and "is this parked?" becomes a single `test -f`. Values are
 single-quoted (`wf_emit`) so a question containing an apostrophe survives `eval`
-— the lesson from BUG-094. The queue is FIFO by open time; re-opening an
-existing gate keeps its original timestamp so nothing starves.
+— the lesson from BUG-094. The queue is ordered by **blocked-closure size**,
+costliest first: a gate at the root of a dependency chain holds everything
+behind it, and that cost is invisible from the gate itself. Ties break
+oldest-first, and re-opening an existing gate keeps its original timestamp, so
+nothing starves.
 
 Gates live under the **develop root**, not the current worktree — a worker inside
 `feature/PLN-097-foo` must open a gate that `/wf-attend` on develop can see.
