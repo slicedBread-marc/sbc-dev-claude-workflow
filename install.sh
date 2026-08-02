@@ -302,19 +302,34 @@ if ! grep -qF ".claude/orchestrator/" "$GITIGNORE" 2>/dev/null; then
 fi
 echo -e "${GREEN}  Created .claude/orchestrator/ (gitignored)${NC}"
 
-# Install post-commit hook
+# Install post-commit hook.
+#
+# Refresh on CONTENT, not on a feature marker. This used to skip whenever the
+# hook already contained "claude-workflow: verify agent trigger" — a one-shot
+# migration check from the release that added that trigger. Once a client had
+# it, the hook was frozen: every later fix to the template deployed to the one
+# client that happened not to have the hook yet, and silently nowhere else.
+# The hook is generated infrastructure, like the skills, so the library owns it
+# and overwrites it whenever it differs.
 HOOK="$TARGET_DIR/.git/hooks/post-commit"
+HOOK_SRC="$SCRIPT_DIR/templates/hooks/post-commit"
 if [ ! -f "$HOOK" ]; then
-    cp "$SCRIPT_DIR/templates/hooks/post-commit" "$HOOK"
+    cp "$HOOK_SRC" "$HOOK"
     chmod +x "$HOOK"
     echo -e "${GREEN}  Installed .git/hooks/post-commit${NC}"
-elif ! grep -q "claude-workflow: verify agent trigger" "$HOOK"; then
-    # Overwrite with latest hook (includes both local-env and verify triggers)
-    cp "$SCRIPT_DIR/templates/hooks/post-commit" "$HOOK"
+elif ! grep -q "claude-workflow" "$HOOK"; then
+    # Not ours. Keep it — clobbering a project's own hook is not our call.
+    cp "$HOOK" "$HOOK.pre-workflow"
+    cp "$HOOK_SRC" "$HOOK"
     chmod +x "$HOOK"
-    echo -e "${GREEN}  Updated .git/hooks/post-commit (added verify trigger)${NC}"
-else
+    echo -e "${YELLOW}  Replaced a non-workflow post-commit hook${NC}"
+    echo -e "${YELLOW}  The original is at .git/hooks/post-commit.pre-workflow — merge it back if you need it${NC}"
+elif cmp -s "$HOOK_SRC" "$HOOK"; then
     echo -e "${YELLOW}  post-commit hook already up to date — skipping${NC}"
+else
+    cp "$HOOK_SRC" "$HOOK"
+    chmod +x "$HOOK"
+    echo -e "${GREEN}  Updated .git/hooks/post-commit${NC}"
 fi
 
 # REGISTRY.md is TRACKED (v3.2.0).

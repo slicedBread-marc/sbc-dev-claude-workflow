@@ -357,6 +357,15 @@ section "local-env deploy is feature-branch only (git-tracker WFI-016)"
 # `implement(` commit made on develop during a fix cycle deployed develop's
 # tree. Under sparse-checkout that tree does not match the Dockerfile's build
 # context, and the deploy failed on every such commit.
+# The installer must refresh an existing hook on CONTENT. It used to skip
+# whenever the hook already contained "claude-workflow: verify agent trigger",
+# a one-shot migration check — which froze the hook on every client that had
+# it, so this very fix reached exactly one of four projects on first deploy.
+assert_eq "install.sh refreshes the hook when it differs" "true" \
+  "$(grep -q 'cmp -s "$HOOK_SRC" "$HOOK"' "$LIB_ROOT/install.sh" && echo true || echo false)"
+assert_eq "and no longer gates on the verify-trigger marker" "false" \
+  "$(grep -q 'grep -q "claude-workflow: verify agent trigger" "$HOOK"' "$LIB_ROOT/install.sh" && echo true || echo false)"
+
 cp "$LIB_ROOT/templates/hooks/post-commit" .git/hooks/post-commit
 chmod +x .git/hooks/post-commit
 cat > .claude/on-implement-commit.sh <<'STUB'
