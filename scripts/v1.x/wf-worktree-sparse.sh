@@ -136,13 +136,18 @@ done < <(git ls-files -- "${DEVELOP_OWNED[@]}" 2>/dev/null || true)
 #     they sit in `git status` as `??` — where a `git add -A` would commit
 #     develop's tooling as plan work. Remove them where develop owns the same
 #     path, which is what makes them a deploy artifact rather than plan work.
+#     The glob widens to the legacy FLAT layout here (`scripts/wf-*.sh`, where
+#     older clients keep their scripts) because an untracked copy of one is a
+#     deploy artifact by definition. It cannot widen in the tracked sweep
+#     above: scripts/wf-exec.sh lives under the same glob and must stay.
 while IFS= read -r f; do
   [ -n "$f" ] || continue
+  [ "$f" = "scripts/wf-exec.sh" ] && continue
   [ -f "$f" ] || continue
   [ -f "$REPO_ROOT/$f" ] || continue
   rm -f "$f"
   removed=$((removed + 1))
-done < <(git ls-files --others --exclude-standard -- "${DEVELOP_OWNED[@]}" 2>/dev/null || true)
+done < <(git ls-files --others --exclude-standard -- "${DEVELOP_OWNED[@]}" 'scripts/wf-*.sh' 2>/dev/null || true)
 
 [ "$removed" -gt 0 ] && echo "Removed $removed stale deploy copy(s) of develop-owned scripts"
 

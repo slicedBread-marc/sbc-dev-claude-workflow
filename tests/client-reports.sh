@@ -479,6 +479,18 @@ printf 'brand new\n' > "$TEST_DIR/wt-103/scripts/v2.00/wf-added-later.sh"
 assert_eq "an untracked deploy leftover is cleared too" "false" \
   "$([ -f "$TEST_DIR/wt-103/scripts/v2.00/wf-added-later.sh" ] && echo true || echo false)"
 
+# Legacy clients keep scripts flat at scripts/wf-*.sh. An untracked copy of one
+# is a deploy artifact by the same reasoning — but wf-exec.sh shares the glob
+# and is the one file a session inside the worktree must be able to invoke.
+printf 'flat legacy\n' > scripts/wf-claim.sh
+git add -A >/dev/null 2>&1 && git commit -qm "flat-layout script" >/dev/null 2>&1
+printf 'flat legacy\n' > "$TEST_DIR/wt-103/scripts/wf-claim.sh"
+"$SCRIPT_DIR/wf-worktree-sparse.sh" "$TEST_DIR/wt-103" >/dev/null 2>&1
+assert_eq "a flat-layout leftover is cleared" "false" \
+  "$([ -f "$TEST_DIR/wt-103/scripts/wf-claim.sh" ] && echo true || echo false)"
+assert_eq "but wf-exec.sh survives the same glob" "true" \
+  "$([ -f "$TEST_DIR/wt-103/scripts/wf-exec.sh" ] && echo true || echo false)"
+
 # sbc gitignores `.claude/skills/*`, so that path is untracked there.
 # `git commit -- <untracked path>` fails the WHOLE commit with "pathspec did
 # not match any file(s) known to git" — which left the paths that HAD changed
