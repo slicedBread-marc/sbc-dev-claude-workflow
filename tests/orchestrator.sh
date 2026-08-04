@@ -860,9 +860,14 @@ cat > plans/REGISTRY.md << 'STALLSEED'
 STALLSEED
 mkdir -p plans/PLN-050-stalled
 printf '# PLN-050\n\n## Goal\nstall fixture\n' > plans/PLN-050-stalled/plan.md
+# An unchecked escalated finding is what makes a draft plan SPECABLE, so it
+# reaches dispatch and is skipped there. Without it the plan is not a candidate
+# at all and the skip path is never exercised.
+printf '# Findings\n\n- [ ] **Design**: needs a replan ← ESCALATED\n' > plans/PLN-050-stalled/findings.md
 mv "$ORCH/gates" "$ORCH/gates.full" 2>/dev/null || true
 mkdir -p "$ORCH/gates"
 rm -f "$ORCH/logs"/*.pid "$ORCH/stalled"
+rm -rf "$ORCH/skips"
 "$SCRIPT_DIR/wf-gate-open.sh" PLN-050-stalled spec-approval "approve?" >/dev/null 2>&1
 : > "$ORCH/events.log"
 
@@ -879,6 +884,14 @@ assert_eq "stall is announced exactly once across those sweeps" "1" \
 assert_eq "and it names the gate responsible" "true" \
   "$(grep 'stalled' "$ORCH/events.log" 2>/dev/null | grep -q 'PLN-050(spec-approval' && echo true || echo false)"
 
+# git-tracker WFI-023 — the per-candidate skip line under the same fixture.
+# Silencing the sweep summary while every line it summarised still fired once
+# per candidate per interval just moved the unbounded growth one level down:
+# 1,583 identical `skip PLN-002 spec: gate open` lines in 26 hours, in the same
+# run whose stall event was correctly written exactly once.
+assert_eq "a standing skip is logged once, not once per sweep" "1" \
+  "$(grep -c 'skip.*gate open' "$ORCH/events.log" 2>/dev/null | xargs)"
+
 # Restarting into the SAME situation must stay quiet — otherwise the daemon is
 # just re-logging on a longer period.
 "$SCRIPT_DIR/wf-orchestrate.sh" --daemon --interval 1 >>stall.log 2>&1 &
@@ -888,10 +901,13 @@ sleep 3
 wait "$stall_wrapper" 2>/dev/null || true
 assert_eq "an unchanged stall is not re-announced" "1" \
   "$(grep -c 'stalled' "$ORCH/events.log" 2>/dev/null | xargs)"
+assert_eq "nor is the skip that caused it" "1" \
+  "$(grep -c 'skip.*gate open' "$ORCH/events.log" 2>/dev/null | xargs)"
 
 # A CHANGED situation must announce again — suppression is per-situation, not
 # once-and-never-again.
 registry_add_row PLN-051 alsostalled draft
+printf '# Findings\n\n- [ ] **Design**: needs a replan ← ESCALATED\n' > plans/PLN-051-alsostalled/findings.md
 "$SCRIPT_DIR/wf-gate-open.sh" PLN-051-alsostalled spec-approval "this one too?" >/dev/null 2>&1
 "$SCRIPT_DIR/wf-orchestrate.sh" --daemon --interval 1 >>stall.log 2>&1 &
 stall_wrapper=$!
@@ -900,19 +916,29 @@ sleep 3
 wait "$stall_wrapper" 2>/dev/null || true
 assert_eq "a changed stall is announced again" "2" \
   "$(grep -c 'stalled' "$ORCH/events.log" 2>/dev/null | xargs)"
+# A latch per (role, artifact): a NEW gated plan is a new fact and is reported,
+# so suppression never hides something that has not been said yet.
+assert_eq "a newly gated plan gets its own skip line" "2" \
+  "$(grep -c 'skip.*gate open' "$ORCH/events.log" 2>/dev/null | xargs)"
 
 rm -rf "$ORCH/gates"
 mv "$ORCH/gates.full" "$ORCH/gates" 2>/dev/null || mkdir -p "$ORCH/gates"
 mv plans/REGISTRY.full plans/REGISTRY.md
 rm -f "$ORCH/stalled"
+rm -rf "$ORCH/skips"
 
 # ═══════════════════════════════════════════════════════════════════════
 section "Dry run leaves no trace (git-tracker WFI-011, WFI-003)"
 
 events_before=$(wc -l < "$ORCH/events.log" 2>/dev/null | xargs)
+rm -rf "$ORCH/skips"
 out=$("$SCRIPT_DIR/wf-orchestrate.sh" --sweep --dry-run 2>/dev/null || true)
 events_after=$(wc -l < "$ORCH/events.log" 2>/dev/null | xargs)
 assert_eq "a preview writes nothing to events.log" "$events_before" "$events_after"
+# The skip latch is state on disk too — a preview that primes it would silence
+# the first real report of whatever it previewed.
+assert_eq "and leaves no skip latches behind" "false" \
+  "$([ -d "$ORCH/skips" ] && echo true || echo false)"
 assert_eq "and says so rather than claiming a dispatch" "true" \
   "$(printf '%s' "$out" | grep -q 'would be dispatched (dry run' && echo true || echo false)"
 

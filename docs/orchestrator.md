@@ -242,6 +242,13 @@ Everything below is configurable in `claude-workflow.yml → orchestrator`:
   stays quiet until that situation changes. Total stall is the one condition
   worth notifying on — unambiguous, never self-correcting, and every minute in
   it is wasted wall-clock.
+- Skip lines are **latched, not logged**. Every skip reason is a standing
+  condition — a gate stays open, a role stays at cap, a spent budget stays
+  spent — so one line per candidate per sweep records the same fact forever:
+  1,583 identical `skip PLN-002 spec: gate open` lines in 26 hours in one
+  measured run. A skip is written when the reason for a (role, artifact) pair
+  first appears or changes, and the latch clears the moment that pair
+  dispatches, so a plan gated → freed → gated again is reported both times.
 - `wf-list-gates.sh` ranks the queue by **blocked-closure size**, not by age.
   A gate's cost is the time until someone looks times the number of plans
   behind it, and the second term is invisible from the gate itself. Column 6 is

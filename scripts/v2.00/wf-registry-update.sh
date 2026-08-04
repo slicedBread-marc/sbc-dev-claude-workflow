@@ -131,14 +131,24 @@ if [ "$to_state" = "active" ]; then
   fi
 fi
 
-# --- Atomic commit (still under the lock) ---
+# --- Stage the transition, always ---
 #
-# REGISTRY.md is staged here, not by the caller. It is tracked as of v3.2.0 —
-# before that it was gitignored, so a "state transition" commit carried the
-# findings and left the state itself out, and a plan could sit in `verify` at
-# HEAD with a completed clean round already on record.
+# REGISTRY.md is staged here, not by the caller, and whether or not --commit
+# was passed. It is tracked as of v3.2.0; before that it was gitignored, so
+# every skill's post-transition `git add <plan files> && git commit` names only
+# plan files and none of them names the registry. Left to the caller, the
+# commit that a skill documents as "this triggers the verify agent" does not
+# contain the state change that triggers it — the transition sits unstaged on
+# develop and the next unrelated commit picks it up, or nothing does.
+#
+# Staging it here fixes every such call site at once, including ones not yet
+# written: `git commit -m` commits the whole index, so any later commit in the
+# same flow carries the transition. Callers that pass --commit get it atomically
+# under the lock, as before.
+git add "$REGISTRY" 2>/dev/null || true
+
+# --- Atomic commit (still under the lock) ---
 if [ -n "$commit_msg" ]; then
-  git add "$REGISTRY" 2>/dev/null || true
   for f in "${add_files[@]+"${add_files[@]}"}"; do
     git add "$f"
   done

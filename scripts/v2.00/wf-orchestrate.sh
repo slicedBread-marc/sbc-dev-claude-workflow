@@ -200,6 +200,38 @@ spawn_budget_bump() {
 
 # ── Dispatch ──────────────────────────────────────────────────────────────
 
+# Why a skip is latched rather than logged.
+#
+# Every skip reason is a STANDING condition, not an event: a gate stays open,
+# a role stays at cap, an exhausted budget stays exhausted. Logging one line
+# per candidate per sweep therefore records the same fact once per interval
+# forever — 1,583 identical `skip PLN-002 spec: gate open` lines in 26 hours in
+# one measured run, 4,747 lines in the file. This is the same unbounded-growth
+# defect the sweep-line latch fixed, one level down: silencing the summary while
+# every line it summarised still fires just moves the noise.
+#
+# skip_note writes only when the reason for a (role, artifact) pair first
+# appears or CHANGES, so a transition is always visible and a steady state is
+# silent. skip_clear drops the latch the moment the pair dispatches, so a plan
+# that is gated, freed and gated again is reported both times.
+# skip_note <role> <artifact-id> <reason> [event-kind]
+skip_note() {
+  local role="$1" id="$2" reason="$3" kind="${4:-skip}" file prev
+  # A preview must leave no trace — latch files included (see --dry-run above).
+  $dry_run && return 0
+  mkdir -p "$ORCH/skips"
+  file="$ORCH/skips/${role}.${id}"
+  prev=$(cat "$file" 2>/dev/null || echo "")
+  [ "$reason" = "$prev" ] && return 0
+  printf '%s' "$reason" > "$file"
+  wf_event "$kind" "$id" "$role: $reason"
+}
+
+skip_clear() {
+  $dry_run && return 0
+  rm -f "$ORCH/skips/${1}.${2}" 2>/dev/null || true
+}
+
 # dispatch <role> <artifact> — run every skip rule, then spawn.
 # Returns 0 if a worker was spawned, 1 if skipped.
 dispatch() {
@@ -207,7 +239,7 @@ dispatch() {
   local id; id=$(bare_id "$artifact")
 
   if gate_open "$id"; then
-    wf_event skip "$id" "$role: gate open"
+    skip_note "$role" "$id" "gate open"
     return 1
   fi
 
@@ -222,14 +254,18 @@ dispatch() {
         "$role has run $attempts times with no forward progress — neither the registry state nor the progress.md step checklist moved. Needs a human look." \
         --skill "wf-$role" >/dev/null 2>&1 || true
     fi
-    wf_event stuck "$id" "$role: $attempts attempts without progress, parked"
+    skip_note "$role" "$id" "$attempts attempts without progress, parked" stuck
     return 1
   fi
 
   if [ "$(spawn_budget_left)" -le 0 ]; then
-    wf_event budget "$id" "$role: hourly spawn budget exhausted ($cfg_max_spawns)"
+    skip_note "$role" "$id" "hourly spawn budget exhausted ($cfg_max_spawns)" budget
     return 1
   fi
+
+  # Past every guard — whatever was holding this pair back no longer is, so the
+  # next time one does, it is news again.
+  skip_clear "$role" "$id"
 
   if $dry_run; then
     echo "  would spawn: $role $artifact"
@@ -314,7 +350,14 @@ sweep() {
   for role in $SWEEP_ROLES; do
     cap=$(max_concurrent "$role")
     running=$(role_running "$role")
-    [ "$running" -ge "$cap" ] && { wf_event skip "—" "$role: at cap ($running/$cap)"; continue; }
+    # Latched on the same principle as the per-artifact skips: "at cap" is a
+    # standing condition. The reason carries the counts, so a change in how
+    # full the role is still surfaces.
+    if [ "$running" -ge "$cap" ]; then
+      skip_note "$role" cap "at cap ($running/$cap)"
+      continue
+    fi
+    skip_clear "$role" cap
 
     while IFS= read -r artifact; do
       [ -n "$artifact" ] || continue

@@ -1,22 +1,46 @@
 #!/usr/bin/env bash
 # wf-worktree-sparse.sh <worktree-path>
 #
-# Configures sparse-checkout on a feature worktree so that workflow
-# infrastructure files are excluded from git tracking.  These files
-# belong to develop — tracking them on feature branches causes merge
-# conflicts every time develop advances (deploy, state transitions).
+# Configures sparse-checkout on a feature worktree so that develop-owned files
+# are excluded from git tracking there. Tracking them on a feature branch means
+# a merge conflict — or a dirty tree — every time develop advances.
 #
-# Excluded paths:
-#   .claude/workflow.md, .claude/workflow-version  — stamped by deploy
-#   .claude/skills/           — skill definitions, deployed from library
-#   plans/                    — registry + plan content, develop-only
-#   templates/                — plan templates
-#   scripts/wf-*.sh           — workflow scripts (legacy flat layout)
-#   scripts/v*/wf-*.sh        — versioned script snapshots, deployed from library
-#   scripts/version-map.txt   — workflow→folder mapping, deployed from library
+# ── The rule that governs this list ──────────────────────────────────────────
 #
-# After sparse-checkout, install.sh propagation can still copy these
-# files into the worktree for runtime use — git will ignore them.
+# A sparse-checkout exclusion holds ONLY while the file is absent from the
+# working tree, or byte-identical to the branch's committed blob. The moment
+# anything writes DIFFERENT content to that path, git drops the skip-worktree
+# bit on the next index refresh, the file shows as modified, and
+# `git sparse-checkout reapply` refuses to re-exclude it ("not up to date and
+# were left despite sparse patterns"). From there `git merge develop` does not
+# merely conflict — it ABORTS with "your local changes would be overwritten".
+#
+# So a path may be excluded here only if NOTHING materialises it in the
+# worktree. install.sh's propagation step materialises the runtime files a
+# session needs on disk, and the previous version of this list excluded exactly
+# those — which is why a deploy that changed four skills mid-flight left one
+# client's worktree with 33 modified files it never touched and a merge that
+# would not run. Excluding a file you also write is not a stricter policy than
+# tracking it; it is a broken one.
+#
+# Excluded — develop-owned, never materialised in a worktree:
+#   plans/                    registry + plan content (the original reason:
+#                             plan content on feature branches caused duplicate
+#                             plans and conflicting registry states)
+#   templates/                plan templates
+#   .claude/workflow-version  the plan's immovable WF pin, not develop's stamp
+#   scripts/version-map.txt   resolved from the MAIN worktree by wf-exec.sh
+#   scripts/v*/wf-*.sh        ditto — wf-exec.sh's find_project_root answers
+#                             with the main worktree, so a worktree copy of a
+#                             versioned script is never the one that runs
+#   scripts/wf-prune-versions.sh
+#
+# Tracked normally — materialised by install.sh, so they cannot be excluded:
+#   .claude/workflow.md, .claude/skills/**, scripts/wf-exec.sh
+#
+# Those three are reconciled by committing develop's content on the feature
+# branch (wf-infra-sync.sh). The commit is a no-op on merge-back — both sides
+# hold the same bytes.
 
 set -euo pipefail
 
@@ -57,20 +81,53 @@ fi
 mkdir -p "$GIT_DIR/info"
 cat > "$GIT_DIR/info/sparse-checkout" <<'PATTERNS'
 /**
-!.claude/workflow.md
 !.claude/workflow-version
-!.claude/skills/**
 !plans/**
 !templates/**
-!scripts/wf-*.sh
 !scripts/version-map.txt
+!scripts/wf-prune-versions.sh
 !scripts/v*/wf-*.sh
 PATTERNS
 
+# ── Repair: converge a worktree configured by an older pattern list ──────────
+#
+# Runs on every invocation, including the first, where it finds nothing to do.
+
+# (a) Paths that USED to be excluded and are now tracked normally. A lingering
+#     skip-worktree bit would keep git blind to them; clearing it alone leaves
+#     them staged-as-deleted, because the old exclusion is what removed them
+#     from disk. Restore the branch's copies after clearing.
+INCLUDED_INFRA=(.claude/workflow.md .claude/skills scripts/wf-exec.sh)
+stale_bits=$(git ls-files -v -- "${INCLUDED_INFRA[@]}" 2>/dev/null \
+             | awk '$1 == "S" { sub(/^S[[:space:]]+/, ""); print }' || true)
+if [ -n "$stale_bits" ]; then
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    git update-index --no-skip-worktree -- "$f" 2>/dev/null || true
+  done <<< "$stale_bits"
+  git checkout -- "${INCLUDED_INFRA[@]}" 2>/dev/null || true
+  echo "Repaired $(printf '%s\n' "$stale_bits" | grep -c .) formerly-excluded infra path(s)"
+fi
+
+# (b) Deploy copies of now-excluded paths, left on disk by an older install.sh.
+#     While they sit there the exclusion cannot re-apply. Removing them is safe
+#     only for a file that is byte-identical to develop's current copy — the
+#     signature of a deploy artifact and nothing else. A file someone actually
+#     edited in this worktree differs from develop's and is left alone, dirty
+#     and visible, which is the correct outcome for real work.
+removed=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  [ -f "$f" ] || continue
+  [ -f "$REPO_ROOT/$f" ] || continue
+  cmp -s "$f" "$REPO_ROOT/$f" || continue
+  rm -f "$f"
+  removed=$((removed + 1))
+done < <(git ls-files -- 'scripts/version-map.txt' 'scripts/wf-prune-versions.sh' 'scripts/v*/wf-*.sh' 2>/dev/null || true)
+[ "$removed" -gt 0 ] && echo "Removed $removed stale deploy copy(s) of develop-owned scripts"
+
 # Apply the patterns. This sets the skip-worktree bit on excluded files so git
 # won't modify them in the working tree or show them in git status.
-# Locally-modified files (e.g. scripts updated by deploy) are left as-is —
-# those won't differ from develop and won't cause merge conflicts.
 git sparse-checkout reapply 2>/dev/null || true
 
-echo "Sparse checkout configured — workflow infra excluded from tracking"
+echo "Sparse checkout configured — develop-owned files excluded from tracking"

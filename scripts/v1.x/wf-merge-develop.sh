@@ -27,10 +27,17 @@ if [ -d "$claim_dir" ]; then
   printf '%s\n%s\n' "$(date +%s)" "$_pid" > "$claim_dir/.wf-claim"
 fi
 
-# ── Pre-sync workflow infra for non-sparse worktrees ────────────────────────
-# Sparse-checkout worktrees exclude infra files from tracking, so no conflicts.
-# Legacy (non-sparse) worktrees still track them — reset to develop's version
-# before merging so they can't cause dirty-tree failures or conflicts.
+# ── Pre-sync workflow infra ─────────────────────────────────────────────────
+# Runs on EVERY worktree, sparse or not. The runtime paths a session needs on
+# disk cannot be sparse-excluded — anything that writes them clears the
+# skip-worktree bit — so a deploy landing mid-plan leaves them modified and
+# `git merge develop` aborts before it conflicts on anything real.
+"$(dirname "$0")/wf-infra-sync.sh" . || true
+
+# ── Reset develop-only content for non-sparse worktrees ─────────────────────
+# Legacy (non-sparse) worktrees still track plans/, bugs/ and templates/ —
+# reset them to develop's version before merging so they can't cause
+# dirty-tree failures or conflicts.
 if ! git config core.sparseCheckout 2>/dev/null | grep -q true; then
   needs_sync=false
   # Do NOT sync .claude/workflow-version — it's the plan's immovable WF stamp

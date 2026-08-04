@@ -475,23 +475,27 @@ if git -C "$TARGET_DIR" rev-parse --git-dir &>/dev/null; then
                 fi
                 wt_folder=$(resolve_script_folder "$wt_wf")
 
-                mkdir -p "$wt_path/scripts"
-                # Copy the resolved version folder.
-                if [ -n "$wt_folder" ] && [ -d "$TARGET_ABS/scripts/$wt_folder" ]; then
-                    mkdir -p "$wt_path/scripts/$wt_folder"
-                    for script in "$TARGET_ABS/scripts/$wt_folder"/wf-*.sh; do
-                        [ -f "$script" ] || continue
-                        cp "$script" "$wt_path/scripts/$wt_folder/$(basename "$script")"
-                        chmod +x "$wt_path/scripts/$wt_folder/$(basename "$script")"
-                    done
+                # Re-run sparse configuration first: it repairs a worktree set
+                # up by an older pattern list, and clears the deploy copies
+                # this step used to leave behind.
+                if [ -n "$wt_folder" ] && [ -x "$TARGET_ABS/scripts/$wt_folder/wf-worktree-sparse.sh" ]; then
+                    "$TARGET_ABS/scripts/$wt_folder/wf-worktree-sparse.sh" "$wt_path" >/dev/null 2>&1 || true
                 fi
-                # Copy unversioned dispatcher + pruning tool + map.
-                for f in wf-exec.sh wf-prune-versions.sh; do
-                    [ -f "$TARGET_ABS/scripts/$f" ] || continue
-                    cp "$TARGET_ABS/scripts/$f" "$wt_path/scripts/$f"
-                    chmod +x "$wt_path/scripts/$f"
-                done
-                [ -f "$TARGET_ABS/scripts/version-map.txt" ] && cp "$TARGET_ABS/scripts/version-map.txt" "$wt_path/scripts/version-map.txt"
+
+                # Copy ONLY what a session inside the worktree reads off its own
+                # disk. Everything else — the versioned script folders, the
+                # version map, the pruning tool — is resolved from the MAIN
+                # worktree: wf-exec.sh's find_project_root answers with the main
+                # worktree, so a copy here is never the one that runs. Copying
+                # them anyway was what broke sparse-checkout: writing content to
+                # an excluded path clears its skip-worktree bit, and one client
+                # ended up with 33 files it never touched showing as modified
+                # and a `git merge develop` that aborted outright.
+                mkdir -p "$wt_path/scripts"
+                if [ -f "$TARGET_ABS/scripts/wf-exec.sh" ]; then
+                    cp "$TARGET_ABS/scripts/wf-exec.sh" "$wt_path/scripts/wf-exec.sh"
+                    chmod +x "$wt_path/scripts/wf-exec.sh"
+                fi
 
                 for skill_dir in "$TARGET_ABS/.claude/skills"/*/; do
                     dest="$wt_path/.claude/skills/$(basename "$skill_dir")"
@@ -501,12 +505,24 @@ if git -C "$TARGET_DIR" rev-parse --git-dir &>/dev/null; then
 
                 mkdir -p "$wt_path/.claude"
                 [ -f "$TARGET_ABS/.claude/workflow.md" ] && cp "$TARGET_ABS/.claude/workflow.md" "$wt_path/.claude/workflow.md"
-                # Stamp worktree's workflow-version to its PLAN's WF (or 0.00 if empty) —
-                # NOT develop's version. Otherwise the dispatcher resolves to a folder
-                # (e.g., v2.00) that was never propagated into the worktree.
-                echo "${wt_wf:-0.00}" > "$wt_path/.claude/workflow-version"
 
-                echo -e "  ${GREEN}Updated $(basename "$wt_path") (scripts/${wt_folder:-none}, WF=${wt_wf:-0.00})${NC}"
+                # .claude/workflow-version is deliberately NOT stamped here.
+                # It is sparse-excluded, and writing an excluded path is what
+                # clears its skip-worktree bit. Nothing reads the worktree copy:
+                # wf-exec.sh resolves the effective version from the plan's WF
+                # column, then from the MAIN worktree's stamp. The pin is the
+                # registry column, not a file in the worktree.
+
+                # The copies above overwrite tracked files with develop's
+                # content, which leaves the worktree dirty against its own
+                # branch. Commit them (pathspec-scoped, so a live session's
+                # staged work is untouched) so the tree is clean and
+                # `git merge develop` can run.
+                if [ -x "$TARGET_ABS/scripts/$wt_folder/wf-infra-sync.sh" ]; then
+                    "$TARGET_ABS/scripts/$wt_folder/wf-infra-sync.sh" "$wt_path" >/dev/null 2>&1 || true
+                fi
+
+                echo -e "  ${GREEN}Updated $(basename "$wt_path") (skills + wf-exec.sh; scripts/${wt_folder:-none} resolved from develop, WF=${wt_wf:-0.00})${NC}"
                 ((WT_COUNT++)) || true
             fi
             wt_path="" wt_branch=""

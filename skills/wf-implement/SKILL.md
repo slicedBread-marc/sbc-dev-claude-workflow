@@ -198,7 +198,7 @@ If the command prints nothing, continue to Phase 1 / Phase 2 as normal.
 **CWD RULE: After step 9 runs `cd` into the worktree, you are INSIDE the worktree for the rest of Phase 2. The path `feature-branches/...` does not exist from inside the worktree. Never `cd feature-branches/...` again. Use `$DEVELOP_ROOT` (resolved via `git worktree list`) for any path back to develop.**
 
 9. **Set develop root, claim the plan, change to worktree, confirm branch, and merge develop — all in a single bash call:**
-   Workflow scripts may appear modified after a deploy — they are sparse-checkout excluded and **must NOT be committed**. The pathspec exclusions below handle this.
+   Workflow files may appear modified after a deploy — they belong to develop and **must NOT be committed as plan work**. The pathspec exclusions below keep them out of your commit; `wf-merge-develop.sh` then commits them separately as `chore: sync workflow infra from develop` so the tree is clean enough to merge.
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-exec.sh wf-claim.sh PLN-NNN-<slug>
@@ -270,9 +270,14 @@ If the command prints nothing, continue to Phase 1 / Phase 2 as normal.
     - **Tick off automated checklist sections** in `plan.md` — mark `### Build & Tests`, `### Code Quality`, `### Regression Scope` items as `[x]`
 22. **When all steps, reviews, and tests pass** — commit on feature branch (skip if nothing to commit — all changes may already be committed per-step):
     ```
-    git add -A
+    git add -A -- ':(exclude)scripts/wf-*.sh' ':(exclude)scripts/v*/wf-*.sh' ':(exclude)scripts/version-map.txt' ':(exclude).claude/' ':(exclude)plans/' ':(exclude)templates/'
     git diff --cached --quiet || git commit -m "implement(PLN-NNN-<slug>): all steps complete"
     ```
+
+    Never a bare `git add -A` here. A deploy landing mid-plan rewrites the
+    workflow files this worktree carries; a bare `-A` commits develop's
+    infrastructure onto the feature branch as if the plan had changed it. The
+    same exclusions appear on every other `git add` in this skill.
 23. **Destroy the docker container:**
     ```bash
     $DEVELOP_ROOT/scripts/wf-exec.sh wf-docker-down.sh PLN-NNN-<slug>
@@ -298,8 +303,14 @@ DEVELOP_ROOT=$(git worktree list | head -1 | awk '{print $1}')
     ```
 26. **Commit on develop:**
     ```bash
-    cd "$DEVELOP_ROOT" && git add plans/PLN-NNN-<slug>/progress.md plans/PLN-NNN-<slug>/findings.md && git commit --allow-empty -m "implement(PLN-NNN-<slug>): verified, moved to verify"
+    cd "$DEVELOP_ROOT" && git add plans/REGISTRY.md plans/PLN-NNN-<slug>/ && git commit --allow-empty -m "implement(PLN-NNN-<slug>): verified, moved to verify"
     ```
+
+    The whole plan folder, not just `progress.md` and `findings.md` — step 21
+    ticks the automated sections of `plan.md`'s Verification Checklist, and
+    those ticks are what the verify agent reads as already-done. `REGISTRY.md`
+    is named explicitly because this commit's entire purpose is to carry the
+    `active → verify` transition.
 
     **This commit triggers the verify agent automatically** (via hook on REGISTRY state change to `verify`).
 
@@ -324,7 +335,7 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
 1. **Entry** — `grep "| active |" plans/REGISTRY.md` shows the plan
 2. **Read findings** — `plans/PLN-NNN-<slug>/findings.md` has unchecked items
 3. **Set develop root, claim the plan, cd to the feature worktree, and merge develop — all in a single bash call:**
-   Workflow scripts may appear modified after a deploy — they are sparse-checkout excluded and **must NOT be committed**. The pathspec exclusions below handle this.
+   Workflow files may appear modified after a deploy — they belong to develop and **must NOT be committed as plan work**. The pathspec exclusions below keep them out of your commit; `wf-merge-develop.sh` then commits them separately as `chore: sync workflow infra from develop` so the tree is clean enough to merge.
    ```bash
    DEVELOP_ROOT=$(pwd)
    scripts/wf-exec.sh wf-claim.sh PLN-NNN-<slug>

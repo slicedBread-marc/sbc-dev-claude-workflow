@@ -401,6 +401,124 @@ assert_eq "the inline bug.md format is still there" "true" \
   "$(grep -q '^## Steps to Reproduce' "$LIB_ROOT/skills/wf-bug/SKILL.md" && echo true || echo false)"
 
 # ═══════════════════════════════════════════════════════════════════════
+section "A deploy must not dirty a feature worktree (git-tracker WFI-021)"
+
+# A sparse-checkout exclusion holds only while the path is ABSENT from the
+# working tree or byte-identical to the branch's blob. install.sh wrote fresh
+# content to exactly the paths this list excluded, which clears the
+# skip-worktree bit on the next index refresh — so a deploy mid-plan left 33
+# files the implementer never touched showing as modified, `reapply` refused to
+# re-exclude them, and `git merge develop` ABORTED with "your local changes
+# would be overwritten" before reaching a real conflict.
+cd "$TEST_DIR/main" || exit 1
+mkdir -p scripts/v2.00 .claude/skills/wf-attend
+printf 'orig\n' > scripts/v2.00/wf-sample.sh
+printf 'orig\n' > scripts/version-map.txt
+printf 'orig\n' > .claude/skills/wf-attend/SKILL.md
+printf 'orig\n' > scripts/wf-exec.sh
+git add -A >/dev/null 2>&1 && git commit -qm "seed infra" >/dev/null 2>&1
+
+registry_add_row PLN-121 deploy-drift active feature/PLN-121-deploy-drift
+git add -A >/dev/null 2>&1 && git commit -qm "add PLN-121" >/dev/null 2>&1
+git worktree add -q -b feature/PLN-121-deploy-drift "$TEST_DIR/wt-103" develop 2>/dev/null
+"$SCRIPT_DIR/wf-worktree-sparse.sh" "$TEST_DIR/wt-103" >/dev/null 2>&1
+
+# What a deploy does: newer content into every path a session reads on disk,
+# and — as install.sh used to — into the develop-owned ones as well.
+mkdir -p "$TEST_DIR/wt-103/scripts/v2.00" "$TEST_DIR/wt-103/.claude/skills/wf-attend"
+printf 'v3.4.0\n' > "$TEST_DIR/wt-103/scripts/v2.00/wf-sample.sh"
+printf 'v3.4.0\n' > "$TEST_DIR/wt-103/scripts/version-map.txt"
+printf 'v3.4.0\n' > "$TEST_DIR/wt-103/.claude/skills/wf-attend/SKILL.md"
+printf 'v3.4.0\n' > "$TEST_DIR/wt-103/scripts/wf-exec.sh"
+# ...and develop adopts the same release.
+printf 'v3.4.0\n' > scripts/v2.00/wf-sample.sh
+printf 'v3.4.0\n' > scripts/version-map.txt
+printf 'v3.4.0\n' > .claude/skills/wf-attend/SKILL.md
+printf 'v3.4.0\n' > scripts/wf-exec.sh
+git add -A >/dev/null 2>&1 && git commit -qm "chore: adopt v3.4.0" >/dev/null 2>&1
+
+# Re-running sparse configuration is what install.sh now does first. It clears
+# deploy copies of develop-owned paths — identified as byte-identical to
+# develop's, so a file someone actually edited here is left alone.
+"$SCRIPT_DIR/wf-worktree-sparse.sh" "$TEST_DIR/wt-103" >/dev/null 2>&1
+assert_eq "develop-owned script copies no longer dirty the worktree" "0" \
+  "$(git -C "$TEST_DIR/wt-103" status --porcelain -- scripts/v2.00 scripts/version-map.txt | wc -l | xargs)"
+
+# The three paths a session genuinely reads off its own disk cannot be
+# excluded, so they are reconciled by committing develop's bytes.
+assert_ok "infra sync commits what deploy wrote" \
+  "$SCRIPT_DIR/wf-infra-sync.sh" "$TEST_DIR/wt-103"
+assert_eq "the worktree is clean afterwards" "0" \
+  "$(git -C "$TEST_DIR/wt-103" status --porcelain | wc -l | xargs)"
+assert_eq "and the runtime files are still on disk" "v3.4.0" \
+  "$(cat "$TEST_DIR/wt-103/.claude/skills/wf-attend/SKILL.md" 2>/dev/null)"
+
+# The whole point: the merge runs.
+assert_ok "git merge develop succeeds after a mid-plan deploy" \
+  git -C "$TEST_DIR/wt-103" merge develop --no-edit
+
+# A sync must never sweep a live session's staged work into a chore commit —
+# install.sh calls it while a worker may be mid-edit in the same worktree.
+printf 'work in progress\n' > "$TEST_DIR/wt-103/feature-work.txt"
+git -C "$TEST_DIR/wt-103" add feature-work.txt >/dev/null 2>&1
+printf 'v3.5.0\n' > "$TEST_DIR/wt-103/.claude/skills/wf-attend/SKILL.md"
+"$SCRIPT_DIR/wf-infra-sync.sh" "$TEST_DIR/wt-103" >/dev/null 2>&1
+assert_eq "someone else's staged work is left staged, not committed" "true" \
+  "$(git -C "$TEST_DIR/wt-103" diff --cached --name-only | grep -qx 'feature-work.txt' && echo true || echo false)"
+
+# The exclusion list and the propagation list are the same decision made twice;
+# a path may not appear in both.
+assert_eq "install.sh no longer copies versioned scripts into a worktree" "false" \
+  "$(grep -q 'wt_path/scripts/\$wt_folder' "$LIB_ROOT/install.sh" && echo true || echo false)"
+assert_eq "nor stamps the sparse-excluded workflow-version there" "false" \
+  "$(grep -q 'wt_path/.claude/workflow-version' "$LIB_ROOT/install.sh" && echo true || echo false)"
+
+# The pre-sync ran only for NON-sparse worktrees, so the case that actually
+# breaks — a sparse one — was the one it skipped.
+assert_eq "merge-develop syncs infra on every worktree, sparse or not" "true" \
+  "$(awk '/wf-infra-sync.sh/ { found = NR } /sparseCheckout/ { sparse = NR }
+          END { print (found && sparse && found < sparse) ? "true" : "false" }' \
+     "$SCRIPT_DIR/wf-merge-develop.sh")"
+
+git worktree remove --force "$TEST_DIR/wt-103" >/dev/null 2>&1
+git branch -q -D feature/PLN-121-deploy-drift 2>/dev/null || true
+
+# ═══════════════════════════════════════════════════════════════════════
+section "State transitions reach the commit that claims them (git-tracker WFI-022)"
+
+# Every skill's post-transition commit was written when REGISTRY.md was
+# gitignored, so none of their `git add` lists names it. Since v3.2.0 it is
+# tracked — and wf-implement's Phase 3 commit, documented as "this commit
+# triggers the verify agent", contained no registry change at all. Staging it
+# inside wf-registry-update.sh fixes every call site at once, including ones
+# not yet written.
+registry_add_row PLN-120 unstaged ready
+git add -A >/dev/null 2>&1 && git commit -qm "add PLN-120" >/dev/null 2>&1
+
+"$SCRIPT_DIR/wf-registry-update.sh" PLN-120 ready active >/dev/null 2>&1
+assert_eq "a transition without --commit still stages the registry" "true" \
+  "$(git diff --cached --name-only | grep -qx 'plans/REGISTRY.md' && echo true || echo false)"
+
+# The caller's own commit is what must carry it — `git commit -m` commits the
+# whole index, so staging here is enough for every skill's add-list.
+git commit -qm "implement(PLN-120-unstaged): verified, moved to verify" >/dev/null 2>&1
+assert_eq "the caller's commit carries the transition" "true" \
+  "$(git show --stat --name-only HEAD | grep -qx 'plans/REGISTRY.md' && echo true || echo false)"
+assert_eq "and HEAD's registry holds the new state" "active" \
+  "$(git show HEAD:plans/REGISTRY.md | grep '^| PLN-120 |' | awk -F'|' '{print $4}' | xargs)"
+
+# Phase 3 named only progress.md and findings.md, so the plan.md checklist
+# ticks that step 21 writes were dropped on the floor too.
+assert_eq "Phase 3 commits the whole plan folder and the registry" "true" \
+  "$(grep -q 'git add plans/REGISTRY.md plans/PLN-NNN-<slug>/ &&' \
+     "$LIB_ROOT/skills/wf-implement/SKILL.md" && echo true || echo false)"
+
+# A bare `git add -A` on a feature branch commits whatever the last deploy
+# wrote as if the plan had changed it.
+assert_eq "no bare 'git add -A' left in the implementer" "0" \
+  "$(grep -c '^\s*git add -A$' "$LIB_ROOT/skills/wf-implement/SKILL.md" | xargs)"
+
+# ═══════════════════════════════════════════════════════════════════════
 printf '\n'
 if [ "$FAIL" -eq 0 ]; then
   printf '\033[1m%d passed, 0 failed\033[0m\n' "$PASS"

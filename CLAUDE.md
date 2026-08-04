@@ -135,6 +135,8 @@ feature/*   → one branch per plan (e.g. feature/PLN-005-bug-002-guest-logout)
 
 T3 creates a `feature/<plan-name>` branch and worktree from `develop`. On completion, the worktree merges back to `develop` and the feature branch is deleted.
 
+What a feature worktree may and may not contain is a contract, not a preference — a path that is both sparse-excluded and written by deploy breaks git outright. Read `docs/worktrees.md` before changing either list.
+
 ---
 
 ### Artifact ID System
