@@ -87,9 +87,19 @@ today=$(date +%Y-%m-%d)
 # --- Everything below mutates the registry: take the lock first ---
 wf_lock_acquire registry
 
-# Verify the plan exists in the expected state
+# Verify the plan exists in the expected state.
+#
+# Name the state it IS in. "not found in state 'active'" reads as "no such
+# plan" and sent one caller looking for a missing row; the row was there, one
+# state below, because a replan had written `ready` where the caller's exit
+# contract expected `active`.
 if ! grep -q "^| $plan_id |.*| $from_state |" "$REGISTRY"; then
-  echo "Error: $plan_id not found in state '$from_state'" >&2
+  actual=$(grep "^| $plan_id |" "$REGISTRY" | head -1 | awk -F'|' '{print $4}' | xargs || true)
+  if [ -n "$actual" ]; then
+    echo "Error: $plan_id is in state '$actual', not '$from_state'" >&2
+  else
+    echo "Error: $plan_id has no row in $REGISTRY" >&2
+  fi
   exit 1
 fi
 

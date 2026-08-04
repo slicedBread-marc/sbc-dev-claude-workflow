@@ -413,10 +413,28 @@ When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `fin
     ```bash
     scripts/wf-exec.sh wf-goal-pop.sh PLN-NNN
     ```
-7. **Update REGISTRY.md:**
+7. **Update REGISTRY.md — the target state depends on whether a worktree exists:**
    ```bash
-   scripts/wf-exec.sh wf-registry-update.sh PLN-NNN draft ready
+   scripts/wf-exec.sh wf-replan-target.sh PLN-NNN --apply
    ```
+
+   A replan is not always a fresh build. If the plan still has its worktree and
+   branch, the builder resumes a **fix cycle** — and `wf-implement`'s exit runs
+   `wf-registry-update.sh PLN-NNN active verify`, whose `from_state` guard does
+   not match `ready`. Writing `ready` unconditionally therefore produced a plan
+   that the dispatcher correctly picked up, the builder correctly implemented,
+   and whose exit transition then silently no-opped: the work landed on the
+   branch while the registry still said `ready`, and verify refused to run
+   because it could not match `verify` either.
+
+   `wf-replan-target.sh` resolves it from the same fact the dispatcher uses —
+   a live worktree means resume:
+
+   | Worktree | Target | Builder path |
+   |-|-|-|
+   | none | `ready` | Phase 1 → fresh build |
+   | live | `active` | Fix cycle |
+
 8. **Commit:**
    ```
    git add plans/PLN-NNN-<slug>/

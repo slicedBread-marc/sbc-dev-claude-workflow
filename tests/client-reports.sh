@@ -559,6 +559,65 @@ assert_eq "no bare 'git add -A' left in the implementer" "0" \
   "$(grep -c '^\s*git add -A$' "$LIB_ROOT/skills/wf-implement/SKILL.md" | xargs)"
 
 # ═══════════════════════════════════════════════════════════════════════
+section "A replan lands where its builder's exit expects (git-tracker WFI-027, WFI-026)"
+
+# wf-spec's replanning exit wrote `draft → ready` unconditionally. A replanned
+# plan keeps its branch and worktree, so the dispatcher correctly read
+# ready+worktree as a `resume` and sent it to the fix cycle — whose exit runs
+# `wf-registry-update.sh <id> active verify`. That from_state does not match
+# `ready`, so the transition silently no-opped: work committed on the branch,
+# registry still `ready`, and verify then refused for the same reason.
+registry_add_row PLN-122 replan-fresh draft
+registry_add_row PLN-123 replan-resume draft feature/PLN-123-replan-resume
+git add -A >/dev/null 2>&1 && git commit -qm "add replan fixtures" >/dev/null 2>&1
+
+assert_eq "a replan with no worktree goes back to ready" "ready" \
+  "$("$SCRIPT_DIR/wf-replan-target.sh" PLN-122)"
+
+git worktree add -q -b feature/PLN-123-replan-resume "$TEST_DIR/wt-123" develop 2>/dev/null
+assert_eq "a replan WITH a worktree goes to active" "active" \
+  "$("$SCRIPT_DIR/wf-replan-target.sh" PLN-123)"
+
+assert_ok "--apply performs the transition" \
+  "$SCRIPT_DIR/wf-replan-target.sh" PLN-123 --apply
+assert_eq "the registry agrees" "active" "$(registry_state PLN-123)"
+
+# Which is exactly the state wf-implement's exit contract requires.
+assert_ok "and the builder's exit transition now matches" \
+  "$SCRIPT_DIR/wf-registry-update.sh" PLN-123 active verify
+
+# The error that sent a worker looking for a missing row.
+err=$("$SCRIPT_DIR/wf-registry-update.sh" PLN-122 active verify 2>&1 || true)
+assert_eq "a from_state mismatch names the state the plan IS in" "true" \
+  "$(printf '%s' "$err" | grep -q "is in state 'draft', not 'active'" && echo true || echo false)"
+
+assert_eq "wf-spec no longer hardcodes ready on the replan exit" "true" \
+  "$(grep -q 'wf-replan-target.sh PLN-NNN --apply' "$LIB_ROOT/skills/wf-spec/SKILL.md" && echo true || echo false)"
+
+# The exit sequence must not commit a transition that was refused.
+assert_eq "Phase 3 stops rather than committing a refused transition" "true" \
+  "$(grep -q 'do NOT run step 26' "$LIB_ROOT/skills/wf-implement/SKILL.md" && echo true || echo false)"
+
+git worktree remove --force "$TEST_DIR/wt-123" >/dev/null 2>&1
+git branch -q -D feature/PLN-123-replan-resume 2>/dev/null || true
+
+# ═══════════════════════════════════════════════════════════════════════
+section "The fix cycle sets its own container name and port (git-tracker WFI-025)"
+
+# The post-commit hook fires on every `implement(` commit and reads
+# FEATURE_PORT / COMPOSE_PROJECT_NAME from the environment. The fix cycle had
+# no equivalent of Phase 2 step 12, and these are shell variables in a NEW
+# session — so docker-compose.yml fell back to its defaults, which are another
+# plan's name and port. One fix-cycle commit deployed a PLN-002 build as
+# ...-pln001 on 8101.
+assert_eq "the fix cycle runs wf-plan-port.sh" "true" \
+  "$(awk '/^## Fix cycle/, /^## Worktree workflow/' "$LIB_ROOT/skills/wf-implement/SKILL.md" \
+     | grep -q 'wf-plan-port.sh' && echo true || echo false)"
+assert_eq "and says why a second session cannot inherit it" "true" \
+  "$(awk '/^## Fix cycle/, /^## Worktree workflow/' "$LIB_ROOT/skills/wf-implement/SKILL.md" \
+     | grep -q 'COMPOSE_PROJECT_NAME' && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
 printf '\n'
 if [ "$FAIL" -eq 0 ]; then
   printf '\033[1m%d passed, 0 failed\033[0m\n' "$PASS"

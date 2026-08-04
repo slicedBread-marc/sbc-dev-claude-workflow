@@ -299,8 +299,17 @@ DEVELOP_ROOT=$(git worktree list | head -1 | awk '{print $1}')
     ```
 25. **Update REGISTRY.md** — change state from `active` to `verify`:
     ```bash
-    cd "$DEVELOP_ROOT" && scripts/wf-exec.sh wf-registry-update.sh PLN-NNN active verify
+    cd "$DEVELOP_ROOT" && scripts/wf-exec.sh wf-registry-update.sh PLN-NNN active verify \
+      || { echo "REGISTRY REFUSED THE TRANSITION — do NOT run step 26"; grep "^| PLN-NNN |" plans/REGISTRY.md; }
     ```
+
+    **If that fails, stop here.** The `from_state` guard did not match, which
+    means the row is not where this path assumed — most often `ready`, because
+    a replan left it there while the worktree made the builder take the fix
+    path. Step 26's commit would then announce a transition that never
+    happened, and the verify agent it claims to trigger would refuse to run for
+    the same reason. Report the row the grep printed; under `WF_UNATTENDED=1`
+    this is a **[GATE]** with gate name `needs-input`.
 26. **Commit on develop:**
     ```bash
     cd "$DEVELOP_ROOT" && git add plans/REGISTRY.md plans/PLN-NNN-<slug>/ && git commit --allow-empty -m "implement(PLN-NNN-<slug>): verified, moved to verify"
@@ -344,6 +353,17 @@ The verify agent found code/test/spec issues and set the REGISTRY state back to 
    $DEVELOP_ROOT/scripts/wf-exec.sh wf-merge-develop.sh
    ```
    Shell variables do NOT persist across bash calls — keep these together so `DEVELOP_ROOT` stays in scope. After this call, you are INSIDE the worktree — never `cd feature-branches/...` again.
+4. **Set the Docker project name and port** — same as Phase 2 step 12, and for the same reason:
+   ```bash
+   eval "$($DEVELOP_ROOT/scripts/wf-exec.sh wf-plan-port.sh PLN-NNN-<slug>)"
+   ```
+   **Not optional, and not covered by Phase 2 having done it** — these are shell
+   variables and this is a new session. The `on-implement-commit.sh` post-commit
+   hook fires on every `implement(` commit and reads `FEATURE_PORT` /
+   `COMPOSE_PROJECT_NAME` from the environment; unset, `docker-compose.yml`
+   falls back to its defaults, which are another plan's container name and
+   port. One fix-cycle commit deployed a PLN-002 build as `...-pln001` on 8101
+   — a live collision if PLN-001's own container is up.
 5. **Fix each unchecked finding** — address the issue, then check it off in `$DEVELOP_ROOT/plans/PLN-NNN-<slug>/findings.md`:
    ```markdown
    - [x] **Code**: Login endpoint returns 500 on empty password (src/auth.ts:42)
