@@ -62,8 +62,8 @@ assert_fails() {
 }
 
 registry_add_row() {
-  local id="$1" slug="$2" state="${3:-draft}" branch="${4:-—}"
-  awk -v row="| $id | $slug | $state | — | $branch | 2026-08-02 | ${SCRIPT_FOLDER#v} | — | — |" '
+  local id="$1" slug="$2" state="${3:-draft}" branch="${4:-—}" tags="${5:-—}" deps="${6:-—}"
+  awk -v row="| $id | $slug | $state | — | $branch | 2026-08-02 | ${SCRIPT_FOLDER#v} | $tags | $deps |" '
     /<!-- Counter:/ && !done { print row; done = 1 }
     { print }
   ' plans/REGISTRY.md > plans/REGISTRY.tmp && mv plans/REGISTRY.tmp plans/REGISTRY.md
@@ -616,6 +616,184 @@ assert_eq "the fix cycle runs wf-plan-port.sh" "true" \
 assert_eq "and says why a second session cannot inherit it" "true" \
   "$(awk '/^## Fix cycle/, /^## Worktree workflow/' "$LIB_ROOT/skills/wf-implement/SKILL.md" \
      | grep -q 'COMPOSE_PROJECT_NAME' && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
+section "The tag vocabulary is the project's own (git-tracker WFI-030)"
+
+# wf-spec offered `security, arcade, admin, lessons, ux, infra, e2e, bugfix`
+# and wf-set-tags.sh REJECTED everything else. Three of those names are one
+# project's game/admin/lessons app. Elsewhere the list named tags that meant
+# nothing and omitted `contract` — the tag marking that program's frozen wire
+# surface, and the only tag in its specApproval.gateTags. The list was already
+# being ignored in practice, which is what makes it dangerous: it looks
+# authoritative, is not, and sits directly in front of a gating decision.
+cat > claude-workflow.yml <<'YML'
+specApproval:
+  mode: verdict
+  gateTags:
+    - contract
+YML
+registry_add_row PLN-130 wire-format ready — contract
+registry_add_row PLN-131 relay-store ready — infra,relay
+registry_add_row PLN-132 relay-host  ready — relay
+git add -A >/dev/null 2>&1 && git commit -qm "tag fixture" >/dev/null 2>&1
+
+tags_out=$("$SCRIPT_DIR/wf-list-tags.sh" 2>/dev/null || true)
+assert_eq "a tag no shipped list contained is reported" "true" \
+  "$(printf '%s' "$tags_out" | grep -q '^contract' && echo true || echo false)"
+assert_eq "gating tags are marked as such" "true" \
+  "$(printf '%s' "$tags_out" | grep -qE '^contract\s+1\s+gate$' && echo true || echo false)"
+assert_eq "and non-gating ones are not" "true" \
+  "$(printf '%s' "$tags_out" | grep -qE '^relay\s+2\s+—$' && echo true || echo false)"
+assert_eq "most-used first" "relay" "$(printf '%s' "$tags_out" | head -1 | cut -f1)"
+assert_eq "--gating lists only what carries a gate" "contract" \
+  "$("$SCRIPT_DIR/wf-list-tags.sh" --gating 2>/dev/null | tr '\n' ',' | sed 's/,$//')"
+
+# A gate tag nobody has used yet is the one a planner most needs offered.
+printf 'specApproval:\n  mode: verdict\n  gateTags:\n    - contract\n    - unused-gate\n' > claude-workflow.yml
+assert_eq "an unused gate tag is still listed" "true" \
+  "$("$SCRIPT_DIR/wf-list-tags.sh" 2>/dev/null | grep -qE '^unused-gate\s+0\s+gate$' && echo true || echo false)"
+printf 'specApproval:\n  mode: verdict\n  gateTags:\n    - contract\n' > claude-workflow.yml
+
+# The hard failure: the tag that gates could not be assigned at all.
+assert_ok "a tag outside the old hardcoded list can be assigned" \
+  "$SCRIPT_DIR/wf-set-tags.sh" PLN-132 relay,contract
+assert_eq "and it lands in the registry" "relay,contract" \
+  "$(grep '^| PLN-132 |' plans/REGISTRY.md | awk -F'|' '{print $9}' | xargs)"
+# Captured, not piped straight into `grep -q`: grep exits on its first match
+# and SIGPIPEs the producer, which pipefail then reports as a failed pipeline.
+warn=$("$SCRIPT_DIR/wf-set-tags.sh" PLN-132 relay,brand-new 2>&1 >/dev/null || true)
+assert_eq "a name new to the project warns rather than failing" "true" \
+  "$(printf '%s' "$warn" | grep -q 'new tag' && echo true || echo false)"
+
+assert_eq "the prompt no longer offers another project's vocabulary" "false" \
+  "$(grep -q 'Tags (comma-separated): security, arcade' "$LIB_ROOT/skills/wf-spec/SKILL.md" && echo true || echo false)"
+assert_eq "step 4c reads the project's own tags" "true" \
+  "$(awk '/^4c\./, /^5\./' "$LIB_ROOT/skills/wf-spec/SKILL.md" \
+     | grep -q 'wf-list-tags.sh' && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
+section "The review runs before the gate, not after it (git-tracker WFI-028)"
+
+# The tag-gate path parked the plan BEFORE any review ran — SKILL.md said
+# verbatim "Do not run the review agent". Two consequences in one drain: a
+# tagged plan got LESS automated scrutiny than an untagged one and waited idle
+# for a human to commission the review (one sat 3h20m unreviewed), and the
+# human was handed approvable and unapprovable plans identically, so two of
+# four gates were consumed only to end at `draft` with findings — exactly where
+# an unattended Blocked verdict routes them anyway.
+assert_eq "the skill no longer forbids reviewing a tagged plan" "false" \
+  "$(grep -q 'Do \*\*not\*\* run the review agent' "$LIB_ROOT/skills/wf-spec/SKILL.md" && echo true || echo false)"
+assert_eq "every unattended exit runs the review" "true" \
+  "$(grep -q 'The review always runs. Nothing here skips it' "$LIB_ROOT/skills/wf-spec/SKILL.md" && echo true || echo false)"
+assert_eq "the gate mode and the tag path share one exit" "true" \
+  "$(grep -q '^## Exit — unattended' "$LIB_ROOT/skills/wf-spec/SKILL.md" && echo true || echo false)"
+assert_eq "a Blocked verdict never reaches a human directly" "true" \
+  "$(awk '/^## Exit — unattended/, /^## Replanning/' "$LIB_ROOT/skills/wf-spec/SKILL.md" \
+     | grep -q 'same fix loop' && echo true || echo false)"
+assert_eq "the gate question carries the verdict" "true" \
+  "$(awk '/^## Exit — unattended/, /^## Replanning/' "$LIB_ROOT/skills/wf-spec/SKILL.md" \
+     | grep -q 'Review: Approved with notes' && echo true || echo false)"
+assert_eq "wf-attend reads the review instead of commissioning it" "true" \
+  "$(grep -q 'do not re-run the review' "$LIB_ROOT/skills/wf-attend/SKILL.md" && echo true || echo false)"
+assert_eq "and a batch drain does not re-review what already has a verdict" "true" \
+  "$(grep -q 'Read the verdicts that are already there' "$LIB_ROOT/skills/wf-attend/SKILL.md" && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
+section "The consistency closure reaches the docs the plans cite (git-tracker WFI-029)"
+
+# The pass read plans only. Shared reference docs sit outside every dependency
+# closure, so a contradiction between two of them was invisible to the one role
+# that exists to find cross-document contradictions. Observed: a review raised
+# a Critical against a plan for a config schema the plan had gotten right —
+# two reference docs disagreed, and each plan had faithfully followed one.
+mkdir -p docs/plan/reference
+touch docs/plan/reference/07-remote-cli.md docs/plan/reference/20-multi-instance.md
+registry_add_row PLN-140 store   ready — infra
+registry_add_row PLN-141 host    ready — infra PLN-140
+registry_add_row PLN-142 chat    ready — relay PLN-141
+printf '# PLN-142\n\n## Goal\nChat over the relay.\n\nWire per docs/plan/reference/07-remote-cli.md and docs/plan/reference/99-absent.md.\n' \
+  > plans/PLN-142-chat/plan.md
+printf '# PLN-141\n\n## Goal\nHost the relay.\n\nBuild block per docs/plan/reference/07-remote-cli.md, layout per docs/plan/reference/20-multi-instance.md.\n' \
+  > plans/PLN-141-host/plan.md
+git add -A >/dev/null 2>&1 && git commit -qm "closure fixture" >/dev/null 2>&1
+
+closure=$("$SCRIPT_DIR/wf-list-closure.sh" PLN-142 2>/dev/null | cut -f1 | tr '\n' ',' | sed 's/,$//')
+assert_eq "the closure is transitive, not just direct Deps" "PLN-141,PLN-140" "$closure"
+assert_eq "and carries each plan's state" "ready" \
+  "$("$SCRIPT_DIR/wf-list-closure.sh" PLN-142 2>/dev/null | head -1 | cut -f3)"
+
+docs_out=$("$SCRIPT_DIR/wf-list-cited-docs.sh" PLN-142 2>/dev/null || true)
+assert_eq "a doc cited by a TRANSITIVE dependency is reached" "true" \
+  "$(printf '%s' "$docs_out" | grep -q '20-multi-instance.md' && echo true || echo false)"
+assert_eq "the doc cited by two plans is listed first" "docs/plan/reference/07-remote-cli.md" \
+  "$(printf '%s' "$docs_out" | head -1 | cut -f1)"
+assert_eq "and names both citing plans, which is the pair to cross-read" "PLN-141,PLN-142" \
+  "$(printf '%s' "$docs_out" | head -1 | cut -f2)"
+assert_eq "a cited path that does not exist is dropped" "false" \
+  "$(printf '%s' "$docs_out" | grep -q '99-absent' && echo true || echo false)"
+assert_eq "a plan citing nothing is not an error" "0" \
+  "$("$SCRIPT_DIR/wf-list-cited-docs.sh" PLN-140 >/dev/null 2>&1; echo $?)"
+
+# A mutual Deps pair must terminate rather than loop forever.
+registry_add_row PLN-143 loop-a ready — — PLN-144
+registry_add_row PLN-144 loop-b ready — — PLN-143
+assert_eq "a dependency cycle terminates" "PLN-144" \
+  "$("$SCRIPT_DIR/wf-list-closure.sh" PLN-143 2>/dev/null | cut -f1 | tr '\n' ',' | sed 's/,$//')"
+
+assert_eq "wf-consistency reads the cited docs" "true" \
+  "$(grep -q 'wf-list-cited-docs.sh' "$LIB_ROOT/skills/wf-consistency/SKILL.md" && echo true || echo false)"
+assert_eq "and checks them against each other, not just the plan" "true" \
+  "$(grep -q 'Two reference docs that disagree' "$LIB_ROOT/skills/wf-consistency/SKILL.md" && echo true || echo false)"
+
+# ═══════════════════════════════════════════════════════════════════════
+section "A replan cannot quietly shrink the Goal (git-tracker WFI-031)"
+
+# Nothing compared an amended plan against what it originally promised. An
+# amendment narrowed unattended relay to ANSWER-ONLY for a sound reason — its
+# own text called it "a deliberate reduction of the Goal's headline capability"
+# — so a reviewer would approve it, verdict mode would send it to `ready`, and
+# the user would learn that "fix this while I'm out" no longer works when they
+# next tried it. It reached a human only incidentally, via a tag that was
+# removed from gateTags the same day.
+registry_add_row PLN-150 relay-scope draft
+printf '# PLN-150\n\n## Goal\nRelay answers and applies fixes while the user is away.\n' \
+  > plans/PLN-150-relay-scope/plan.md
+git add -A >/dev/null 2>&1 && git commit -qm "goal fixture" >/dev/null 2>&1
+
+delta=$("$SCRIPT_DIR/wf-goal-delta.sh" PLN-150 2>/dev/null || true)
+assert_eq "an untouched goal reports unchanged" "true" \
+  "$(printf '%s' "$delta" | grep -q '^GOAL_STATUS:   unchanged' && echo true || echo false)"
+
+# The case that actually occurred: the Goal LINE is untouched and the
+# reduction lands in an amendment, so a goal-line diff alone would miss it.
+printf '# PLN-150\n\n## Goal\nRelay answers and applies fixes while the user is away.\n\n## Amendments\n### A1.1(c)\nNarrow unattended relay to ANSWER-ONLY — a write-capable loop over untrusted input is the injection this plan prevents.\n' \
+  > plans/PLN-150-relay-scope/plan.md
+delta=$("$SCRIPT_DIR/wf-goal-delta.sh" PLN-150 2>/dev/null || true)
+assert_eq "the goal line alone still reads unchanged" "true" \
+  "$(printf '%s' "$delta" | grep -q '^GOAL_STATUS:   unchanged' && echo true || echo false)"
+assert_eq "so the new amendment text is printed for the judgement" "true" \
+  "$(printf '%s' "$delta" | grep -q 'ANSWER-ONLY' && echo true || echo false)"
+assert_eq "and the amendment is counted" "1" \
+  "$(printf '%s' "$delta" | awk '/^AMENDMENTS_NEW:/{print $2}')"
+
+git add -A >/dev/null 2>&1 && git commit -qm "amend PLN-150" >/dev/null 2>&1
+printf '# PLN-150\n\n## Goal\nRelay answers questions while the user is away.\n' \
+  > plans/PLN-150-relay-scope/plan.md
+delta=$("$SCRIPT_DIR/wf-goal-delta.sh" PLN-150 2>/dev/null || true)
+assert_eq "an edited goal is measured against the ORIGINAL, not the last commit" "true" \
+  "$(printf '%s' "$delta" | grep -q '^GOAL_ORIGINAL: Relay answers and applies fixes' && echo true || echo false)"
+assert_eq "and reports changed" "true" \
+  "$(printf '%s' "$delta" | grep -q '^GOAL_STATUS:   changed' && echo true || echo false)"
+
+assert_eq "replanning runs the scope check" "true" \
+  "$(awk '/^## Replanning/, /^## Cross-plan consistency/' "$LIB_ROOT/skills/wf-spec/SKILL.md" \
+     | grep -q 'wf-goal-delta.sh' && echo true || echo false)"
+assert_eq "and gates on it whatever the review verdict says" "true" \
+  "$(awk '/^## Replanning/, /^## Cross-plan consistency/' "$LIB_ROOT/skills/wf-spec/SKILL.md" \
+     | grep -q 'whatever the review verdict says' && echo true || echo false)"
+assert_eq "wf-attend knows what to do with a scope-reduction gate" "true" \
+  "$(grep -q '^### `scope-reduction`' "$LIB_ROOT/skills/wf-attend/SKILL.md" && echo true || echo false)"
 
 # ═══════════════════════════════════════════════════════════════════════
 printf '\n'

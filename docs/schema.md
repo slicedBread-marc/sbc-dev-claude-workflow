@@ -108,7 +108,9 @@ The `Priority` column is optional per-plan. Default value is `—` (normal). Set
 
 The `WF` column stamps the workflow version the plan was spec'd against. `scripts/wf-exec.sh` uses it to dispatch to the matching `scripts/v*/` snapshot (see `scripts/version-map.txt`), so a plan keeps running the scripts it was built against. Empty WF routes to `v1.x` (pre-v2.00 baseline).
 
-The `Tags` column holds comma-separated category tags (no spaces). Default `—`. Allowed tags: `security`, `arcade`, `admin`, `lessons`, `ux`, `infra`, `e2e`, `bugfix`. Use `scripts/wf-set-tags.sh <plan-id> <tags>` to set.
+The `Tags` column holds comma-separated category tags (no spaces). Default `—`. Use `scripts/wf-set-tags.sh <plan-id> <tags>` to set, and `scripts/wf-list-tags.sh` to read the vocabulary.
+
+**The vocabulary is the project's, not the schema's.** It is derived from the tags plans already carry, plus anything declared in `claude-workflow.yml` (`tags:`, `specApproval.gateTags`). A name outside it is accepted with a warning — this was once a hardcoded allowlist, and a project whose gating tag was not on it could not assign the one tag that gates. Tags are free-form labels; the only one with mechanical meaning is a match against `specApproval.gateTags`.
 
 The `Deps` column holds comma-separated plan IDs that must reach `complete` state before this plan is workable. Default `—`. A plan with incomplete deps shows `[blocked]` in worklist menus. Use `scripts/wf-set-deps.sh <plan-id> <deps>` to set.
 

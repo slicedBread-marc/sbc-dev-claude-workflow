@@ -29,9 +29,10 @@ Rules, in force for the whole session:
 | Entry | Work selection menu | [AUTO] | Use the artifact named in your instructions |
 | 1 | Deferred criteria to include | [AUTO] | Include none — do not widen scope unattended |
 | 4b | Goal confirmation | [AUTO] | Accept your own draft if it is concrete and specific. If you cannot write a concrete goal from the source artifact, [GATE] `goal-missing` |
-| 4c | Tag assignment | [AUTO] | Assign from the allowlist based on slug, goal, and touched paths |
+| 4c | Tag assignment | [AUTO] | Assign from `wf-list-tags.sh` based on slug, goal, and touched paths |
 | 7c | Auto-test promotion (y/n) | [AUTO] | **Yes** — promote. Maximizing automation is the standing direction; this overrides "never auto-promote" in step 7c |
 | Review gate | Plan approval | **[GATE]** or [AUTO] | Depends on `specApproval.mode` — see below |
+| 6a (replan) | An amendment narrows the Goal | **[GATE]** | `scope-reduction` — always, whatever the verdict and whatever the mode |
 
 ### The review gate
 
@@ -43,9 +44,15 @@ MAX_ROUNDS=$(scripts/wf-exec.sh wf-config-get.sh specApproval.maxReviewRounds 3)
 GATE_TAGS=$(scripts/wf-exec.sh wf-config-get.sh specApproval.gateTags --list)
 ```
 
-**`gate` (default)** — the hard stop. A spec may be written unattended; it may not be **approved** unattended. Park as `spec-approval` and exit; `/wf-attend` runs the review with a human present.
+**`gate` (default)** — the hard stop on *approval*. A spec may be written unattended; it may not be **approved** unattended. Park as `spec-approval` and exit.
 
-**`verdict`** — the review runs unattended and **its verdict is the gate**, not the plan's existence. Follow [Exit — verdict mode](#exit--verdict-mode).
+**`verdict`** — **the verdict is the gate**, not the plan's existence. An approved plan goes to `ready` with no human.
+
+**`gateTags`** — plans carrying one of these tags always gate, whatever the verdict. The escape hatch, and not overridable.
+
+**The review itself runs unattended in all three cases.** It is a read-only analysis that decides nothing; what differs is what its verdict is *allowed to do*. Every unattended exit goes through [Exit — unattended](#exit--unattended).
+
+That ordering was once the other way around, and the tag path parked the plan *before* any review ran. Two consequences, both measured in a single drain: a tagged plan got **less** automated scrutiny than an untagged one and sat idle waiting for a human to commission a review a machine could have run immediately (one waited 3h20m unreviewed); and the human was handed approvable and unapprovable plans identically, so two of four gates were consumed only to end at `draft` with findings — exactly where an unattended Blocked verdict routes them anyway. A Blocked verdict needs no human. An Approved one is the only thing worth interrupting for.
 
 Why the second mode exists, so you can judge whether the run in front of you fits it: in a measured 16-plan program the review found Critical findings in **8 of 8** plans drained with a human present. Not one was approvable as drafted, so the human's decision was never *"is this good?"* — it was always *"proceed with the fix loop the reviewer just specified."* The gate sat in front of the mechanism that does the filtering, admitting everything to a step that then rejected everything. Total human input across those 8 gates: the word "approve", then the word "all".
 
@@ -156,13 +163,19 @@ If the user picks a bug BUG-NNN:
     Confirm or edit?
     ```
     Do not proceed to step 4c until the user confirms or provides a revised goal. This line will be extracted by scripts (`wf-plan-info.sh`) and displayed in `wf-implement`, `wf-test`, and PR descriptions — it must be concrete, not a placeholder.
-4c. **Assign tags** — after the goal is confirmed, prompt the user for category tags:
+4c. **Assign tags** — after the goal is confirmed, read **this project's** vocabulary. Do not offer a list from memory:
+    ```bash
+    scripts/wf-exec.sh wf-list-tags.sh
     ```
-    Tags (comma-separated): security, arcade, admin, lessons, ux, infra, e2e, bugfix
+    Output is `tag <TAB> plans carrying it <TAB> gate`, most-used first. The third column is the one that matters: a tag marked `gate` is listed in `specApproval.gateTags`, so assigning it decides that this plan will stop for a human.
+    ```
+    Tags (comma-separated): <the tags listed, gating ones marked *>
     Current: <suggested based on slug/goal>
     Confirm or edit?
     ```
-    Suggest tags based on the plan content (e.g., a plan fixing auth → `security`, a plan for arcade games → `arcade`). Multiple tags allowed. Store for use when writing the registry row.
+    Suggest from the listed tags — reuse the project's own words rather than inventing a synonym for one it already has. A genuinely new tag is allowed and `wf-set-tags.sh` will take it; it just gets a warning so a typo does not become a second vocabulary.
+
+    This list used to be a hardcoded `security, arcade, admin, lessons, ux, infra, e2e, bugfix` — one project's game/admin/lessons vocabulary, shipped to everyone. Elsewhere it named tags that meant nothing and omitted the one tag the project actually gated on, which is the failure that matters: an allowlist that looks authoritative, isn't, and sits directly in front of a gating decision.
 5. **Create the plan folder** — `plans/PLN-NNN-<slug>/` with three files following `templates/plans/TEMPLATE.md`:
    - Folder is always `plans/PLN-NNN-<slug>/` (e.g. `plans/PLN-041-user-auth/`)
    - In `plan.md`, fill in `> **ID:** PLN-NNN` and `> **schema_version:** 6`
@@ -271,19 +284,9 @@ scripts/wf-exec.sh wf-manual-lint.sh PLN-NNN --file plans/PLN-NNN-<slug>/plan.md
 
 Fix every line it prints — add the missing tag, pick a disposition, or move the criterion into the Tests table — and re-run until it exits 0. Catching it here costs one edit; catching it at verify costs a full round trip through `draft`.
 
-**Under `WF_UNATTENDED=1`, branch on `specApproval.mode`** (read it, don't assume — see [The review gate](#the-review-gate)):
+**Under `WF_UNATTENDED=1` → [Exit — unattended](#exit--unattended).** Every unattended path runs the review first; `specApproval.mode` and `gateTags` decide what happens *after* it, not whether it happens. Do not branch here.
 
-- `verdict` → go to [Exit — verdict mode](#exit--verdict-mode).
-- `gate` (the default), **or** the plan carries any tag in `specApproval.gateTags` → **[GATE]**. Commit the drafted plan (state stays `draft`), then park and exit:
-
-```bash
-git add plans/PLN-NNN-<slug>/ && git commit -m "spec(PLN-NNN-<slug>): draft plan — awaiting approval"
-scripts/wf-exec.sh wf-gate-open.sh PLN-NNN spec-approval \
-  "<goal> — N steps, N automated tests, N manual criteria. Approve?" \
-  --context plans/PLN-NNN-<slug>/plan.md --skill wf-spec
-```
-
-Do **not** run the review agent, do **not** write the registry row's state as `ready`, and do **not** proceed past this point. `/wf-attend` runs the review with a human present.
+The rest of this section is the **attended** path — a human is at the terminal.
 
 When the user approves the plan (says "looks good", "approved", "ready", etc.):
 
@@ -339,24 +342,31 @@ Columns: `ID | Slug | State | Priority | Branch | Updated | WF | Tags | Deps`. U
 
 ---
 
-## Exit — verdict mode
+## Exit — unattended
 
-Active only when `specApproval.mode` is `verdict` **and** the plan carries no tag listed in `specApproval.gateTags`. If it carries one, park as `spec-approval` instead — that is the escape hatch and it is not overridable.
+**The review always runs. Nothing here skips it.** What changes is what an *Approved* verdict is allowed to do:
 
-The ordering is the whole point. In `gate` mode the human sits in front of the mechanism that does the filtering; here the review runs first and its verdict is what decides.
+| The plan | Approved / Approved-with-notes | Blocked |
+|-|-|-|
+| `mode: verdict`, no gating tag | `draft → ready` — no gate, no human | fix, re-review, up to `maxReviewRounds` |
+| carries a `specApproval.gateTags` tag | **[GATE]** `spec-approval`, with the review attached | same fix loop |
+| `mode: gate` (the default) | **[GATE]** `spec-approval`, with the review attached | same fix loop |
 
 ```
-draft → review → ┬─ Approved / Approved-with-notes ──────→ ready   (no gate)
-                 ├─ Blocked, round ≤ N ──→ fix → re-review (no gate)
-                 └─ Blocked, round > N ──→ [GATE: spec-stuck]
+draft → review → ┬─ Approved ─┬─ needs a gate ─→ [GATE: spec-approval] (state stays draft)
+                 │            └─ otherwise ────→ ready
+                 ├─ Blocked, round ≤ N ────────→ fix → re-review
+                 └─ Blocked, round > N ────────→ [GATE: spec-stuck]
 ```
+
+**Read the fix loop as identical across all three rows, because it is.** A Blocked plan does not need a human under any mode — it needs the fix the reviewer just specified, and verdict mode's route (revise, re-review, and land at `draft` with findings if it never converges) is the conservative outcome in every mode. Gating before the review inverts that: it spends a human on the plans a machine could have resolved, and spends them *identically* on the ones it could not.
 
 1. **Goal gate** — the first line under `## Goal` must be a concrete one-liner. If you cannot write one from the source artifact, **[GATE]** `goal-missing`. Never invent a goal to get past this.
 
 2. **Run the review** — the same sonnet agent as the attended flow, verbatim. This is round 1.
 
 3. **Route on `Result:`**
-   - **Approved** / **Approved with notes** → record the verdict, transition `draft → ready`, commit, exit. No gate, no human.
+   - **Approved** / **Approved with notes** → record the verdict, then go to step 6.
    - **Blocked** (or any Critical finding) → revise the plan against the findings, then re-review. Each re-review is one more round.
 
 4. **Round ceiling** — stop after `specApproval.maxReviewRounds` (default 3). A plan still Blocked past that has a problem the reviewer cannot articulate, which is exactly when a human is worth interrupting:
@@ -376,7 +386,22 @@ draft → review → ┬─ Approved / Approved-with-notes ──────→
    > |-|-|-|-|-|
    ```
 
-6. **Transition and commit** — same as the attended path (steps 5–6 above), with the commit message naming the verdict:
+6. **Route the approved plan.** Read the mode and the gating tags — don't assume either:
+   ```bash
+   SPEC_MODE=$(scripts/wf-exec.sh wf-config-get.sh specApproval.mode gate)
+   GATE_TAGS=$(scripts/wf-exec.sh wf-list-tags.sh --gating)
+   ```
+
+   **Needs a gate** (`SPEC_MODE` is `gate`, or the plan carries a tag in `GATE_TAGS`) — commit the reviewed plan, leave the state at `draft`, park, and exit. The gate question carries the verdict, because the human is now deciding on a *reviewed* plan and should not have to open the file to learn that:
+   ```bash
+   git add plans/PLN-NNN-<slug>/ && git commit -m "spec(PLN-NNN-<slug>): reviewed — Approved with notes, awaiting approval"
+   scripts/wf-exec.sh wf-gate-open.sh PLN-NNN spec-approval \
+     "<goal> — Review: Approved with notes (2 rounds, N Warnings). N steps, N automated tests, N manual criteria. Approve?" \
+     --context plans/PLN-NNN-<slug>/plan.md --skill wf-spec
+   ```
+   Do **not** write the registry row's state as `ready`. `/wf-attend` closes it with a human, and the `## Review` section you just wrote is what they read.
+
+   **Otherwise** — transition and commit, the commit message naming the verdict:
    ```bash
    scripts/wf-exec.sh wf-registry-update.sh PLN-NNN draft ready
    scripts/wf-exec.sh wf-unclaim.sh PLN-NNN-<slug>
@@ -384,7 +409,7 @@ draft → review → ┬─ Approved / Approved-with-notes ──────→
    git commit -m "spec: PLN-NNN-<slug> — approved with notes (round 2), plan ready"
    ```
 
-**Do not skip the review to save a round.** The verdict is the only thing standing between a draft and a builder in this mode; a plan advanced without one is worse than a plan that gated.
+**Do not skip the review to save a round.** In `verdict` mode the verdict is the only thing standing between a draft and a builder; in the gating paths it is the only thing standing between a human and an hour of work a machine had already done.
 
 ---
 
@@ -409,6 +434,28 @@ When a plan in REGISTRY.md has state `draft` AND has unchecked items in its `fin
 4. **Update Design Decisions** — add any new decisions to `plan.md`
 5. **Address findings** — for each `ESCALATED` item in `findings.md`, check it off if resolved by the amendment. Leave behavior findings unchecked (T3 will handle them).
 6. **Run the review gate** — same as above
+6a. **Scope check — does this replan shrink what the plan promised?**
+    ```bash
+    scripts/wf-exec.sh wf-goal-delta.sh PLN-NNN
+    ```
+    Gate as `scope-reduction` if **either** is true:
+    - `GOAL_STATUS: changed` and the new goal promises less than the original, **or**
+    - any amendment you just wrote removes or qualifies a capability the `## Goal` one-liner names — even though the goal line itself is untouched.
+
+    ```bash
+    scripts/wf-exec.sh wf-gate-open.sh PLN-NNN scope-reduction \
+      "Amendment <A-N> drops a capability the Goal promises.
+       Goal: <the one-liner, verbatim>
+       After: <what the plan will actually do>
+       Reason: <the reviewer's or your own justification, one line>
+       Proceed with the reduced scope?" \
+      --context plans/PLN-NNN-<slug>/plan.md --skill wf-spec
+    ```
+    Commit the amendment first (state stays `draft`), leave the sub-goal pushed, then exit 0.
+
+    **This gate fires whatever the review verdict says, in gate mode and verdict mode alike.** A reviewer judges whether the plan is *sound*; whether a capability the user asked for may be dropped is a product decision no verdict answers, and the two are orthogonal. The case that motivated it: an amendment narrowed an unattended relay to ANSWER-ONLY for an entirely correct reason — a looped write-capable skill over untrusted input was the exact injection the plan existed to prevent — and its own text said *"that is a deliberate reduction of the Goal's headline capability."* As engineering it was right, so a reviewer would approve it, verdict mode would send it to `ready`, and the user would discover that *"fix this while I'm out"* no longer worked the next time they tried it. It reached a human only incidentally, via a tag that was removed from `gateTags` the same day.
+
+    Nothing else in the pipeline compares an amended plan against what it originally promised, and no tag list catches this: it fires on the decision itself rather than on a proxy for it.
 6b. **Pop the sub-goal** — restore the original goal now that findings are addressed:
     ```bash
     scripts/wf-exec.sh wf-goal-pop.sh PLN-NNN

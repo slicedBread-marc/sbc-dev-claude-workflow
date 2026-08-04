@@ -42,14 +42,15 @@ Once the user picks one, read the gate's `<context>` file if it has one, then fo
 
 ### `spec-approval`
 
-The plan is drafted and committed in `draft` state. The orchestrator wrote it but is not allowed to approve it.
+The plan is drafted, **already reviewed**, and committed in `draft` state. The orchestrator wrote it and ran the architecture review; it is not allowed to approve it.
 
-1. Display the plan's Goal, the step count, the Tests table, and the Human Test Criteria split (Chrome-Assisted vs Manual).
-2. Ask: `approve / edit / reject?`
-3. On **approve** — hand off to `/wf-spec` to run its normal Review Gate for this plan (the sonnet architecture review, the registry row, `draft → ready`). Do not do the review yourself and do not set the state by hand.
-4. On **edit** — capture what they want changed, then hand to `/wf-spec` to revise before review.
-5. On **reject** — ask why, append the reason to the plan's `findings.md` as an ESCALATED item, and leave the state at `draft`.
-6. Close the gate with the outcome:
+1. Display the plan's `## Review` section first — the verdict, the round count, and any Warnings. The review has already run unattended, so a plan reaching this gate is one the reviewer *approved*; you are deciding whether to build it, not whether it is sound. If `## Review` is empty, the plan gated before its review — that is a harness fault, so file it with `wf-issue.sh` and run the review yourself.
+2. Then display the plan's Goal, the step count, the Tests table, and the Human Test Criteria split (Chrome-Assisted vs Manual).
+3. Ask: `approve / edit / reject?`
+4. On **approve** — hand off to `/wf-spec` to write the registry row and transition `draft → ready`. Do not set the state by hand and do not re-run the review; it is in `## Review`.
+5. On **edit** — capture what they want changed, then hand to `/wf-spec` to revise and re-review.
+6. On **reject** — ask why, append the reason to the plan's `findings.md` as an ESCALATED item, and leave the state at `draft`.
+7. Close the gate with the outcome:
    ```bash
    scripts/wf-exec.sh wf-gate-close.sh <PLN-ID> "approved"
    ```
@@ -58,7 +59,7 @@ The plan is drafted and committed in `draft` state. The orchestrator wrote it bu
 
 When the user picks `all` and the queue holds more than two `spec-approval` gates, do **not** work them one at a time. Reviewing serially re-establishes shared context per plan and lets the same defect class be discovered independently N times — in one measured run, a reviewer flagged defects a sibling plan had already fixed, because it had no way to know.
 
-1. **Fan out round 1.** Spawn the sonnet review agent for every parked plan concurrently, in a single message. Round 1 needs no shared state.
+1. **Read the verdicts that are already there.** Each parked plan carries its own `## Review` — round 1 ran unattended before the gate opened. Re-running it burns the tokens the review-before-gate ordering exists to save. Only fan out the sonnet review agent for plans whose `## Review` is missing or older than the plan's last commit.
 2. **Read all the verdicts before fixing anything.** Group findings by defect class, not by plan.
 3. **After a defect class appears in 3 or more plans, stop reviewing it and sweep.** A targeted sweep for one known class across every remaining plan is far cheaper than N full reviews, and it catches instances a full review scores as low-priority. Two such sweeps in one 16-plan run caught 13 findings that per-plan review had missed.
 4. **A finding present in 3+ plans is a template defect, not a plan defect.** One run found an ambiguous `git revert -m 1 <sha>` in the rollback section of **all 16 plans**, propagated by copying. Fixing it 16 times fixes nothing — raise it against `plans/TEMPLATE.md` (and report it upstream with `wf-issue.sh` if the defect came from the shipped template), then apply the corrected wording to the affected plans.
@@ -67,7 +68,7 @@ Then walk the per-plan approve/edit/reject decisions with the findings already i
 
 ### `spec-stuck`
 
-Only appears under `specApproval.mode: verdict`. The architecture review blocked this plan for `maxReviewRounds` consecutive rounds — the fix loop is not converging, and another round is not the answer.
+The architecture review blocked this plan for `maxReviewRounds` consecutive rounds — the fix loop is not converging, and another round is not the answer. It can appear under either mode: the review and its fix loop run unattended in both, and only the handling of an *Approved* verdict differs.
 
 1. Show the plan's `## Review` section — every round is recorded there, so the user can see what the reviewer kept objecting to and what the fixes tried.
 2. Ask: `resolve with me / send to a human planner / approve anyway?`
@@ -77,6 +78,20 @@ Only appears under `specApproval.mode: verdict`. The architecture review blocked
 3. Close the gate with the outcome.
 
 A plan reaching this gate is the mode working, not failing — it is the 1-in-8 case the round ceiling exists to catch.
+
+### `scope-reduction`
+
+A replan amended the plan in a way that drops or narrows something its `## Goal` promises. **Do not read this as a defect report.** The reduction is usually correct engineering, arrived at for a good reason, and the review very likely approved it — that is exactly why it needs you. The question is not *is this sound?* but *is the smaller product still the one you asked for?*
+
+1. Show, in this order: the original Goal verbatim, what the plan will now actually do, and the stated reason for the reduction.
+   ```bash
+   scripts/wf-exec.sh wf-goal-delta.sh <PLN-ID>
+   ```
+2. Ask: `accept the reduction / restore the capability / split it out?`
+   - **accept** — amend the `## Goal` one-liner so it describes what will be built. A plan whose Goal outlives the capability it names mis-sells itself to the tester, the PR, and the next planner who reads it.
+   - **restore** — the reduction is not acceptable; hand to `/wf-spec` to solve the underlying problem another way, with the constraint recorded in `findings.md` as ESCALATED.
+   - **split** — accept the reduction *and* file the dropped capability as a brief (`/wf-brainstorm`) so it is not silently lost. Note the brief ID in the plan's `## Out of Scope`.
+3. Close the gate with the outcome and the decision.
 
 ### `manual-test`
 

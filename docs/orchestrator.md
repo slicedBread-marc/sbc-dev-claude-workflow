@@ -121,8 +121,9 @@ artifacts; `/wf-attend` drains the queue.
 
 | Gate | Opened when |
 |-|-|
-| `spec-approval` | A spec is drafted, under `specApproval.mode: gate` (the default) — writing a spec unattended is fine, approving one is not. Also opened in `verdict` mode for plans tagged in `specApproval.gateTags` |
-| `spec-stuck` | `verdict` mode only: the review blocked the plan for `maxReviewRounds` rounds running |
+| `spec-approval` | A spec is drafted **and reviewed**, under `specApproval.mode: gate` (the default) — writing and reviewing a spec unattended is fine, approving one is not. Also opened in `verdict` mode for plans tagged in `specApproval.gateTags`. The review always runs before the gate opens, in every mode: gating first meant a tagged plan got *less* automated scrutiny than an untagged one, and a human was spent obtaining a review a machine could have run immediately |
+| `spec-stuck` | The review blocked the plan for `maxReviewRounds` rounds running. Any mode — the fix loop is the same everywhere |
+| `scope-reduction` | A replan's amendment drops or qualifies a capability the plan's `## Goal` promises. Fires whatever the review verdict says: a reviewer judges whether a plan is sound, and a narrowing is very often sound engineering, but whether a capability the user asked for may be dropped is a product decision no verdict answers |
 | `consistency-migration` | A plan contradicts an **already-built** dependency — an amendment can't fix it |
 | `manual-test` | `wf-manual-gate.sh` says a human is needed: the diff touches a rendering surface **and** unresolved `(eyes:*)` criteria remain |
 | `goal-missing` | No concrete goal line; it's quoted in PRs and by the tester, so it isn't invented |
@@ -179,6 +180,23 @@ verdict is the gate; every plan in that run converged in 2 rounds, and a plan
 still Blocked after `maxReviewRounds` parks as `spec-stuck`. Ships as `gate` —
 switching is a deliberate grant, and it should not be switched without the
 consistency pass running.
+
+The **review runs before the gate opens in every mode**, which is a separate
+decision from what the verdict may do. It used to run after: a tag-gated plan
+parked untouched and waited for a human to commission the review, so carrying a
+`gateTags` tag bought a plan *less* automated scrutiny than not carrying one.
+One plan sat gated 3h20m unreviewed, and in the same drain two of four gates
+were consumed only to end at `draft` with findings — where an unattended
+Blocked verdict routes them anyway. Only an Approved verdict is worth
+interrupting a human for; a Blocked one is work, and the fix loop is identical
+in both modes.
+
+`gateTags` is the escape hatch and remains non-overridable, but choose the tag
+by what a wrong approval costs, not by what the plan is about. A tag carried by
+7 of 16 plans describes the project rather than its risky subset, and a gate
+list that admits everything gates nothing. The sharper discriminator is
+`scope-reduction`, which fires on the decision itself and catches plans no tag
+list would have.
 
 **Manual test** (`manualTestGate`). The old rule stopped on any `#### Manual`
 criterion, and every plan has some. Sorted by surface, CLI-only plans had 14 of

@@ -640,7 +640,13 @@ assert_eq "tags written to column 9" "infra,security" "$(registry_col PLN-006 9)
 "$SCRIPT_DIR/wf-set-tags.sh" PLN-006 "infra, security" >/dev/null
 assert_eq "comma-space normalized on write" "infra,security" "$(registry_col PLN-006 9)"
 
-assert_exit "unknown tag rejected" 1 "$SCRIPT_DIR/wf-set-tags.sh" PLN-006 hosting
+# A name outside the project's current vocabulary warns and is accepted. It
+# used to be rejected against a hardcoded list, which made the first use of any
+# new tag impossible — including the tag a project gated on (git-tracker
+# WFI-030).
+assert_exit "a tag new to the project is accepted" 0 "$SCRIPT_DIR/wf-set-tags.sh" PLN-006 hosting
+assert_eq "and lands in column 9" "hosting" "$(registry_col PLN-006 9)"
+"$SCRIPT_DIR/wf-set-tags.sh" PLN-006 "infra,security" >/dev/null
 
 # PLN-002 completed earlier; PLN-006 itself is still draft.
 "$SCRIPT_DIR/wf-set-deps.sh" PLN-006 PLN-002 >/dev/null

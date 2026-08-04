@@ -125,10 +125,14 @@ SEED
   written=$(grep "| PLN-093 |" plans/REGISTRY.md | awk -F'|' '{print $9}' | xargs)
   assert_eq "comma-space normalized on write" "infra,security" "$written"
 
-  # Off-allowlist tags are still rejected, spaces or not.
+  # A name new to the project is accepted and warned about, not rejected —
+  # the vocabulary is derived from the project now, so the first legitimate use
+  # of any tag has to be possible (git-tracker WFI-030).
   local rc=0
   "$REPO_ROOT/scripts/v2.00/wf-set-tags.sh" PLN-093 "infra, hosting" >/dev/null 2>&1 || rc=$?
-  assert_eq "unknown tag rejected" "1" "$rc"
+  assert_eq "a tag new to the project is accepted" "0" "$rc"
+  written=$(grep "| PLN-093 |" plans/REGISTRY.md | awk -F'|' '{print $9}' | xargs)
+  assert_eq "and normalized the same way" "infra,hosting" "$written"
 
   cd "$REPO_ROOT"
   rm -rf "$TEST_DIR"

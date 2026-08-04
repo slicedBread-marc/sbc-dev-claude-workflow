@@ -10,7 +10,10 @@
 # file, and per-artifact files make "is this one parked?" a single test -f.
 #
 # Gate names in use:
-#   spec-approval   spec is drafted and needs sign-off before code is written
+#   spec-approval   spec is drafted AND reviewed, and needs sign-off before
+#                   code is written (the review always runs first — see wf-spec)
+#   spec-stuck      the review blocked the plan for maxReviewRounds rounds
+#   scope-reduction a replan narrows a capability the plan's Goal promises
 #   manual-test     a `#### Manual` acceptance criterion needs human eyes
 #   goal-missing    plan has no concrete goal line
 #   migration       plan has pending MIGRATION-NOTES actions
