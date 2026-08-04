@@ -110,20 +110,40 @@ if [ -n "$stale_bits" ]; then
 fi
 
 # (b) Deploy copies of now-excluded paths, left on disk by an older install.sh.
-#     While they sit there the exclusion cannot re-apply. Removing them is safe
-#     only for a file that is byte-identical to develop's current copy — the
-#     signature of a deploy artifact and nothing else. A file someone actually
-#     edited in this worktree differs from develop's and is left alone, dirty
-#     and visible, which is the correct outcome for real work.
+#     While they sit there the exclusion cannot re-apply.
+#
+#     The only content such a file can hold is SOME released version of a
+#     develop-owned script — a client never edits these, and the next deploy
+#     would overwrite an edit anyway. So: drop it if it matches develop's
+#     current copy, otherwise restore the branch's committed copy and let
+#     reapply take it off disk. Either way nothing unrecoverable is lost, and
+#     the alternative is the dirty tree that blocks `git merge develop`.
+DEVELOP_OWNED=('scripts/version-map.txt' 'scripts/wf-prune-versions.sh' 'scripts/v*/wf-*.sh')
 removed=0
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   [ -f "$f" ] || continue
+  if [ -f "$REPO_ROOT/$f" ] && cmp -s "$f" "$REPO_ROOT/$f"; then
+    rm -f "$f"
+    removed=$((removed + 1))
+  else
+    git checkout -- "$f" 2>/dev/null || true
+  fi
+done < <(git ls-files -- "${DEVELOP_OWNED[@]}" 2>/dev/null || true)
+
+#     Untracked leftovers: scripts added by a release AFTER this branch was
+#     cut were never in its index, so `git ls-files` above cannot see them and
+#     they sit in `git status` as `??` — where a `git add -A` would commit
+#     develop's tooling as plan work. Remove them where develop owns the same
+#     path, which is what makes them a deploy artifact rather than plan work.
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  [ -f "$f" ] || continue
   [ -f "$REPO_ROOT/$f" ] || continue
-  cmp -s "$f" "$REPO_ROOT/$f" || continue
   rm -f "$f"
   removed=$((removed + 1))
-done < <(git ls-files -- 'scripts/version-map.txt' 'scripts/wf-prune-versions.sh' 'scripts/v*/wf-*.sh' 2>/dev/null || true)
+done < <(git ls-files --others --exclude-standard -- "${DEVELOP_OWNED[@]}" 2>/dev/null || true)
+
 [ "$removed" -gt 0 ] && echo "Removed $removed stale deploy copy(s) of develop-owned scripts"
 
 # Apply the patterns. This sets the skip-worktree bit on excluded files so git

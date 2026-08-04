@@ -54,10 +54,17 @@ done
 
 git add -- "${present[@]}" 2>/dev/null || true
 
-# Anything actually different from HEAD on these paths?
-if git diff --cached --quiet -- "${present[@]}" 2>/dev/null; then
-  exit 0
-fi
+# Commit the resolved FILE list from the index, never the directory pathspecs.
+# A project may gitignore some of these — sbc ignores `.claude/skills/*` — and
+# `git commit -- <untracked path>` fails the whole commit with "pathspec did
+# not match any file(s) known to git", leaving the paths that DID change staged
+# and the tree still dirty. Reading the list back from `diff --cached` means
+# every element is known to git by construction.
+changed=()
+while IFS= read -r f; do
+  [ -n "$f" ] && changed+=("$f")
+done < <(git diff --cached --name-only -- "${present[@]}" 2>/dev/null)
+[ "${#changed[@]}" -gt 0 ] || exit 0
 
-git commit -q -m "chore: sync workflow infra from develop" -- "${present[@]}" 2>/dev/null || exit 0
-echo "Synced workflow infra from develop (${#present[@]} path(s)) — worktree is clean"
+git commit -q -m "chore: sync workflow infra from develop" -- "${changed[@]}" 2>/dev/null || exit 0
+echo "Synced workflow infra from develop (${#changed[@]} file(s)) — worktree is clean"

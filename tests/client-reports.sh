@@ -465,6 +465,34 @@ printf 'v3.5.0\n' > "$TEST_DIR/wt-103/.claude/skills/wf-attend/SKILL.md"
 "$SCRIPT_DIR/wf-infra-sync.sh" "$TEST_DIR/wt-103" >/dev/null 2>&1
 assert_eq "someone else's staged work is left staged, not committed" "true" \
   "$(git -C "$TEST_DIR/wt-103" diff --cached --name-only | grep -qx 'feature-work.txt' && echo true || echo false)"
+git -C "$TEST_DIR/wt-103" reset -q >/dev/null 2>&1
+
+# A release adds scripts AFTER a branch is cut, so an old deploy left them in
+# the worktree as UNTRACKED files. `git ls-files` cannot see those, and they sit
+# in `git status` as `??` — where a `git add -A` commits develop's tooling as
+# plan work.
+printf 'brand new\n' > scripts/v2.00/wf-added-later.sh
+git add -A >/dev/null 2>&1 && git commit -qm "add a script post-branch" >/dev/null 2>&1
+mkdir -p "$TEST_DIR/wt-103/scripts/v2.00"
+printf 'brand new\n' > "$TEST_DIR/wt-103/scripts/v2.00/wf-added-later.sh"
+"$SCRIPT_DIR/wf-worktree-sparse.sh" "$TEST_DIR/wt-103" >/dev/null 2>&1
+assert_eq "an untracked deploy leftover is cleared too" "false" \
+  "$([ -f "$TEST_DIR/wt-103/scripts/v2.00/wf-added-later.sh" ] && echo true || echo false)"
+
+# sbc gitignores `.claude/skills/*`, so that path is untracked there.
+# `git commit -- <untracked path>` fails the WHOLE commit with "pathspec did
+# not match any file(s) known to git" — which left the paths that HAD changed
+# staged and the tree still dirty, one deploy short of the merge failing again.
+git -C "$TEST_DIR/wt-103" rm -r -q --cached .claude/skills >/dev/null 2>&1
+git -C "$TEST_DIR/wt-103" commit -q -m "untrack skills, as sbc does" >/dev/null 2>&1
+printf 'v3.6.0\n' > "$TEST_DIR/wt-103/.claude/workflow.md"
+git -C "$TEST_DIR/wt-103" add .claude/workflow.md >/dev/null 2>&1
+git -C "$TEST_DIR/wt-103" commit -q -m "baseline workflow.md" >/dev/null 2>&1
+printf 'v3.7.0\n' > "$TEST_DIR/wt-103/.claude/workflow.md"
+assert_ok "sync survives an infra path the project does not track" \
+  "$SCRIPT_DIR/wf-infra-sync.sh" "$TEST_DIR/wt-103"
+assert_eq "and the tracked paths are committed, not left staged" "0" \
+  "$(git -C "$TEST_DIR/wt-103" status --porcelain --untracked-files=no | wc -l | xargs)"
 
 # The exclusion list and the propagation list are the same decision made twice;
 # a path may not appear in both.
