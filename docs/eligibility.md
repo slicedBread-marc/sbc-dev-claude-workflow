@@ -3,6 +3,8 @@
 Canonical reference for what makes an artifact eligible at each workflow stage.
 All eligibility is determined by `plans/REGISTRY.md` state. Scripts in `scripts/wf-list-*.sh` implement these rules.
 
+> **Gap:** there is no terminal state for work that is *dropped*. A plan abandoned mid-flight stays eligible forever, and — because four dependency checks read `!= complete` as unsatisfied — permanently blocks anything that depends on it. Proposed in [abandoned-plans.md](abandoned-plans.md); already hit in production by `sbc`.
+
 **The orchestrator does not reimplement any of this.** `wf-orchestrate.sh` parses the same list scripts a human terminal does, then applies its own *additional* skip rules on top — see [orchestrator.md](orchestrator.md#skip-rules). An artifact eligible here may still not be dispatched, because a gate is open on it, its role is at `max_concurrent`, it's over its attempt budget, or the hourly spawn budget is spent. Eligibility and dispatchability are different questions; this file only answers the first.
 
 ---
